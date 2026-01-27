@@ -3,7 +3,13 @@ Punto de entrada para Binary EquaLab.
 """
 import sys
 from PyQt6.QtWidgets import QApplication
-import qdarktheme
+
+# qdarktheme is optional (not compatible with Python 3.13+)
+try:
+    import qdarktheme
+    HAS_DARKTHEME = True
+except ImportError:
+    HAS_DARKTHEME = False
 
 from src.ui.main_window import MainWindow
 from src.ui.styles import get_stylesheet
@@ -14,7 +20,8 @@ def main():
     app.setApplicationName(AppConfig.APP_NAME)
     
     # Aplicar Tema Oscuro Base (qdarktheme) + Nuestro Tema Aurora (Stylesheet)
-    qdarktheme.setup_theme()
+    if HAS_DARKTHEME:
+        qdarktheme.setup_theme()
     app.setStyleSheet(get_stylesheet())
     
     window = MainWindow()
@@ -24,3 +31,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
