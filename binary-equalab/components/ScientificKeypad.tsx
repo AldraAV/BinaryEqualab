@@ -40,40 +40,47 @@ const ScientificKeypad: React.FC<ScientificKeypadProps> = ({ onKeyClick }) => {
       <Key label="Σ" val="sum" secondary />
       <Key label="lim" secondary />
 
-      {/* Row 2: Trig */}
+      {/* Row 2: Trig + Roots */}
       <Key label="sin" />
       <Key label="cos" />
       <Key label="tan" />
-      <Key label="ln" />
+      <Key label="√" val="sqrt" />
 
-      {/* Row 3: Numpad start */}
+      {/* Row 3: Powers & Log */}
+      <Key label="x²" val="^2" />
+      <Key label="xⁿ" val="^" />
+      <Key label="ln" />
+      <Key label="log" />
+
+      {/* Row 4: Numpad start */}
       <Key label="7" />
       <Key label="8" />
       <Key label="9" />
-      <Key label={<Delete size={20} />} val="DEL" action />
+      <Key label="÷" val="/" action />
 
-      {/* Row 4 */}
+      {/* Row 5 */}
       <Key label="4" />
       <Key label="5" />
       <Key label="6" />
       <Key label="×" val="*" action />
 
-      {/* Row 5 */}
+      {/* Row 6 */}
       <Key label="1" />
       <Key label="2" />
       <Key label="3" />
-      <Key label="+" action />
+      <Key label="-" action />
 
-      {/* Row 6 */}
+      {/* Row 7 */}
       <Key label="0" />
       <Key label="." />
       <Key label="π" val="pi" />
-      <Key label="-" action />
+      <Key label="+" action />
 
-      {/* Row 7: Bottom Actions */}
-      <Key label="ANS" secondary />
-      <Key label="^" />
-      <Key label={<CornerDownLeft size={24} />} val="=" primary wide />
+      {/* Row 8: Bottom Actions */}
+      <Key label="(" />
+      <Key label=")" />
+      <Key label={<Delete size={20} />} val="DEL" action />
+      <Key label={<CornerDownLeft size={22} />} val="=" primary />
     </div>
   );
 
@@ -146,8 +153,8 @@ const ScientificKeypad: React.FC<ScientificKeypadProps> = ({ onKeyClick }) => {
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${activeTab === tab
-                ? 'bg-primary/20 text-primary border border-primary/30'
-                : 'text-aurora-secondary hover:bg-white/5'
+              ? 'bg-primary/20 text-primary border border-primary/30'
+              : 'text-aurora-secondary hover:bg-white/5'
               }`}
           >
             {tab}
