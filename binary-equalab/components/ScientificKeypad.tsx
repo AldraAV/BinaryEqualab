@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Delete, CornerDownLeft } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Delete, CornerDownLeft, ChevronDown } from 'lucide-react';
 
 interface ScientificKeypadProps {
   onKeyClick: (val: string) => void;
@@ -9,10 +9,20 @@ type TabType = 'MAIN' | 'ABC' | 'FUNC' | 'CONST';
 
 const ScientificKeypad: React.FC<ScientificKeypadProps> = ({ onKeyClick }) => {
   const [activeTab, setActiveTab] = useState<TabType>('MAIN');
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setOpenDropdown(null);
+    if (openDropdown) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [openDropdown]);
 
   // Button Component
-  const Key = ({ label, val, primary = false, wide = false, secondary = false, action = false }:
-    { label: React.ReactNode, val?: string, primary?: boolean, wide?: boolean, secondary?: boolean, action?: boolean }) => (
+  const Key = ({ label, val, primary = false, wide = false, secondary = false, action = false, ...rest }:
+    { label: React.ReactNode, val?: string, primary?: boolean, wide?: boolean, secondary?: boolean, action?: boolean, key?: string }) => (
     <button
       onClick={() => onKeyClick(val || (typeof label === 'string' ? label : ''))}
       className={`
@@ -32,6 +42,45 @@ const ScientificKeypad: React.FC<ScientificKeypadProps> = ({ onKeyClick }) => {
     </button>
   );
 
+  // Dropdown Button Component
+  const DropdownKey = ({ label, options, id }:
+    { label: React.ReactNode, options: { label: string, val: string }[], id: string }) => (
+    <div className="relative col-span-1">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpenDropdown(openDropdown === id ? null : id);
+        }}
+        className="w-full h-12 lg:h-14 rounded-xl font-medium text-lg transition-all active:scale-95 select-none
+          flex items-center justify-center gap-1
+          bg-background-light border border-white/5 text-aurora-text hover:bg-white/5 hover:text-white 
+          shadow-[0_3px_0_rgba(0,0,0,0.3)] active:shadow-none active:translate-y-[2px]"
+      >
+        {label}
+        <ChevronDown size={14} className="opacity-50" />
+      </button>
+
+      {/* Dropdown Menu */}
+      {openDropdown === id && (
+        <div className="absolute top-full left-0 mt-1 z-50 bg-background-light border border-aurora-border rounded-lg shadow-xl min-w-[100px] overflow-hidden">
+          {options.map((opt) => (
+            <button
+              key={opt.val}
+              onClick={(e) => {
+                e.stopPropagation();
+                onKeyClick(opt.val);
+                setOpenDropdown(null);
+              }}
+              className="w-full px-4 py-2 text-left hover:bg-primary/20 text-aurora-text hover:text-white transition-colors"
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   const renderMainTab = () => (
     <div className="grid grid-cols-4 gap-3 h-full content-start">
       {/* Row 1: CAS & Controls */}
@@ -44,11 +93,27 @@ const ScientificKeypad: React.FC<ScientificKeypadProps> = ({ onKeyClick }) => {
       <Key label="sin" />
       <Key label="cos" />
       <Key label="tan" />
-      <Key label="√" val="sqrt" />
+      <DropdownKey
+        label="√"
+        id="roots"
+        options={[
+          { label: "√x (cuadrada)", val: "sqrt(" },
+          { label: "∛x (cúbica)", val: "cbrt(" },
+          { label: "ⁿ√x (n-ésima)", val: "nthroot(" },
+        ]}
+      />
 
       {/* Row 3: Powers & Log */}
-      <Key label="x²" val="^2" />
-      <Key label="xⁿ" val="^" />
+      <DropdownKey
+        label="xⁿ"
+        id="powers"
+        options={[
+          { label: "x²", val: "^2" },
+          { label: "x³", val: "^3" },
+          { label: "xⁿ", val: "^" },
+        ]}
+      />
+      <Key label="eˣ" val="exp(" />
       <Key label="ln" />
       <Key label="log" />
 
@@ -88,11 +153,11 @@ const ScientificKeypad: React.FC<ScientificKeypadProps> = ({ onKeyClick }) => {
     const letters = 'xyzwabcdefghijk'.split('');
     return (
       <div className="grid grid-cols-4 gap-3 h-full content-start">
-        {letters.map(l => <Key key={l} label={l} />)}
-        <Key label="," />
-        <Key label="(" />
-        <Key label=")" />
-        <Key label="=" primary />
+        {letters.map(l => <Key label={l} val={l} key={l} />)}
+        <Key label="," val="," />
+        <Key label="(" val="(" />
+        <Key label=")" val=")" />
+        <Key label="=" primary val="=" />
       </div>
     );
   };
