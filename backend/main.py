@@ -143,6 +143,10 @@ async def get_me(user: User = Depends(require_auth)):
     """Get current user info (requires auth)."""
     return {"user": user}
 
+# Include worksheets router
+from worksheets import router as worksheets_router
+app.include_router(worksheets_router)
+
 # ============================================================================
 # Math Endpoints
 # ============================================================================
