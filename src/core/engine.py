@@ -179,10 +179,27 @@ class EquaEngine:
     def parse_expression(self, expr_str, var_name='t'):
         """Convierte un string a expresion SymPy con parseo inteligente."""
         try:
-            # Reemplazar ^ con ** para exponentes
-            clean_expr = expr_str.replace('^', '**')
+            # Usar MathParser para preprocesamiento robusto
+            from ..utils.math_parser import parse_expression as preprocess
+            
+            parsed = preprocess(expr_str)
+            if not parsed.success:
+                return f"Error de sintaxis: {parsed.error}"
+            
+            clean_expr = parsed.expression
+            # Reemplazar ^ con ** para exponentes (por si queda alguno)
+            clean_expr = clean_expr.replace('^', '**')
             
             # Usar el parser de SymPy con multiplicacion implicita
+            expr = parse_expr(clean_expr, 
+                              local_dict=self.local_dict,
+                              transformations=self.transformations)
+            self.last_expr = expr
+            self.history.append(('parse', expr_str, expr))
+            return expr
+        except ImportError:
+            # Fallback si no está disponible math_parser
+            clean_expr = expr_str.replace('^', '**')
             expr = parse_expr(clean_expr, 
                               local_dict=self.local_dict,
                               transformations=self.transformations)
