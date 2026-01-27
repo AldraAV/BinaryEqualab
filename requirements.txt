@@ -4,9 +4,11 @@
 # Core Math Engine
 sympy>=1.12
 numpy>=1.24.0
+scipy>=1.11.0
 
 # Desktop GUI (PyQt6)
 PyQt6>=6.6.0
+pyqtdarktheme>=2.1.0
 matplotlib>=3.8.0
 
 # Utilities

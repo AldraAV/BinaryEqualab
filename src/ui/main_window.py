@@ -203,18 +203,20 @@ class ConsoleWidget(QWidget):
 
 
 class GraphingWidget(QWidget):
-    """Widget del modo Graficas con Matplotlib."""
+    """Widget avanzado de graficación con derivadas, integrales, zoom/pan y análisis."""
     
     def __init__(self, parent=None):
         super().__init__(parent)
         self.engine = EquaEngine()
-        self.functions = []  # List of (expr_str, color)
+        self.functions = []  # List of (expr_str, color, sympy_expr)
+        self.x_min, self.x_max = -10, 10
+        self.y_min, self.y_max = -10, 10
         self._setup_ui()
     
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
+        layout.setSpacing(10)
         
         header = QLabel("Graphing Mode")
         header.setStyleSheet(f"""
@@ -224,6 +226,11 @@ class GraphingWidget(QWidget):
         """)
         layout.addWidget(header)
         
+        # === Top Controls ===
+        top_frame = QFrame()
+        top_layout = QHBoxLayout(top_frame)
+        top_layout.setContentsMargins(0, 0, 0, 0)
+        
         # Function Input
         input_frame = QFrame()
         input_frame.setStyleSheet(f"""
@@ -231,46 +238,106 @@ class GraphingWidget(QWidget):
                 background-color: {AuroraPalette.BACKGROUND_LIGHT};
                 border: 1px solid {AuroraPalette.BORDER};
                 border-radius: 8px;
-                padding: 8px;
+                padding: 4px;
             }}
         """)
         input_layout = QHBoxLayout(input_frame)
+        input_layout.setContentsMargins(8, 4, 8, 4)
         
         label = QLabel("f(x) =")
         label.setStyleSheet(f"color: {AuroraPalette.SECONDARY}; font-weight: bold;")
         input_layout.addWidget(label)
         
         self.func_input = QLineEdit()
-        self.func_input.setPlaceholderText("ej: sin(x), x^2, exp(-x^2)")
+        self.func_input.setPlaceholderText("sin(x), x^2, exp(-x^2), etc.")
         self.func_input.setStyleSheet(f"""
             QLineEdit {{
                 background-color: {AuroraPalette.BACKGROUND_DARK};
                 border: none;
                 font-family: 'Consolas', monospace;
                 font-size: 14px;
-                padding: 8px;
+                padding: 6px;
             }}
         """)
         self.func_input.returnPressed.connect(self._add_function)
         input_layout.addWidget(self.func_input, stretch=1)
         
-        add_btn = QPushButton("Add")
+        top_layout.addWidget(input_frame, stretch=1)
+        
+        # Add buttons
+        add_btn = QPushButton("Plot")
         add_btn.setProperty("class", "primary")
         add_btn.clicked.connect(self._add_function)
-        input_layout.addWidget(add_btn)
+        top_layout.addWidget(add_btn)
         
-        clear_btn = QPushButton("Clear All")
-        clear_btn.clicked.connect(self._clear_functions)
-        input_layout.addWidget(clear_btn)
+        deriv_btn = QPushButton("f'(x)")
+        deriv_btn.setToolTip("Plot derivative")
+        deriv_btn.clicked.connect(self._plot_derivative)
+        top_layout.addWidget(deriv_btn)
         
-        layout.addWidget(input_frame)
+        integ_btn = QPushButton("∫f(x)")
+        integ_btn.setToolTip("Plot integral")
+        integ_btn.clicked.connect(self._plot_integral)
+        top_layout.addWidget(integ_btn)
         
-        # Matplotlib Canvas
+        layout.addWidget(top_frame)
+        
+        # === Range Controls ===
+        range_frame = QFrame()
+        range_layout = QHBoxLayout(range_frame)
+        range_layout.setContentsMargins(0, 0, 0, 0)
+        range_layout.setSpacing(8)
+        
+        range_layout.addWidget(QLabel("X:"))
+        self.x_min_input = QLineEdit("-10")
+        self.x_min_input.setFixedWidth(50)
+        self.x_min_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        range_layout.addWidget(self.x_min_input)
+        range_layout.addWidget(QLabel("to"))
+        self.x_max_input = QLineEdit("10")
+        self.x_max_input.setFixedWidth(50)
+        self.x_max_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        range_layout.addWidget(self.x_max_input)
+        
+        range_layout.addWidget(QLabel("   Y:"))
+        self.y_min_input = QLineEdit("-10")
+        self.y_min_input.setFixedWidth(50)
+        self.y_min_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        range_layout.addWidget(self.y_min_input)
+        range_layout.addWidget(QLabel("to"))
+        self.y_max_input = QLineEdit("10")
+        self.y_max_input.setFixedWidth(50)
+        self.y_max_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        range_layout.addWidget(self.y_max_input)
+        
+        apply_range_btn = QPushButton("Apply")
+        apply_range_btn.clicked.connect(self._apply_range)
+        range_layout.addWidget(apply_range_btn)
+        
+        # Zoom buttons
+        zoom_in_btn = QPushButton("🔍+")
+        zoom_in_btn.setFixedWidth(40)
+        zoom_in_btn.clicked.connect(self._zoom_in)
+        range_layout.addWidget(zoom_in_btn)
+        
+        zoom_out_btn = QPushButton("🔍-")
+        zoom_out_btn.setFixedWidth(40)
+        zoom_out_btn.clicked.connect(self._zoom_out)
+        range_layout.addWidget(zoom_out_btn)
+        
+        reset_btn = QPushButton("Reset")
+        reset_btn.clicked.connect(self._reset_view)
+        range_layout.addWidget(reset_btn)
+        
+        range_layout.addStretch()
+        layout.addWidget(range_frame)
+        
+        # === Matplotlib Canvas ===
         try:
             from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
             from matplotlib.figure import Figure
             
-            self.figure = Figure(figsize=(8, 6), facecolor=AuroraPalette.BACKGROUND_DARK)
+            self.figure = Figure(figsize=(10, 6), facecolor=AuroraPalette.BACKGROUND_DARK)
             self.ax = self.figure.add_subplot(111)
             self._style_axes()
             
@@ -284,59 +351,262 @@ class GraphingWidget(QWidget):
             layout.addWidget(placeholder, stretch=1)
             self.canvas = None
         
+        # === Bottom Controls: Functions List + Analysis ===
+        bottom_frame = QFrame()
+        bottom_layout = QHBoxLayout(bottom_frame)
+        bottom_layout.setContentsMargins(0, 0, 0, 0)
+        
         # Functions List
+        list_frame = QFrame()
+        list_layout = QVBoxLayout(list_frame)
+        list_layout.setContentsMargins(0, 0, 0, 0)
+        
+        list_label = QLabel("Functions:")
+        list_label.setStyleSheet("font-weight: bold;")
+        list_layout.addWidget(list_label)
+        
         self.func_list = QListWidget()
-        self.func_list.setMaximumHeight(100)
+        self.func_list.setMaximumHeight(80)
         self.func_list.setStyleSheet(f"""
             QListWidget {{
                 background-color: {AuroraPalette.BACKGROUND_DARK};
                 border: 1px solid {AuroraPalette.BORDER};
-                border-radius: 8px;
+                border-radius: 6px;
+                font-family: 'Consolas', monospace;
             }}
         """)
-        layout.addWidget(self.func_list)
+        list_layout.addWidget(self.func_list)
+        
+        # List buttons
+        list_btns = QFrame()
+        list_btns_layout = QHBoxLayout(list_btns)
+        list_btns_layout.setContentsMargins(0, 4, 0, 0)
+        
+        remove_btn = QPushButton("Remove")
+        remove_btn.clicked.connect(self._remove_selected)
+        list_btns_layout.addWidget(remove_btn)
+        
+        clear_btn = QPushButton("Clear All")
+        clear_btn.clicked.connect(self._clear_functions)
+        list_btns_layout.addWidget(clear_btn)
+        
+        list_btns_layout.addStretch()
+        list_layout.addWidget(list_btns)
+        
+        bottom_layout.addWidget(list_frame, stretch=1)
+        
+        # Analysis Panel
+        analysis_frame = QFrame()
+        analysis_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {AuroraPalette.BACKGROUND_DARK};
+                border: 1px solid {AuroraPalette.BORDER};
+                border-radius: 6px;
+                padding: 8px;
+            }}
+        """)
+        analysis_layout = QVBoxLayout(analysis_frame)
+        analysis_layout.setContentsMargins(8, 4, 8, 4)
+        
+        analysis_label = QLabel("Analysis (selected function):")
+        analysis_label.setStyleSheet("font-weight: bold;")
+        analysis_layout.addWidget(analysis_label)
+        
+        analysis_btns = QFrame()
+        analysis_btns.setStyleSheet("background: transparent; border: none;")
+        analysis_btns_layout = QHBoxLayout(analysis_btns)
+        analysis_btns_layout.setContentsMargins(0, 0, 0, 0)
+        
+        roots_btn = QPushButton("Roots")
+        roots_btn.setToolTip("Find zeros of the function")
+        roots_btn.clicked.connect(self._find_roots)
+        analysis_btns_layout.addWidget(roots_btn)
+        
+        extrema_btn = QPushButton("Extrema")
+        extrema_btn.setToolTip("Find local min/max")
+        extrema_btn.clicked.connect(self._find_extrema)
+        analysis_btns_layout.addWidget(extrema_btn)
+        
+        area_btn = QPushButton("Area")
+        area_btn.setToolTip("Calculate definite integral")
+        area_btn.clicked.connect(self._calc_area)
+        analysis_btns_layout.addWidget(area_btn)
+        
+        analysis_layout.addWidget(analysis_btns)
+        
+        self.analysis_output = QLabel("")
+        self.analysis_output.setStyleSheet(f"""
+            font-family: 'Consolas', monospace;
+            color: {AuroraPalette.TEXT_SECONDARY};
+            font-size: 12px;
+        """)
+        self.analysis_output.setWordWrap(True)
+        analysis_layout.addWidget(self.analysis_output)
+        
+        bottom_layout.addWidget(analysis_frame, stretch=1)
+        
+        layout.addWidget(bottom_frame)
     
     def _style_axes(self):
         """Aplica estilo Aurora al grafico."""
         self.ax.set_facecolor(AuroraPalette.BACKGROUND_DARK)
         self.ax.tick_params(colors=AuroraPalette.TEXT_SECONDARY)
-        self.ax.spines['bottom'].set_color(AuroraPalette.BORDER)
-        self.ax.spines['top'].set_color(AuroraPalette.BORDER)
-        self.ax.spines['left'].set_color(AuroraPalette.BORDER)
-        self.ax.spines['right'].set_color(AuroraPalette.BORDER)
+        for spine in self.ax.spines.values():
+            spine.set_color(AuroraPalette.BORDER)
         self.ax.grid(True, alpha=0.2, color=AuroraPalette.BORDER)
-        self.ax.axhline(y=0, color=AuroraPalette.BORDER, linewidth=0.5)
-        self.ax.axvline(x=0, color=AuroraPalette.BORDER, linewidth=0.5)
+        self.ax.axhline(y=0, color=AuroraPalette.BORDER, linewidth=0.8)
+        self.ax.axvline(x=0, color=AuroraPalette.BORDER, linewidth=0.8)
+        self.ax.set_xlim(self.x_min, self.x_max)
+        self.ax.set_ylim(self.y_min, self.y_max)
+    
+    def _get_colors(self):
+        return ['#FF6B9D', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181', '#A8E6CF', '#DDA0DD']
     
     def _add_function(self):
         """Agrega una funcion al grafico."""
         expr_str = self.func_input.text().strip()
         if not expr_str or not self.canvas:
             return
-        
+        self._plot_expression(expr_str, f"f(x) = {expr_str}")
+        self.func_input.clear()
+    
+    def _plot_expression(self, expr_str: str, label: str, linestyle='-'):
+        """Plots an expression on the graph."""
         import numpy as np
-        colors = ['#FF6B9D', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181']
+        colors = self._get_colors()
         color = colors[len(self.functions) % len(colors)]
         
         try:
-            x = np.linspace(-10, 10, 500)
+            x = np.linspace(self.x_min, self.x_max, 1000)
             expr = self.engine.parse_expression(expr_str)
             from sympy import lambdify, Symbol
             x_sym = Symbol('x')
             f = lambdify(x_sym, expr, modules=['numpy'])
             y = f(x)
             
-            self.ax.plot(x, y, color=color, linewidth=2, label=expr_str)
-            self.ax.legend(loc='upper right', facecolor=AuroraPalette.BACKGROUND_LIGHT)
-            self.ax.set_xlim(-10, 10)
-            self.ax.set_ylim(-10, 10)
+            # Handle infinities and NaNs
+            y = np.where(np.isfinite(y), y, np.nan)
+            
+            self.ax.plot(x, y, color=color, linewidth=2, label=label, linestyle=linestyle)
+            self.ax.legend(loc='upper right', facecolor=AuroraPalette.BACKGROUND_LIGHT, 
+                          fontsize=9, framealpha=0.9)
+            self.ax.set_xlim(self.x_min, self.x_max)
+            self.ax.set_ylim(self.y_min, self.y_max)
             self.canvas.draw()
             
-            self.functions.append((expr_str, color))
-            self.func_list.addItem(f"• {expr_str}")
+            self.functions.append((expr_str, color, expr))
+            self.func_list.addItem(f"● {label}")
+        except Exception as e:
+            self.analysis_output.setText(f"Error: {str(e)}")
+    
+    def _plot_derivative(self):
+        """Plots derivative of current input."""
+        expr_str = self.func_input.text().strip()
+        if not expr_str:
+            return
+        try:
+            from sympy import diff, Symbol
+            expr = self.engine.parse_expression(expr_str)
+            deriv = diff(expr, Symbol('x'))
+            self._plot_expression(str(deriv), f"f'(x) = {deriv}", linestyle='--')
             self.func_input.clear()
         except Exception as e:
-            self.func_list.addItem(f"Error: {str(e)}")
+            self.analysis_output.setText(f"Error: {str(e)}")
+    
+    def _plot_integral(self):
+        """Plots integral of current input."""
+        expr_str = self.func_input.text().strip()
+        if not expr_str:
+            return
+        try:
+            from sympy import integrate, Symbol
+            expr = self.engine.parse_expression(expr_str)
+            integ = integrate(expr, Symbol('x'))
+            self._plot_expression(str(integ), f"∫f(x) = {integ}", linestyle=':')
+            self.func_input.clear()
+        except Exception as e:
+            self.analysis_output.setText(f"Error: {str(e)}")
+    
+    def _apply_range(self):
+        """Applies the range from input fields."""
+        try:
+            self.x_min = float(self.x_min_input.text())
+            self.x_max = float(self.x_max_input.text())
+            self.y_min = float(self.y_min_input.text())
+            self.y_max = float(self.y_max_input.text())
+            self._redraw_all()
+        except ValueError:
+            pass
+    
+    def _zoom_in(self):
+        """Zoom in by 20%."""
+        cx = (self.x_min + self.x_max) / 2
+        cy = (self.y_min + self.y_max) / 2
+        dx = (self.x_max - self.x_min) * 0.4
+        dy = (self.y_max - self.y_min) * 0.4
+        self.x_min, self.x_max = cx - dx, cx + dx
+        self.y_min, self.y_max = cy - dy, cy + dy
+        self._update_range_inputs()
+        self._redraw_all()
+    
+    def _zoom_out(self):
+        """Zoom out by 25%."""
+        cx = (self.x_min + self.x_max) / 2
+        cy = (self.y_min + self.y_max) / 2
+        dx = (self.x_max - self.x_min) * 0.625
+        dy = (self.y_max - self.y_min) * 0.625
+        self.x_min, self.x_max = cx - dx, cx + dx
+        self.y_min, self.y_max = cy - dy, cy + dy
+        self._update_range_inputs()
+        self._redraw_all()
+    
+    def _reset_view(self):
+        """Reset to default view."""
+        self.x_min, self.x_max = -10, 10
+        self.y_min, self.y_max = -10, 10
+        self._update_range_inputs()
+        self._redraw_all()
+    
+    def _update_range_inputs(self):
+        """Update the range input fields."""
+        self.x_min_input.setText(f"{self.x_min:.1f}")
+        self.x_max_input.setText(f"{self.x_max:.1f}")
+        self.y_min_input.setText(f"{self.y_min:.1f}")
+        self.y_max_input.setText(f"{self.y_max:.1f}")
+    
+    def _redraw_all(self):
+        """Redraw all functions with current range."""
+        if not self.canvas:
+            return
+        self.ax.clear()
+        self._style_axes()
+        
+        import numpy as np
+        from sympy import lambdify, Symbol
+        x_sym = Symbol('x')
+        x = np.linspace(self.x_min, self.x_max, 1000)
+        
+        for i, (expr_str, color, expr) in enumerate(self.functions):
+            try:
+                f = lambdify(x_sym, expr, modules=['numpy'])
+                y = f(x)
+                y = np.where(np.isfinite(y), y, np.nan)
+                label = self.func_list.item(i).text() if i < self.func_list.count() else expr_str
+                self.ax.plot(x, y, color=color, linewidth=2, label=label[2:])  # Remove bullet
+            except:
+                pass
+        
+        if self.functions:
+            self.ax.legend(loc='upper right', facecolor=AuroraPalette.BACKGROUND_LIGHT, fontsize=9)
+        self.canvas.draw()
+    
+    def _remove_selected(self):
+        """Remove selected function from list and graph."""
+        row = self.func_list.currentRow()
+        if row >= 0 and row < len(self.functions):
+            self.functions.pop(row)
+            self.func_list.takeItem(row)
+            self._redraw_all()
     
     def _clear_functions(self):
         """Limpia todas las funciones."""
@@ -346,6 +616,76 @@ class GraphingWidget(QWidget):
             self.canvas.draw()
         self.functions.clear()
         self.func_list.clear()
+        self.analysis_output.setText("")
+    
+    def _get_selected_function(self):
+        """Returns the selected function's sympy expression."""
+        row = self.func_list.currentRow()
+        if row >= 0 and row < len(self.functions):
+            return self.functions[row][2]
+        elif self.functions:
+            return self.functions[-1][2]  # Last function if none selected
+        return None
+    
+    def _find_roots(self):
+        """Find roots of selected function."""
+        expr = self._get_selected_function()
+        if expr is None:
+            self.analysis_output.setText("No function selected")
+            return
+        try:
+            from sympy import solve, Symbol, N
+            roots = solve(expr, Symbol('x'))
+            # Evaluate numerically and filter real roots in range
+            real_roots = []
+            for r in roots[:10]:  # Limit to 10
+                try:
+                    val = complex(N(r))
+                    if abs(val.imag) < 1e-10:
+                        real_roots.append(f"{val.real:.4f}")
+                except:
+                    real_roots.append(str(r))
+            self.analysis_output.setText(f"Roots: {', '.join(real_roots) if real_roots else 'None found'}")
+        except Exception as e:
+            self.analysis_output.setText(f"Error: {str(e)}")
+    
+    def _find_extrema(self):
+        """Find local extrema of selected function."""
+        expr = self._get_selected_function()
+        if expr is None:
+            self.analysis_output.setText("No function selected")
+            return
+        try:
+            from sympy import diff, solve, Symbol, N
+            x = Symbol('x')
+            deriv = diff(expr, x)
+            critical = solve(deriv, x)
+            
+            results = []
+            for c in critical[:10]:
+                try:
+                    cx = float(N(c))
+                    if self.x_min <= cx <= self.x_max:
+                        cy = float(N(expr.subs(x, c)))
+                        results.append(f"({cx:.2f}, {cy:.2f})")
+                except:
+                    pass
+            self.analysis_output.setText(f"Extrema: {', '.join(results) if results else 'None in range'}")
+        except Exception as e:
+            self.analysis_output.setText(f"Error: {str(e)}")
+    
+    def _calc_area(self):
+        """Calculate definite integral (area under curve)."""
+        expr = self._get_selected_function()
+        if expr is None:
+            self.analysis_output.setText("No function selected")
+            return
+        try:
+            from sympy import integrate, Symbol, N
+            x = Symbol('x')
+            result = integrate(expr, (x, self.x_min, self.x_max))
+            area = float(N(result))
+            self.analysis_output.setText(f"Area [{self.x_min}, {self.x_max}]: {area:.4f}")
 
 
 class MatrixWidget(QWidget):
