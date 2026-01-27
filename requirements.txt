@@ -1,0 +1,13 @@
+# Binary EquaLab - Root/Desktop Dependencies
+# Install with: pip install -r requirements.txt
+
+# Core Math Engine
+sympy>=1.12
+numpy>=1.24.0
+
+# Desktop GUI (PyQt6)
+PyQt6>=6.6.0
+matplotlib>=3.8.0
+
+# Utilities
+python-dotenv>=1.0.0
