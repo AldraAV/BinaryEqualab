@@ -329,6 +329,26 @@ class GraphingWidget(QWidget):
         reset_btn.clicked.connect(self._reset_view)
         range_layout.addWidget(reset_btn)
         
+        # Presets dropdown
+        range_layout.addWidget(QLabel("  Presets:"))
+        self.presets_combo = QComboBox()
+        self.presets_combo.addItems([
+            "-- Select --",
+            "sin(x)", "cos(x)", "tan(x)",
+            "x^2", "x^3", "sqrt(x)",
+            "exp(x)", "log(x)", "1/x",
+            "sin(x)/x", "exp(-x^2)",
+            "abs(x)", "floor(x)"
+        ])
+        self.presets_combo.currentIndexChanged.connect(self._apply_preset)
+        range_layout.addWidget(self.presets_combo)
+        
+        # Export button
+        export_btn = QPushButton("📷 Export")
+        export_btn.setToolTip("Save graph as PNG")
+        export_btn.clicked.connect(self._export_graph)
+        range_layout.addWidget(export_btn)
+        
         range_layout.addStretch()
         layout.addWidget(range_frame)
         
@@ -688,6 +708,31 @@ class GraphingWidget(QWidget):
             self.analysis_output.setText(f"Area [{self.x_min}, {self.x_max}]: {area:.4f}")
         except Exception as e:
             self.analysis_output.setText(f"Error: {str(e)}")
+    
+    def _apply_preset(self, index):
+        """Apply a preset function from the dropdown."""
+        if index == 0:  # "-- Select --"
+            return
+        preset = self.presets_combo.currentText()
+        self.func_input.setText(preset)
+        self._add_function()
+        self.presets_combo.setCurrentIndex(0)  # Reset dropdown
+    
+    def _export_graph(self):
+        """Export the current graph as PNG."""
+        if not self.canvas:
+            return
+        from PyQt6.QtWidgets import QFileDialog
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Export Graph", "graph.png", "PNG Images (*.png);;All Files (*)"
+        )
+        if filename:
+            try:
+                self.figure.savefig(filename, dpi=150, facecolor=AuroraPalette.BACKGROUND_DARK,
+                                   bbox_inches='tight', pad_inches=0.2)
+                self.analysis_output.setText(f"Saved: {filename}")
+            except Exception as e:
+                self.analysis_output.setText(f"Export error: {str(e)}")
 
 
 class MatrixWidget(QWidget):
