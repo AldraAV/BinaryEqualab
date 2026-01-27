@@ -57,14 +57,65 @@ const ConsoleMode: React.FC = () => {
 
       let processedExpr = parsed.expression;
       processedExpr = processedExpr.replace(/\binf\b/g, 'Infinity');
-      const integralRegex = /integrate\s*\(([^)]+)\)/g;
-      processedExpr = processedExpr.replace(integralRegex, (match, argsStr) => {
+
+      // Helper: auto-detect variable in expression (x, y, t, etc.)
+      const detectVariable = (exprStr: string): string => {
+        const vars = exprStr.match(/\b([a-z])\b/gi);
+        if (vars) {
+          // Prefer x, then y, then t, then first found
+          if (vars.includes('x')) return 'x';
+          if (vars.includes('y')) return 'y';
+          if (vars.includes('t')) return 't';
+          return vars[0];
+        }
+        return 'x'; // default
+      };
+
+      // Fix integrate() - convert to Nerdamer syntax
+      // integrate(f) → integrate(f, x)
+      // integrate(f, x) → integrate(f, x) 
+      // integrate(f, x, a, b) → defint(f, a, b, x)
+      processedExpr = processedExpr.replace(/\bintegrate\s*\(([^)]+)\)/gi, (match, argsStr) => {
         const args = argsStr.split(',').map((s: string) => s.trim());
-        if (args.length === 4) {
-          const [f, x, a, b] = args;
-          return `defint(${f}, ${a}, ${b}, ${x})`;
+        if (args.length === 1) {
+          // Indefinite integral with auto-detected variable
+          const variable = detectVariable(args[0]);
+          return `integrate(${args[0]}, ${variable})`;
+        } else if (args.length === 2) {
+          // Indefinite with specified variable
+          return `integrate(${args[0]}, ${args[1]})`;
+        } else if (args.length === 3) {
+          // Definite: integrate(f, a, b) - assume x
+          return `defint(${args[0]}, ${args[1]}, ${args[2]}, x)`;
+        } else if (args.length === 4) {
+          // Definite: integrate(f, x, a, b)
+          return `defint(${args[0]}, ${args[2]}, ${args[3]}, ${args[1]})`;
         }
         return match;
+      });
+
+      // Fix diff() / derivative() - convert to Nerdamer syntax
+      // diff(f) → diff(f, x)
+      // diff(f, x) → diff(f, x)
+      // diff(f, x, n) → diff(f, x, n)
+      processedExpr = processedExpr.replace(/\b(diff|derivative)\s*\(([^)]+)\)/gi, (match, funcName, argsStr) => {
+        const args = argsStr.split(',').map((s: string) => s.trim());
+        if (args.length === 1) {
+          // Auto-detect variable
+          const variable = detectVariable(args[0]);
+          return `diff(${args[0]}, ${variable})`;
+        } else if (args.length === 2) {
+          return `diff(${args[0]}, ${args[1]})`;
+        } else if (args.length === 3) {
+          // Higher order derivative
+          return `diff(${args[0]}, ${args[1]}, ${args[2]})`;
+        }
+        return match;
+      });
+
+      // Fix d/dx notation → diff(expr, x)
+      processedExpr = processedExpr.replace(/d\/d([a-z])\s*\(([^)]+)\)/gi, (match, variable, expr) => {
+        return `diff(${expr}, ${variable})`;
       });
 
       const resultObj = nerdamer(processedExpr);
@@ -248,8 +299,8 @@ const ConsoleMode: React.FC = () => {
                 if (e.key === 'Enter') handleKeyClick('=');
               }}
               className={`w-full bg-background-light border rounded-2xl py-4 pl-12 pr-4 text-xl lg:text-2xl font-mono text-white placeholder:text-aurora-muted focus:ring-2 focus:border-transparent transition-all shadow-inner ${parseError
-                  ? 'border-red-500 focus:ring-red-500/50'
-                  : 'border-aurora-border focus:ring-primary'
+                ? 'border-red-500 focus:ring-red-500/50'
+                : 'border-aurora-border focus:ring-primary'
                 }`}
               placeholder="Enter expression..."
               autoFocus
