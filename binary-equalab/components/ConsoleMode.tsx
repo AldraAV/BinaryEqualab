@@ -16,6 +16,32 @@ const ConsoleMode: React.FC = () => {
   const [parseError, setParseError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Variables storage (user-defined + ANS)
+  const [variables, setVariables] = useState<Record<string, string>>({
+    'ans': '0'
+  });
+
+  // Substitute variables in expression
+  const substituteVariables = (expr: string): string => {
+    let result = expr;
+    // Sort by length desc to avoid partial matches (e.g., 'ans' before 'an')
+    const sortedVars = Object.entries(variables).sort((a, b) => b[0].length - a[0].length);
+    for (const [name, value] of sortedVars) {
+      const regex = new RegExp(`\\b${name}\\b`, 'gi');
+      result = result.replace(regex, `(${value})`);
+    }
+    return result;
+  };
+
+  // Check if expression is an assignment (var = expr)
+  const parseAssignment = (expr: string): { isAssignment: boolean; varName?: string; valueExpr?: string } => {
+    const match = expr.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/);
+    if (match) {
+      return { isAssignment: true, varName: match[1].toLowerCase(), valueExpr: match[2] };
+    }
+    return { isAssignment: false };
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -205,13 +231,36 @@ const ConsoleMode: React.FC = () => {
   };
 
   // Main evaluation function with preprocessing
-  const evaluateExpression = async (expr: string): Promise<string> => {
+  const evaluateExpression = async (expr: string): Promise<{ latex: string; rawValue: string }> => {
     setParseError(null);  // Clear previous errors
 
+    // Substitute user variables (including ans)
+    const substitutedExpr = substituteVariables(expr);
+
+    let latex: string;
+    let rawValue: string;
+
     if (useBackend && apiService.isAvailable) {
-      return evaluateWithBackend(expr);
+      latex = await evaluateWithBackend(substitutedExpr);
+    } else {
+      latex = evaluateWithNerdamer(substitutedExpr);
     }
-    return evaluateWithNerdamer(expr);
+
+    // Try to get a clean numeric/symbolic value for ANS
+    // Remove LaTeX formatting for storage
+    rawValue = latex
+      .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1)/($2)')  // \frac{a}{b} → (a)/(b)
+      .replace(/\\sqrt\{([^}]+)\}/g, 'sqrt($1)')              // \sqrt{x} → sqrt(x)
+      .replace(/\\left|\\right/g, '')                         // Remove \left \right
+      .replace(/\\[a-zA-Z]+/g, '')                             // Remove other LaTeX commands
+      .replace(/[{}]/g, '')                                     // Remove braces
+      .trim();
+
+    // If it looks like a simple number, use that
+    const numMatch = latex.match(/^-?\d+\.?\d*$/);
+    if (numMatch) rawValue = numMatch[0];
+
+    return { latex, rawValue: rawValue || '0' };
   };
 
   const handleKeyClick = async (val: string) => {
@@ -223,10 +272,37 @@ const ConsoleMode: React.FC = () => {
       if (!input.trim() || isLoading) return;
       setIsLoading(true);
       try {
-        const resultLatex = await evaluateExpression(input);
+        const assignment = parseAssignment(input);
+        let displayExpr = input;
+        let resultLatex: string;
+        let rawValue: string;
+
+        if (assignment.isAssignment && assignment.varName && assignment.valueExpr) {
+          // Evaluate the value expression
+          const evalResult = await evaluateExpression(assignment.valueExpr);
+          resultLatex = evalResult.latex;
+          rawValue = evalResult.rawValue;
+          displayExpr = `${assignment.varName} = ${assignment.valueExpr}`;
+
+          // Store the variable
+          setVariables(prev => ({
+            ...prev,
+            [assignment.varName!]: rawValue,
+            'ans': rawValue
+          }));
+        } else {
+          // Normal calculation
+          const evalResult = await evaluateExpression(input);
+          resultLatex = evalResult.latex;
+          rawValue = evalResult.rawValue;
+
+          // Update ANS
+          setVariables(prev => ({ ...prev, 'ans': rawValue }));
+        }
+
         const newItem: HistoryItem = {
           id: Date.now().toString(),
-          expression: input,
+          expression: displayExpr,
           result: resultLatex,
           timestamp: new Date()
         };

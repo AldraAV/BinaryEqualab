@@ -26,6 +26,8 @@ class ConsoleWidget(QWidget):
         super().__init__(parent)
         self.engine = EquaEngine()
         self.history = []
+        # User-defined variables + ANS
+        self.user_variables = {'ans': '0'}
         self._setup_ui()
     
     def _setup_ui(self):
@@ -141,9 +143,26 @@ class ConsoleWidget(QWidget):
             return
         
         self.history.append(expr_str)
-        result = self._evaluate(expr_str)
         
-        self.output.append(f">>> {expr_str}")
+        # Check for variable assignment: var = expr
+        import re
+        assignment_match = re.match(r'^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$', expr_str)
+        
+        if assignment_match:
+            var_name = assignment_match.group(1).lower()
+            value_expr = assignment_match.group(2)
+            result = self._evaluate(value_expr)
+            # Store variable (try to get clean value)
+            self.user_variables[var_name] = str(result)
+            self.user_variables['ans'] = str(result)
+            display_expr = f"{var_name} = {value_expr}"
+        else:
+            result = self._evaluate(expr_str)
+            # Update ANS
+            self.user_variables['ans'] = str(result)
+            display_expr = expr_str
+        
+        self.output.append(f">>> {display_expr}")
         self.output.append(f"    {result}")
         self.output.append("")
         
@@ -151,52 +170,61 @@ class ConsoleWidget(QWidget):
     
     def _evaluate(self, expr_str):
         """Evalua la expresion usando el engine."""
+        import re
+        
+        # Substitute user variables (including ans)
+        substituted = expr_str
+        sorted_vars = sorted(self.user_variables.items(), key=lambda x: -len(x[0]))
+        for name, value in sorted_vars:
+            pattern = rf'\b{name}\b'
+            substituted = re.sub(pattern, f'({value})', substituted, flags=re.IGNORECASE)
+        
         try:
-            if expr_str.startswith("simplify("):
-                inner = expr_str[9:-1]
+            if substituted.startswith("simplify("):
+                inner = substituted[9:-1]
                 return str(self.engine.simplify(inner))
-            elif expr_str.startswith("expand("):
-                inner = expr_str[7:-1]
+            elif substituted.startswith("expand("):
+                inner = substituted[7:-1]
                 return str(self.engine.expand(inner))
-            elif expr_str.startswith("factor("):
-                inner = expr_str[7:-1]
+            elif substituted.startswith("factor("):
+                inner = substituted[7:-1]
                 return str(self.engine.factor(inner))
-            elif expr_str.startswith("diff("):
-                parts = expr_str[5:-1].rsplit(",", 1)
+            elif substituted.startswith("diff("):
+                parts = substituted[5:-1].rsplit(",", 1)
                 if len(parts) == 2:
                     return str(self.engine.derivative(parts[0].strip(), parts[1].strip()))
                 return str(self.engine.derivative(parts[0].strip()))
-            elif expr_str.startswith("integrate("):
-                parts = expr_str[10:-1].rsplit(",", 1)
+            elif substituted.startswith("integrate("):
+                parts = substituted[10:-1].rsplit(",", 1)
                 if len(parts) == 2:
                     return str(self.engine.integral(parts[0].strip(), parts[1].strip()))
                 return str(self.engine.integral(parts[0].strip()))
-            elif expr_str.startswith("solve("):
-                parts = expr_str[6:-1].rsplit(",", 1)
+            elif substituted.startswith("solve("):
+                parts = substituted[6:-1].rsplit(",", 1)
                 if len(parts) == 2:
                     return str(self.engine.solve(parts[0].strip(), parts[1].strip()))
                 return str(self.engine.solve(parts[0].strip()))
-            elif expr_str.startswith("limit("):
-                parts = expr_str[6:-1].split(",")
+            elif substituted.startswith("limit("):
+                parts = substituted[6:-1].split(",")
                 if len(parts) >= 3:
                     return str(self.engine.limit(parts[0].strip(), parts[1].strip(), float(parts[2].strip())))
                 return str(self.engine.limit(parts[0].strip()))
-            elif expr_str.startswith("taylor("):
-                parts = expr_str[7:-1].split(",")
+            elif substituted.startswith("taylor("):
+                parts = substituted[7:-1].split(",")
                 if len(parts) >= 4:
                     return str(self.engine.taylor(parts[0].strip(), parts[1].strip(), float(parts[2].strip()), int(parts[3].strip())))
                 return str(self.engine.taylor(parts[0].strip()))
-            elif expr_str.startswith("laplace("):
-                inner = expr_str[8:-1]
+            elif substituted.startswith("laplace("):
+                inner = substituted[8:-1]
                 return str(self.engine.laplace(inner))
-            elif expr_str.startswith("ilaplace("):
-                inner = expr_str[9:-1]
+            elif substituted.startswith("ilaplace("):
+                inner = substituted[9:-1]
                 return str(self.engine.inverse_laplace(inner))
-            elif expr_str.startswith("latex("):
-                inner = expr_str[6:-1]
+            elif substituted.startswith("latex("):
+                inner = substituted[6:-1]
                 return str(self.engine.to_latex(inner))
             else:
-                result = self.engine.parse_expression(expr_str)
+                result = self.engine.parse_expression(substituted)
                 return str(result)
         except Exception as e:
             return f"Error: {str(e)}"
