@@ -1,30 +1,177 @@
 /**
- * Binary EquaLab - Epicycles PRO
+ * Binary EquaLab - Epicycles PRO v2
  * 
  * Professional Fourier visualization with:
  * - Draw custom shapes → auto-calculate Fourier coefficients
- * - Function input f(t) → animate
- * - Preset waves (square, triangle, sawtooth)
- * - SVG path import (future)
+ * - Line smoothing (Catmull-Rom spline interpolation)
+ * - Preset templates (heart, star, infinity, signature)
+ * - Function input f(t) → animate parametric curves
+ * - Glow trail effects and smooth animations
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
-    Play, Pause, RefreshCw, ZoomIn, ZoomOut, Settings2,
-    Pencil, Trash2, Upload, Move, MousePointer2, Sparkles
+    Play, Pause, RefreshCw, ZoomIn, ZoomOut,
+    Pencil, Trash2, Move, MousePointer2, Sparkles,
+    Heart, Star, Infinity, FileFunction, Waves
 } from 'lucide-react';
 
 type WaveType = 'square' | 'triangle' | 'sawtooth' | 'custom';
-type InputMode = 'drawing' | 'animation';
+type InputMode = 'drawing' | 'animation' | 'function';
+type TemplateType = 'heart' | 'star' | 'infinity' | 'spiral' | 'lemniscate';
 
 interface FourierCoeff {
-    freq: number;      // Frequency multiplier
-    amplitude: number; // Radius
-    phase: number;     // Starting angle
+    freq: number;
+    amplitude: number;
+    phase: number;
 }
 
-// Discrete Fourier Transform for custom drawings
-function computeDFT(points: { x: number; y: number }[]): FourierCoeff[] {
+interface Point {
+    x: number;
+    y: number;
+}
+
+// Catmull-Rom spline interpolation for smooth curves
+function catmullRomSpline(points: Point[], numPoints: number = 200): Point[] {
+    if (points.length < 4) return points;
+
+    const result: Point[] = [];
+
+    for (let i = 0; i < points.length - 1; i++) {
+        const p0 = points[Math.max(i - 1, 0)];
+        const p1 = points[i];
+        const p2 = points[Math.min(i + 1, points.length - 1)];
+        const p3 = points[Math.min(i + 2, points.length - 1)];
+
+        const steps = Math.ceil(numPoints / points.length);
+
+        for (let t = 0; t < steps; t++) {
+            const s = t / steps;
+            const s2 = s * s;
+            const s3 = s2 * s;
+
+            const x = 0.5 * (
+                (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * s3 +
+                (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * s2 +
+                (-p0.x + p2.x) * s +
+                2 * p1.x
+            );
+            const y = 0.5 * (
+                (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * s3 +
+                (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * s2 +
+                (-p0.y + p2.y) * s +
+                2 * p1.y
+            );
+
+            result.push({ x, y });
+        }
+    }
+
+    return result;
+}
+
+// Template shape generators
+const templateGenerators: Record<TemplateType, (scale: number) => Point[]> = {
+    heart: (scale = 100) => {
+        const points: Point[] = [];
+        for (let t = 0; t <= 2 * Math.PI; t += 0.02) {
+            const x = scale * 16 * Math.pow(Math.sin(t), 3) / 16;
+            const y = -scale * (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) / 16;
+            points.push({ x, y });
+        }
+        return points;
+    },
+    star: (scale = 100) => {
+        const points: Point[] = [];
+        for (let i = 0; i <= 10; i++) {
+            const angle = (i * Math.PI / 5) - Math.PI / 2;
+            const r = i % 2 === 0 ? scale : scale * 0.4;
+            points.push({ x: r * Math.cos(angle), y: r * Math.sin(angle) });
+        }
+        return points;
+    },
+    infinity: (scale = 100) => {
+        const points: Point[] = [];
+        for (let t = 0; t <= 2 * Math.PI; t += 0.02) {
+            const x = scale * Math.cos(t) / (1 + Math.sin(t) * Math.sin(t));
+            const y = scale * Math.sin(t) * Math.cos(t) / (1 + Math.sin(t) * Math.sin(t));
+            points.push({ x, y });
+        }
+        return points;
+    },
+    spiral: (scale = 80) => {
+        const points: Point[] = [];
+        for (let t = 0; t <= 6 * Math.PI; t += 0.05) {
+            const r = scale * t / (6 * Math.PI);
+            points.push({ x: r * Math.cos(t), y: r * Math.sin(t) });
+        }
+        return points;
+    },
+    lemniscate: (scale = 100) => {
+        const points: Point[] = [];
+        for (let t = 0; t <= 2 * Math.PI; t += 0.02) {
+            const cos = Math.cos(t);
+            const sin = Math.sin(t);
+            const denom = 1 + sin * sin;
+            const x = scale * cos / denom;
+            const y = scale * sin * cos / denom;
+            points.push({ x, y });
+        }
+        return points;
+    }
+};
+
+// Parse parametric function f(t)
+function parseParametricFunction(funcStr: string, samples: number = 200): Point[] | null {
+    try {
+        // Clean the expression
+        const cleaned = funcStr
+            .replace(/sin/g, 'Math.sin')
+            .replace(/cos/g, 'Math.cos')
+            .replace(/tan/g, 'Math.tan')
+            .replace(/sqrt/g, 'Math.sqrt')
+            .replace(/pow/g, 'Math.pow')
+            .replace(/PI/gi, 'Math.PI')
+            .replace(/exp/g, 'Math.exp')
+            .replace(/abs/g, 'Math.abs');
+
+        const points: Point[] = [];
+
+        // Parse as "x = expr; y = expr" or "r = expr" (polar)
+        if (cleaned.includes(';')) {
+            const [xExpr, yExpr] = cleaned.split(';').map(s => s.replace(/[xy]\s*=\s*/, '').trim());
+
+            for (let i = 0; i <= samples; i++) {
+                const t = (i / samples) * 2 * Math.PI;
+                try {
+                    const x = new Function('t', `return ${xExpr}`)(t) as number;
+                    const y = new Function('t', `return ${yExpr}`)(t) as number;
+                    if (isFinite(x) && isFinite(y)) {
+                        points.push({ x: x * 100, y: y * 100 });
+                    }
+                } catch { continue; }
+            }
+        } else {
+            // Assume polar: r = f(t)
+            for (let i = 0; i <= samples; i++) {
+                const t = (i / samples) * 4 * Math.PI;
+                try {
+                    const r = new Function('t', `return ${cleaned}`)(t) as number;
+                    if (isFinite(r)) {
+                        points.push({ x: r * 100 * Math.cos(t), y: r * 100 * Math.sin(t) });
+                    }
+                } catch { continue; }
+            }
+        }
+
+        return points.length > 10 ? points : null;
+    } catch {
+        return null;
+    }
+}
+
+// Discrete Fourier Transform
+function computeDFT(points: Point[]): FourierCoeff[] {
     const N = points.length;
     if (N === 0) return [];
 
@@ -46,14 +193,9 @@ function computeDFT(points: { x: number; y: number }[]): FourierCoeff[] {
         const amplitude = Math.sqrt(re * re + im * im);
         const phase = Math.atan2(im, re);
 
-        coefficients.push({
-            freq: k,
-            amplitude,
-            phase
-        });
+        coefficients.push({ freq: k, amplitude, phase });
     }
 
-    // Sort by amplitude (largest circles first for visual appeal)
     return coefficients.sort((a, b) => b.amplitude - a.amplitude);
 }
 
@@ -61,18 +203,22 @@ const EpicyclesPRO: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // Mode: drawing or animation
+    // Mode
     const [inputMode, setInputMode] = useState<InputMode>('animation');
 
     // Drawing state
     const [isDrawing, setIsDrawing] = useState(false);
-    const [drawnPoints, setDrawnPoints] = useState<{ x: number; y: number }[]>([]);
+    const [drawnPoints, setDrawnPoints] = useState<Point[]>([]);
     const [fourierCoeffs, setFourierCoeffs] = useState<FourierCoeff[]>([]);
+
+    // Function mode
+    const [funcExpression, setFuncExpression] = useState('x = cos(t); y = sin(2*t)');
+    const [funcError, setFuncError] = useState<string | null>(null);
 
     // Animation state
     const [isPlaying, setIsPlaying] = useState(true);
     const timeRef = useRef({ t: 0 });
-    const pathRef = useRef<{ x: number; y: number }[]>([]);
+    const pathRef = useRef<Point[]>([]);
 
     // Parameters
     const [numCircles, setNumCircles] = useState(50);
@@ -81,6 +227,8 @@ const EpicyclesPRO: React.FC = () => {
     const speedRef = useRef(1);
     const [waveType, setWaveType] = useState<WaveType>('custom');
     const waveTypeRef = useRef<WaveType>('custom');
+    const [glowEnabled, setGlowEnabled] = useState(true);
+    const [trailLength, setTrailLength] = useState(1500);
 
     // Viewport
     const zoomRef = useRef(1);
@@ -95,9 +243,40 @@ const EpicyclesPRO: React.FC = () => {
     useEffect(() => {
         waveTypeRef.current = waveType;
         if (waveType !== 'custom') {
-            setFourierCoeffs([]); // Clear custom coefficients when switching to preset
+            setFourierCoeffs([]);
         }
     }, [waveType]);
+
+    // Apply template
+    const applyTemplate = (template: TemplateType) => {
+        const points = templateGenerators[template](100);
+        const smoothed = catmullRomSpline(points, 300);
+        const coeffs = computeDFT(smoothed);
+        setFourierCoeffs(coeffs);
+        setWaveType('custom');
+        setInputMode('animation');
+        pathRef.current = [];
+        timeRef.current.t = 0;
+        setNumCircles(Math.min(100, coeffs.length));
+    };
+
+    // Apply function
+    const applyFunction = () => {
+        const points = parseParametricFunction(funcExpression);
+        if (points) {
+            const smoothed = catmullRomSpline(points, 300);
+            const coeffs = computeDFT(smoothed);
+            setFourierCoeffs(coeffs);
+            setWaveType('custom');
+            setInputMode('animation');
+            pathRef.current = [];
+            timeRef.current.t = 0;
+            setNumCircles(Math.min(100, coeffs.length));
+            setFuncError(null);
+        } else {
+            setFuncError('Error parsing function. Use format: x = cos(t); y = sin(t)');
+        }
+    };
 
     // Drawing handlers
     const handleDrawStart = useCallback((e: React.MouseEvent) => {
@@ -128,26 +307,20 @@ const EpicyclesPRO: React.FC = () => {
         setIsDrawing(false);
 
         if (drawnPoints.length > 10) {
-            // Sample points evenly for better DFT
-            const sampled: { x: number; y: number }[] = [];
-            const step = Math.max(1, Math.floor(drawnPoints.length / 200));
-            for (let i = 0; i < drawnPoints.length; i += step) {
-                sampled.push(drawnPoints[i]);
-            }
+            // Apply Catmull-Rom smoothing
+            const smoothed = catmullRomSpline(drawnPoints, 300);
 
             // Compute Fourier coefficients
-            const coeffs = computeDFT(sampled);
+            const coeffs = computeDFT(smoothed);
             setFourierCoeffs(coeffs);
             setWaveType('custom');
-
-            // Switch to animation mode
             setInputMode('animation');
             pathRef.current = [];
             timeRef.current.t = 0;
+            setNumCircles(Math.min(100, coeffs.length));
         }
     }, [isDrawing, drawnPoints]);
 
-    // Clear drawing
     const clearDrawing = () => {
         setDrawnPoints([]);
         setFourierCoeffs([]);
@@ -155,7 +328,7 @@ const EpicyclesPRO: React.FC = () => {
         timeRef.current.t = 0;
     };
 
-    // Pan/Zoom handlers for animation mode
+    // Pan/Zoom handlers
     const handleWheel = (e: React.WheelEvent) => {
         if (inputMode === 'drawing') return;
         zoomRef.current = Math.max(0.1, Math.min(10, zoomRef.current * (1 - e.deltaY * 0.001)));
@@ -190,7 +363,7 @@ const EpicyclesPRO: React.FC = () => {
         isDraggingRef.current = false;
     };
 
-    // Main animation loop
+    // Animation loop
     useEffect(() => {
         const canvas = canvasRef.current;
         const container = containerRef.current;
@@ -200,8 +373,12 @@ const EpicyclesPRO: React.FC = () => {
         if (!ctx) return;
 
         const resize = () => {
-            canvas.width = container.clientWidth;
-            canvas.height = container.clientHeight;
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = container.clientWidth * dpr;
+            canvas.height = container.clientHeight * dpr;
+            canvas.style.width = container.clientWidth + 'px';
+            canvas.style.height = container.clientHeight + 'px';
+            ctx.scale(dpr, dpr);
         };
         window.addEventListener('resize', resize);
         resize();
@@ -210,7 +387,6 @@ const EpicyclesPRO: React.FC = () => {
         let lastTime = performance.now();
 
         const render = (now: number) => {
-            if (!ctx) return;
             const dt = (now - lastTime) * speedRef.current;
             lastTime = now;
 
@@ -218,7 +394,7 @@ const EpicyclesPRO: React.FC = () => {
                 timeRef.current.t += dt * 0.001;
             }
 
-            draw(ctx, canvas.width, canvas.height, timeRef.current.t);
+            draw(ctx, container.clientWidth, container.clientHeight, timeRef.current.t);
             animationFrameId = requestAnimationFrame(render);
         };
         render(lastTime);
@@ -227,9 +403,9 @@ const EpicyclesPRO: React.FC = () => {
             window.removeEventListener('resize', resize);
             cancelAnimationFrame(animationFrameId);
         };
-    }, [isPlaying, inputMode, fourierCoeffs, waveType]);
+    }, [isPlaying, inputMode, fourierCoeffs, waveType, glowEnabled, trailLength]);
 
-    // Drawing function
+    // Drawing function with glow effects
     const draw = (ctx: CanvasRenderingContext2D, width: number, height: number, time: number) => {
         const zoom = zoomRef.current;
         const pan = panRef.current;
@@ -241,15 +417,16 @@ const EpicyclesPRO: React.FC = () => {
         ctx.translate(width / 2 + pan.x, height / 2 + pan.y);
         ctx.scale(zoom, zoom);
 
-        // Draw grid
         drawGrid(ctx, width, height, zoom);
 
         if (inputMode === 'drawing') {
-            // Draw current path being drawn
+            // Draw current path with smoothing preview
             if (drawnPoints.length > 1) {
                 ctx.beginPath();
                 ctx.strokeStyle = '#ff6b35';
                 ctx.lineWidth = 3 / zoom;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
                 ctx.moveTo(drawnPoints[0].x, drawnPoints[0].y);
                 for (const pt of drawnPoints) {
                     ctx.lineTo(pt.x, pt.y);
@@ -257,11 +434,10 @@ const EpicyclesPRO: React.FC = () => {
                 ctx.stroke();
             }
         } else {
-            // Animation mode - draw epicycles
+            // Animation mode
             let x = 0, y = 0;
 
             if (waveType === 'custom' && fourierCoeffs.length > 0) {
-                // Use computed Fourier coefficients
                 const maxCircles = Math.min(numCirclesRef.current, fourierCoeffs.length);
 
                 for (let i = 0; i < maxCircles; i++) {
@@ -272,28 +448,23 @@ const EpicyclesPRO: React.FC = () => {
                     x += coeff.amplitude * Math.cos(angle);
                     y += coeff.amplitude * Math.sin(angle);
 
-                    // Draw circle
+                    // Draw circle with glow
                     ctx.beginPath();
-                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                    ctx.strokeStyle = `rgba(255, 255, 255, ${0.05 + (1 - i / maxCircles) * 0.1})`;
                     ctx.lineWidth = 1 / zoom;
                     ctx.arc(prevX, prevY, coeff.amplitude, 0, Math.PI * 2);
                     ctx.stroke();
 
-                    // Draw line
+                    // Draw connecting line
                     ctx.beginPath();
-                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                    ctx.strokeStyle = `rgba(255, 255, 255, ${0.2 + (1 - i / maxCircles) * 0.3})`;
+                    ctx.lineWidth = 1.5 / zoom;
                     ctx.moveTo(prevX, prevY);
                     ctx.lineTo(x, y);
                     ctx.stroke();
-
-                    // Draw dot
-                    ctx.fillStyle = '#fff';
-                    ctx.beginPath();
-                    ctx.arc(x, y, 2 / zoom, 0, Math.PI * 2);
-                    ctx.fill();
                 }
             } else {
-                // Use preset wave formulas
+                // Preset waves
                 const baseAmplitude = 100;
                 const maxCircles = numCirclesRef.current;
 
@@ -324,45 +495,60 @@ const EpicyclesPRO: React.FC = () => {
                     x = prevX + radius * Math.cos(angle);
                     y = prevY + radius * Math.sin(angle);
 
-                    // Draw circle
                     ctx.beginPath();
-                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
                     ctx.lineWidth = 1 / zoom;
                     ctx.arc(prevX, prevY, Math.abs(radius), 0, Math.PI * 2);
-                    ctx.stroke();
-
-                    // Draw line
-                    ctx.beginPath();
-                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-                    ctx.moveTo(prevX, prevY);
-                    ctx.lineTo(x, y);
                     ctx.stroke();
                 }
             }
 
             // Store path point
             pathRef.current.push({ x, y });
-            if (pathRef.current.length > 2000) {
+            if (pathRef.current.length > trailLength) {
                 pathRef.current.shift();
             }
 
-            // Draw traced path
+            // Draw traced path with gradient
             if (pathRef.current.length > 1) {
+                const gradient = ctx.createLinearGradient(
+                    pathRef.current[0].x, pathRef.current[0].y,
+                    pathRef.current[pathRef.current.length - 1].x,
+                    pathRef.current[pathRef.current.length - 1].y
+                );
+                gradient.addColorStop(0, 'rgba(255, 107, 53, 0.1)');
+                gradient.addColorStop(0.5, 'rgba(255, 107, 53, 0.6)');
+                gradient.addColorStop(1, 'rgba(255, 107, 53, 1)');
+
                 ctx.beginPath();
-                ctx.strokeStyle = '#ff6b35';
-                ctx.lineWidth = 2 / zoom;
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = 2.5 / zoom;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+
+                if (glowEnabled) {
+                    ctx.shadowColor = '#ff6b35';
+                    ctx.shadowBlur = 10 / zoom;
+                }
+
                 ctx.moveTo(pathRef.current[0].x, pathRef.current[0].y);
                 for (const pt of pathRef.current) {
                     ctx.lineTo(pt.x, pt.y);
                 }
                 ctx.stroke();
+                ctx.shadowBlur = 0;
             }
 
-            // Draw final point
+            // Draw final point with glow
+            if (glowEnabled) {
+                ctx.shadowColor = '#ff6b35';
+                ctx.shadowBlur = 15 / zoom;
+            }
             ctx.fillStyle = '#ff6b35';
             ctx.beginPath();
-            ctx.arc(x, y, 5 / zoom, 0, Math.PI * 2);
+            ctx.arc(x, y, 6 / zoom, 0, Math.PI * 2);
             ctx.fill();
+            ctx.shadowBlur = 0;
         }
 
         ctx.restore();
@@ -376,7 +562,7 @@ const EpicyclesPRO: React.FC = () => {
         const bottom = height / 2 / zoom;
 
         ctx.lineWidth = 1 / zoom;
-        ctx.strokeStyle = '#2f2b26';
+        ctx.strokeStyle = '#1a1a1f';
         ctx.beginPath();
 
         for (let i = Math.floor(left / step) * step; i < right; i += step) {
@@ -389,88 +575,150 @@ const EpicyclesPRO: React.FC = () => {
         }
         ctx.stroke();
 
-        // Axes
         ctx.lineWidth = 2 / zoom;
-        ctx.strokeStyle = '#57534e';
+        ctx.strokeStyle = '#2a2a2f';
         ctx.beginPath();
         ctx.moveTo(left, 0); ctx.lineTo(right, 0);
         ctx.moveTo(0, top); ctx.lineTo(0, bottom);
         ctx.stroke();
     };
 
-    const resetView = () => {
-        zoomRef.current = 1;
-        panRef.current = { x: 0, y: 0 };
-        setTick(t => t + 1);
-    };
-
     return (
         <div className="flex flex-col lg:flex-row h-full bg-aurora-bg text-aurora-text overflow-hidden">
-            {/* Sidebar Controls */}
-            <div className="w-full lg:w-80 bg-aurora-surface/50 backdrop-blur-sm border-r border-white/5 flex flex-col z-20 shrink-0 shadow-xl">
+            {/* Sidebar */}
+            <div className="w-full lg:w-80 bg-aurora-surface/50 backdrop-blur-sm border-r border-white/5 flex flex-col z-20 shrink-0 shadow-xl overflow-y-auto">
                 <div className="p-5 border-b border-white/5 flex justify-between items-center bg-aurora-panel/30">
                     <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
                         <Sparkles size={16} className="text-aurora-primary" />
-                        Epicycles PRO
+                        Epicycles PRO v2
                     </h2>
-                    <span className="text-xs px-2 py-0.5 rounded bg-aurora-primary/20 text-aurora-primary border border-aurora-primary/30 font-mono animate-pulse">
-                        {inputMode === 'drawing' ? 'DRAW' : 'LIVE'}
+                    <span className="text-xs px-2 py-0.5 rounded bg-aurora-primary/20 text-aurora-primary border border-aurora-primary/30 font-mono">
+                        {inputMode === 'drawing' ? 'DRAW' : inputMode === 'function' ? 'f(t)' : 'LIVE'}
                     </span>
                 </div>
 
-                <div className="p-5 space-y-6 overflow-y-auto custom-scrollbar flex-1">
-                    {/* Input Mode Toggle */}
+                <div className="p-5 space-y-6 flex-1">
+                    {/* Mode Toggle */}
                     <div className="space-y-3">
-                        <label className="text-xs font-bold text-aurora-muted uppercase">Input Mode</label>
-                        <div className="grid grid-cols-2 gap-2">
-                            <button
-                                onClick={() => setInputMode('drawing')}
-                                className={`py-3 px-4 text-sm font-bold rounded-lg transition-all border flex items-center justify-center gap-2 ${inputMode === 'drawing'
-                                        ? 'bg-aurora-primary text-white border-aurora-primary shadow-lg'
-                                        : 'bg-white/5 text-aurora-muted border-white/10 hover:bg-white/10'
-                                    }`}
-                            >
-                                <Pencil size={16} />
-                                Dibujar
-                            </button>
-                            <button
-                                onClick={() => setInputMode('animation')}
-                                className={`py-3 px-4 text-sm font-bold rounded-lg transition-all border flex items-center justify-center gap-2 ${inputMode === 'animation'
-                                        ? 'bg-aurora-primary text-white border-aurora-primary shadow-lg'
-                                        : 'bg-white/5 text-aurora-muted border-white/10 hover:bg-white/10'
-                                    }`}
-                            >
-                                <Play size={16} />
-                                Animar
-                            </button>
+                        <label className="text-xs font-bold text-aurora-muted uppercase">Modo</label>
+                        <div className="grid grid-cols-3 gap-2">
+                            {[
+                                { mode: 'drawing' as InputMode, icon: Pencil, label: 'Dibujar' },
+                                { mode: 'function' as InputMode, icon: FileFunction, label: 'f(t)' },
+                                { mode: 'animation' as InputMode, icon: Play, label: 'Animar' },
+                            ].map(({ mode, icon: Icon, label }) => (
+                                <button
+                                    key={mode}
+                                    onClick={() => setInputMode(mode)}
+                                    className={`py-2 px-3 text-xs font-bold rounded-lg transition-all border flex flex-col items-center gap-1 ${inputMode === mode
+                                            ? 'bg-aurora-primary text-white border-aurora-primary shadow-lg'
+                                            : 'bg-transparent text-aurora-muted border-white/10 hover:bg-white/5'
+                                        }`}
+                                >
+                                    <Icon size={16} />
+                                    {label}
+                                </button>
+                            ))}
                         </div>
                     </div>
 
-                    {/* Drawing Mode Info */}
+                    {/* Drawing Mode */}
                     {inputMode === 'drawing' && (
                         <div className="p-4 rounded-xl bg-aurora-primary/10 border border-aurora-primary/30">
                             <p className="text-sm text-aurora-primary font-medium">
-                                ✏️ Dibuja una forma en el canvas. Cuando sueltes, se calcularán los coeficientes de Fourier automáticamente.
+                                ✏️ Dibuja una forma en el canvas. Al soltar se aplicará suavizado Catmull-Rom.
                             </p>
                             {drawnPoints.length > 0 && (
                                 <button
                                     onClick={clearDrawing}
-                                    className="mt-3 w-full py-2 text-sm bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 flex items-center justify-center gap-2"
+                                    className="mt-3 w-full py-2 text-sm bg-transparent text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 flex items-center justify-center gap-2"
                                 >
                                     <Trash2 size={14} />
-                                    Borrar dibujo
+                                    Borrar
                                 </button>
                             )}
                         </div>
                     )}
 
-                    {/* Wave Type Selector (for presets) */}
+                    {/* Function Mode */}
+                    {inputMode === 'function' && (
+                        <div className="space-y-3">
+                            <label className="text-xs font-bold text-aurora-muted uppercase">Función Paramétrica</label>
+                            <textarea
+                                value={funcExpression}
+                                onChange={(e) => setFuncExpression(e.target.value)}
+                                placeholder="x = cos(t); y = sin(2*t)"
+                                className="w-full h-20 bg-transparent border border-white/10 rounded-lg px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-aurora-primary resize-none placeholder:text-white/20"
+                            />
+                            {funcError && (
+                                <p className="text-xs text-red-400">{funcError}</p>
+                            )}
+                            <button
+                                onClick={applyFunction}
+                                className="w-full py-2 bg-aurora-primary text-white font-bold rounded-lg hover:bg-aurora-primaryHover"
+                            >
+                                Aplicar Función
+                            </button>
+                            <div className="text-xs text-aurora-muted space-y-1">
+                                <p className="opacity-60">Ejemplos:</p>
+                                <button
+                                    onClick={() => setFuncExpression('x = cos(t); y = sin(2*t)')}
+                                    className="text-aurora-primary hover:underline block"
+                                >x = cos(t); y = sin(2*t)</button>
+                                <button
+                                    onClick={() => setFuncExpression('x = cos(t)*cos(3*t); y = sin(t)*cos(3*t)')}
+                                    className="text-aurora-primary hover:underline block"
+                                >x = cos(t)*cos(3*t); y = sin(t)*cos(3*t)</button>
+                                <button
+                                    onClick={() => setFuncExpression('1 + 0.5*cos(5*t)')}
+                                    className="text-aurora-primary hover:underline block"
+                                >r = 1 + 0.5*cos(5*t) (polar)</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Templates */}
                     {inputMode === 'animation' && (
                         <>
                             <div className="space-y-3">
-                                <label className="text-xs font-bold text-aurora-muted uppercase">Forma de Onda</label>
+                                <label className="text-xs font-bold text-aurora-muted uppercase">Plantillas</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[
+                                        { type: 'heart' as TemplateType, icon: Heart, label: 'Corazón' },
+                                        { type: 'star' as TemplateType, icon: Star, label: 'Estrella' },
+                                        { type: 'infinity' as TemplateType, icon: Infinity, label: 'Infinito' },
+                                    ].map(({ type, icon: Icon, label }) => (
+                                        <button
+                                            key={type}
+                                            onClick={() => applyTemplate(type)}
+                                            className="py-2 px-3 text-xs font-bold rounded-lg transition-all border bg-transparent text-aurora-muted border-white/10 hover:bg-white/5 hover:border-aurora-primary/50 flex flex-col items-center gap-1"
+                                        >
+                                            <Icon size={16} />
+                                            {label}
+                                        </button>
+                                    ))}
+                                </div>
                                 <div className="grid grid-cols-2 gap-2">
-                                    {(['square', 'triangle', 'sawtooth', 'custom'] as WaveType[]).map((type) => (
+                                    <button
+                                        onClick={() => applyTemplate('spiral')}
+                                        className="py-2 px-3 text-xs font-bold rounded-lg transition-all border bg-transparent text-aurora-muted border-white/10 hover:bg-white/5"
+                                    >
+                                        🌀 Espiral
+                                    </button>
+                                    <button
+                                        onClick={() => applyTemplate('lemniscate')}
+                                        className="py-2 px-3 text-xs font-bold rounded-lg transition-all border bg-transparent text-aurora-muted border-white/10 hover:bg-white/5"
+                                    >
+                                        ∞ Lemniscata
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Wave Presets */}
+                            <div className="space-y-3">
+                                <label className="text-xs font-bold text-aurora-muted uppercase">Ondas Preset</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {(['square', 'triangle', 'sawtooth'] as WaveType[]).map((type) => (
                                         <button
                                             key={type}
                                             onClick={() => {
@@ -478,45 +726,55 @@ const EpicyclesPRO: React.FC = () => {
                                                 pathRef.current = [];
                                                 timeRef.current.t = 0;
                                             }}
-                                            disabled={type === 'custom' && fourierCoeffs.length === 0}
-                                            className={`py-2 px-3 text-xs font-bold rounded-lg transition-all border ${waveType === type
-                                                    ? 'bg-aurora-primary text-white border-aurora-primary shadow-lg'
-                                                    : type === 'custom' && fourierCoeffs.length === 0
-                                                        ? 'bg-white/5 text-aurora-muted/50 border-white/5 cursor-not-allowed'
-                                                        : 'bg-white/5 text-aurora-muted border-white/10 hover:bg-white/10'
+                                            className={`py-2 px-3 text-xs font-bold rounded-lg transition-all border ${waveType === type && fourierCoeffs.length === 0
+                                                    ? 'bg-aurora-primary text-white border-aurora-primary'
+                                                    : 'bg-transparent text-aurora-muted border-white/10 hover:bg-white/5'
                                                 }`}
                                         >
                                             {type === 'square' && '▭ Cuadrada'}
                                             {type === 'triangle' && '△ Triángulo'}
                                             {type === 'sawtooth' && '⋸ Diente'}
-                                            {type === 'custom' && `✏️ Custom${fourierCoeffs.length > 0 ? ` (${fourierCoeffs.length})` : ''}`}
                                         </button>
                                     ))}
+                                    <button
+                                        disabled={fourierCoeffs.length === 0}
+                                        onClick={() => { setWaveType('custom'); pathRef.current = []; }}
+                                        className={`py-2 px-3 text-xs font-bold rounded-lg transition-all border ${waveType === 'custom' && fourierCoeffs.length > 0
+                                                ? 'bg-aurora-primary text-white border-aurora-primary'
+                                                : fourierCoeffs.length === 0
+                                                    ? 'bg-transparent text-aurora-muted/30 border-white/5 cursor-not-allowed'
+                                                    : 'bg-transparent text-aurora-muted border-white/10 hover:bg-white/5'
+                                            }`}
+                                    >
+                                        ✏️ Custom
+                                    </button>
                                 </div>
                             </div>
 
-                            {/* Harmonics Control */}
+                            {/* Harmonics */}
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center">
                                     <label className="text-xs font-bold text-aurora-muted uppercase">Armónicos</label>
-                                    <span className="px-2 py-0.5 rounded-md bg-white/5 font-mono text-xs text-aurora-primary">{numCircles}</span>
+                                    <input
+                                        type="number"
+                                        value={numCircles}
+                                        onChange={(e) => { setNumCircles(parseInt(e.target.value) || 1); pathRef.current = []; }}
+                                        className="w-16 bg-transparent border border-white/10 rounded px-2 py-1 text-xs text-aurora-primary font-mono text-right focus:outline-none focus:border-aurora-primary"
+                                    />
                                 </div>
                                 <input
-                                    type="range" min="1" max={waveType === 'custom' ? Math.max(fourierCoeffs.length, 1) : 100} step="1"
+                                    type="range" min="1" max={waveType === 'custom' ? Math.max(fourierCoeffs.length, 100) : 100} step="1"
                                     value={numCircles}
-                                    onChange={(e) => {
-                                        setNumCircles(parseInt(e.target.value));
-                                        pathRef.current = [];
-                                    }}
+                                    onChange={(e) => { setNumCircles(parseInt(e.target.value)); pathRef.current = []; }}
                                     className="w-full h-1.5 bg-aurora-panel rounded-lg appearance-none cursor-pointer accent-aurora-primary"
                                 />
                             </div>
 
-                            {/* Speed Control */}
+                            {/* Speed */}
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center">
                                     <label className="text-xs font-bold text-aurora-muted uppercase">Velocidad</label>
-                                    <span className="px-2 py-0.5 rounded-md bg-white/5 font-mono text-xs text-aurora-primary">{speed.toFixed(1)}x</span>
+                                    <span className="text-xs text-aurora-primary font-mono">{speed.toFixed(1)}x</span>
                                 </div>
                                 <input
                                     type="range" min="0.1" max="5.0" step="0.1"
@@ -525,38 +783,62 @@ const EpicyclesPRO: React.FC = () => {
                                     className="w-full h-1.5 bg-aurora-panel rounded-lg appearance-none cursor-pointer accent-aurora-primary"
                                 />
                             </div>
+
+                            {/* Visual Options */}
+                            <div className="space-y-3">
+                                <label className="text-xs font-bold text-aurora-muted uppercase">Visual</label>
+                                <div className="flex items-center gap-3">
+                                    <label className="flex items-center gap-2 text-xs text-aurora-muted cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={glowEnabled}
+                                            onChange={(e) => setGlowEnabled(e.target.checked)}
+                                            className="accent-aurora-primary"
+                                        />
+                                        Glow
+                                    </label>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs text-aurora-muted">Trail</span>
+                                    <span className="text-xs text-aurora-primary font-mono">{trailLength}</span>
+                                </div>
+                                <input
+                                    type="range" min="100" max="3000" step="100"
+                                    value={trailLength}
+                                    onChange={(e) => setTrailLength(parseInt(e.target.value))}
+                                    className="w-full h-1.5 bg-aurora-panel rounded-lg appearance-none cursor-pointer accent-aurora-primary"
+                                />
+                            </div>
                         </>
                     )}
 
                     {/* Fourier Info */}
                     {waveType === 'custom' && fourierCoeffs.length > 0 && (
-                        <div className="p-4 rounded-xl bg-aurora-panel border border-white/5 shadow-inner">
+                        <div className="p-4 rounded-xl bg-aurora-panel border border-white/5">
                             <div className="flex items-center gap-2 mb-2">
                                 <div className="size-2 rounded-full bg-emerald-500"></div>
-                                <span className="text-xs font-bold text-white">Fourier Calculado</span>
+                                <span className="text-xs font-bold text-white">Fourier DFT</span>
                             </div>
                             <div className="text-xs text-aurora-muted font-mono">
-                                {fourierCoeffs.length} coeficientes
-                            </div>
-                            <div className="mt-2 text-[10px] text-emerald-500 flex items-center gap-1">
-                                <RefreshCw size={10} className="animate-spin" /> Rendering at 60 FPS
+                                {fourierCoeffs.length} coeficientes • Catmull-Rom smoothing
                             </div>
                         </div>
                     )}
 
-                    {/* Reset Button */}
+                    {/* Reset */}
                     <button
                         onClick={() => { pathRef.current = []; timeRef.current.t = 0; setTick(t => t + 1); }}
-                        className="w-full py-2 text-xs border border-white/10 rounded-lg hover:bg-white/5 transition-colors"
+                        className="w-full py-2 text-xs border border-white/10 rounded-lg hover:bg-white/5 transition-colors bg-transparent"
                     >
-                        Reiniciar Animación
+                        <RefreshCw size={12} className="inline mr-2" />
+                        Reiniciar
                     </button>
                 </div>
             </div>
 
-            {/* Canvas Area */}
+            {/* Canvas */}
             <div
-                className="flex-1 relative h-full bg-[#111] overflow-hidden select-none"
+                className="flex-1 relative h-full bg-[#0a0a0f] overflow-hidden select-none"
                 ref={containerRef}
                 style={{ cursor: inputMode === 'drawing' ? 'crosshair' : 'grab' }}
             >
@@ -575,7 +857,6 @@ const EpicyclesPRO: React.FC = () => {
                     <button
                         onClick={() => { zoomRef.current = Math.max(0.1, zoomRef.current - 0.2); setTick(t => t + 1); }}
                         className="p-3 rounded-xl hover:bg-white/10 text-white transition-colors"
-                        title="Zoom Out"
                     >
                         <ZoomOut size={20} />
                     </button>
@@ -590,7 +871,6 @@ const EpicyclesPRO: React.FC = () => {
                     <button
                         onClick={() => { zoomRef.current = Math.min(10, zoomRef.current + 0.2); setTick(t => t + 1); }}
                         className="p-3 rounded-xl hover:bg-white/10 text-white transition-colors"
-                        title="Zoom In"
                     >
                         <ZoomIn size={20} />
                     </button>
@@ -598,10 +878,10 @@ const EpicyclesPRO: React.FC = () => {
 
                 {/* Mode Indicator */}
                 <div className="absolute top-6 right-6 flex flex-col items-end pointer-events-none">
-                    <h1 className="text-2xl font-bold text-white/20 select-none">EPICYCLES PRO</h1>
+                    <h1 className="text-2xl font-bold text-white/20 select-none">EPICYCLES PRO v2</h1>
                     <div className="flex items-center gap-4 text-white/30 font-mono text-xs mt-1">
                         {inputMode === 'drawing' ? (
-                            <span className="flex items-center gap-1"><Pencil size={12} /> Dibuja tu forma</span>
+                            <span className="flex items-center gap-1"><Pencil size={12} /> Catmull-Rom Smoothing</span>
                         ) : (
                             <>
                                 <span className="flex items-center gap-1"><MousePointer2 size={12} /> Pan</span>
