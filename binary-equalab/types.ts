@@ -8,7 +8,8 @@ export enum AppMode {
 export interface HistoryItem {
   id: string;
   expression: string;
-  result: string;
+  result: string;           // Symbolic/exact result (LaTeX)
+  approxResult?: string;    // Numeric approximation
   timestamp: Date;
 }
 

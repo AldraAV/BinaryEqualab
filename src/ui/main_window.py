@@ -28,6 +28,8 @@ class ConsoleWidget(QWidget):
         self.history = []
         # User-defined variables + ANS
         self.user_variables = {'ans': '0'}
+        # Display mode: 'exact' or 'approx'
+        self.display_mode = 'exact'
         self._setup_ui()
     
     def _setup_ui(self):
@@ -124,6 +126,28 @@ class ConsoleWidget(QWidget):
             quick_layout.addWidget(btn)
         
         quick_layout.addStretch()
+        
+        # EXACT/APPROX Toggle Button
+        self.toggle_btn = QPushButton("EXACT")
+        self.toggle_btn.setFixedHeight(32)
+        self.toggle_btn.setCheckable(True)
+        self.toggle_btn.setStyleSheet(f"""
+            QPushButton {{
+                font-size: 11px;
+                font-weight: bold;
+                padding: 4px 12px;
+                background-color: {AuroraPalette.SECONDARY}30;
+                border: 1px solid {AuroraPalette.SECONDARY};
+                border-radius: 4px;
+            }}
+            QPushButton:checked {{
+                background-color: {AuroraPalette.PRIMARY}30;
+                border-color: {AuroraPalette.PRIMARY};
+            }}
+        """)
+        self.toggle_btn.clicked.connect(self._toggle_display_mode)
+        quick_layout.addWidget(self.toggle_btn)
+        
         layout.addWidget(quick_frame)
     
     def _insert_command(self, cmd):
@@ -135,6 +159,17 @@ class ConsoleWidget(QWidget):
             new_text = cmd
         self.input.setText(new_text)
         self.input.setFocus()
+    
+    def _toggle_display_mode(self):
+        """Toggle between exact (symbolic) and approx (numeric) display."""
+        if self.display_mode == 'exact':
+            self.display_mode = 'approx'
+            self.toggle_btn.setText("≈ APPROX")
+            self.toggle_btn.setChecked(True)
+        else:
+            self.display_mode = 'exact'
+            self.toggle_btn.setText("EXACT")
+            self.toggle_btn.setChecked(False)
     
     def _on_submit(self):
         """Procesa el input del usuario."""
@@ -162,8 +197,19 @@ class ConsoleWidget(QWidget):
             self.user_variables['ans'] = str(result)
             display_expr = expr_str
         
+        # Format output based on display mode
+        if self.display_mode == 'approx':
+            try:
+                from sympy import N
+                numeric_result = N(result, 10)
+                display_result = f"≈ {numeric_result}"
+            except:
+                display_result = str(result)
+        else:
+            display_result = str(result)
+        
         self.output.append(f">>> {display_expr}")
-        self.output.append(f"    {result}")
+        self.output.append(f"    {display_result}")
         self.output.append("")
         
         self.input.clear()

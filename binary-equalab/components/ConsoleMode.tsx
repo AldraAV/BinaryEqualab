@@ -4,7 +4,7 @@ import MathDisplay from './MathDisplay';
 // @ts-ignore
 import nerdamer from 'nerdamer';
 import ScientificKeypad from './ScientificKeypad';
-import { Eraser, Cloud, CloudOff, AlertCircle } from 'lucide-react';
+import { Eraser, Cloud, CloudOff, AlertCircle, ToggleLeft, ToggleRight } from 'lucide-react';
 import apiService from '../services/apiService';
 import { parseExpression, ParseResult } from '../services/mathParser';
 
@@ -20,6 +20,9 @@ const ConsoleMode: React.FC = () => {
   const [variables, setVariables] = useState<Record<string, string>>({
     'ans': '0'
   });
+
+  // Display mode: exact (symbolic) or approx (numeric)
+  const [displayMode, setDisplayMode] = useState<'exact' | 'approx'>('exact');
 
   // Substitute variables in expression
   const substituteVariables = (expr: string): string => {
@@ -231,7 +234,7 @@ const ConsoleMode: React.FC = () => {
   };
 
   // Main evaluation function with preprocessing
-  const evaluateExpression = async (expr: string): Promise<{ latex: string; rawValue: string }> => {
+  const evaluateExpression = async (expr: string): Promise<{ latex: string; rawValue: string; approxResult: string }> => {
     setParseError(null);  // Clear previous errors
 
     // Substitute user variables (including ans)
@@ -239,6 +242,7 @@ const ConsoleMode: React.FC = () => {
 
     let latex: string;
     let rawValue: string;
+    let approxResult: string = '';
 
     if (useBackend && apiService.isAvailable) {
       latex = await evaluateWithBackend(substitutedExpr);
@@ -260,7 +264,22 @@ const ConsoleMode: React.FC = () => {
     const numMatch = latex.match(/^-?\d+\.?\d*$/);
     if (numMatch) rawValue = numMatch[0];
 
-    return { latex, rawValue: rawValue || '0' };
+    // Try to compute numeric approximation
+    try {
+      const parsed = parseExpression(substitutedExpr);
+      if (parsed.success) {
+        const numericResult = nerdamer(parsed.expression).evaluate();
+        approxResult = parseFloat(numericResult.text()).toPrecision(10);
+        // Clean up trailing zeros
+        approxResult = parseFloat(approxResult).toString();
+      }
+    } catch (e) {
+      // If evaluation fails, try to extract number from rawValue
+      const num = parseFloat(rawValue.replace(/[^0-9.-]/g, ''));
+      if (!isNaN(num)) approxResult = num.toString();
+    }
+
+    return { latex, rawValue: rawValue || '0', approxResult: approxResult || rawValue || '0' };
   };
 
   const handleKeyClick = async (val: string) => {
@@ -276,12 +295,14 @@ const ConsoleMode: React.FC = () => {
         let displayExpr = input;
         let resultLatex: string;
         let rawValue: string;
+        let approxResult: string;
 
         if (assignment.isAssignment && assignment.varName && assignment.valueExpr) {
           // Evaluate the value expression
           const evalResult = await evaluateExpression(assignment.valueExpr);
           resultLatex = evalResult.latex;
           rawValue = evalResult.rawValue;
+          approxResult = evalResult.approxResult;
           displayExpr = `${assignment.varName} = ${assignment.valueExpr}`;
 
           // Store the variable
@@ -295,6 +316,7 @@ const ConsoleMode: React.FC = () => {
           const evalResult = await evaluateExpression(input);
           resultLatex = evalResult.latex;
           rawValue = evalResult.rawValue;
+          approxResult = evalResult.approxResult;
 
           // Update ANS
           setVariables(prev => ({ ...prev, 'ans': rawValue }));
@@ -304,6 +326,7 @@ const ConsoleMode: React.FC = () => {
           id: Date.now().toString(),
           expression: displayExpr,
           result: resultLatex,
+          approxResult: approxResult,
           timestamp: new Date()
         };
         setHistory([...history, newItem]);
@@ -337,9 +360,26 @@ const ConsoleMode: React.FC = () => {
                 <CloudOff size={14} className="text-aurora-muted" title="Using client-side Nerdamer" />
               )}
             </div>
-            <button onClick={() => setHistory([])} className="text-aurora-secondary hover:text-aurora-danger transition-colors p-1" title="Clear History">
-              <Eraser size={16} />
-            </button>
+            <div className="flex items-center gap-2">
+              {/* EXACT/APPROX Toggle */}
+              <button
+                onClick={() => setDisplayMode(displayMode === 'exact' ? 'approx' : 'exact')}
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-colors ${displayMode === 'exact'
+                  ? 'bg-aurora-secondary/20 text-aurora-secondary'
+                  : 'bg-primary/20 text-primary'
+                  }`}
+                title={displayMode === 'exact' ? 'Showing exact (symbolic)' : 'Showing approximate (numeric)'}
+              >
+                {displayMode === 'exact' ? (
+                  <><ToggleLeft size={14} /> EXACT</>
+                ) : (
+                  <><ToggleRight size={14} /> ≈ APPROX</>
+                )}
+              </button>
+              <button onClick={() => setHistory([])} className="text-aurora-secondary hover:text-aurora-danger transition-colors p-1" title="Clear History">
+                <Eraser size={16} />
+              </button>
+            </div>
           </div>
 
           {history.length === 0 && (
@@ -356,7 +396,11 @@ const ConsoleMode: React.FC = () => {
               </div>
               <div className="text-right">
                 <span className="text-primary text-2xl font-bold font-mono">
-                  = <MathDisplay expression={item.result} isResult inline />
+                  = {displayMode === 'exact' ? (
+                    <MathDisplay expression={item.result} isResult inline />
+                  ) : (
+                    <span className="text-primary">≈ {item.approxResult || item.result}</span>
+                  )}
                 </span>
               </div>
             </div>
