@@ -15,6 +15,11 @@ export interface HistoryItem {
   result: string;           // Symbolic/exact result (LaTeX)
   approxResult?: string;    // Numeric approximation
   timestamp: Date;
+  easterEgg?: {
+    message?: string;
+    emoji?: string;
+    animation?: string;
+  };
 }
 
 export interface Transaction {

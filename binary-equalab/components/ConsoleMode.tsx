@@ -4,11 +4,12 @@ import MathDisplay from './MathDisplay';
 // @ts-ignore
 import nerdamer from 'nerdamer';
 import ScientificKeypad from './ScientificKeypad';
-import { Eraser, Cloud, CloudOff, AlertCircle, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Eraser, Cloud, CloudOff, AlertCircle, ToggleLeft, ToggleRight, Sparkles } from 'lucide-react';
 import apiService from '../services/apiService';
 import { parseExpression, ParseResult } from '../services/mathParser';
 import { getAutocompleteSuggestions, FunctionDef } from '../services/functionDefs';
 import { FINANCE_FUNCTIONS, FINANCE_FUNCTION_DEFS, FinanceResult } from '../services/financeFunctions';
+import { checkEasterEgg, parseNumberSystems, EasterEggResult } from '../services/easterEggs';
 
 const ConsoleMode: React.FC = () => {
   const [input, setInput] = useState('');
@@ -292,11 +293,14 @@ const ConsoleMode: React.FC = () => {
   };
 
   // Main evaluation function with preprocessing
-  const evaluateExpression = async (expr: string): Promise<{ latex: string; rawValue: string; approxResult: string }> => {
+  const evaluateExpression = async (expr: string): Promise<{ latex: string; rawValue: string; approxResult: string; easterEgg?: EasterEggResult }> => {
     setParseError(null);  // Clear previous errors
 
+    // Parse binary/hex/octal literals (0b1010 → 10, 0xFF → 255)
+    let processedExpr = parseNumberSystems(expr);
+
     // Substitute user variables (including ans)
-    const substitutedExpr = substituteVariables(expr);
+    const substitutedExpr = substituteVariables(processedExpr);
 
     let latex: string;
     let rawValue: string;
@@ -337,7 +341,10 @@ const ConsoleMode: React.FC = () => {
       if (!isNaN(num)) approxResult = num.toString();
     }
 
-    return { latex, rawValue: rawValue || '0', approxResult: approxResult || rawValue || '0' };
+    // Check for easter eggs
+    const easterEgg = checkEasterEgg(expr, approxResult || rawValue);
+
+    return { latex, rawValue: rawValue || '0', approxResult: approxResult || rawValue || '0', easterEgg: easterEgg.triggered ? easterEgg : undefined };
   };
 
   const handleKeyClick = async (val: string) => {
@@ -354,6 +361,7 @@ const ConsoleMode: React.FC = () => {
         let resultLatex: string;
         let rawValue: string;
         let approxResult: string;
+        let easterEggResult: EasterEggResult | undefined;
 
         if (assignment.isAssignment && assignment.varName && assignment.valueExpr) {
           // Evaluate the value expression
@@ -361,6 +369,7 @@ const ConsoleMode: React.FC = () => {
           resultLatex = evalResult.latex;
           rawValue = evalResult.rawValue;
           approxResult = evalResult.approxResult;
+          easterEggResult = evalResult.easterEgg;
           displayExpr = `${assignment.varName} = ${assignment.valueExpr}`;
 
           // Store the variable
@@ -375,6 +384,7 @@ const ConsoleMode: React.FC = () => {
           resultLatex = evalResult.latex;
           rawValue = evalResult.rawValue;
           approxResult = evalResult.approxResult;
+          easterEggResult = evalResult.easterEgg;
 
           // Update ANS
           setVariables(prev => ({ ...prev, 'ans': rawValue }));
@@ -385,7 +395,8 @@ const ConsoleMode: React.FC = () => {
           expression: displayExpr,
           result: resultLatex,
           approxResult: approxResult,
-          timestamp: new Date()
+          timestamp: new Date(),
+          easterEgg: easterEggResult
         };
         setHistory([...history, newItem]);
         setInput('');
@@ -452,6 +463,25 @@ const ConsoleMode: React.FC = () => {
               <div className="text-right text-aurora-secondary text-lg font-mono tracking-wide">
                 <MathDisplay expression={item.expression} />
               </div>
+
+              {/* Easter Egg Display */}
+              {item.easterEgg && (
+                <div className={`
+                  my-2 p-3 rounded-lg border text-sm whitespace-pre-line animate-in fade-in zoom-in duration-500
+                  ${item.easterEgg.animation === 'rainbow' ? 'bg-gradient-to-r from-red-500/10 via-green-500/10 to-blue-500/10 border-white/20' : ''}
+                  ${item.easterEgg.animation === 'glow' ? 'bg-aurora-primary/10 border-aurora-primary/30 shadow-[0_0_15px_rgba(255,107,53,0.2)]' : ''}
+                  ${item.easterEgg.animation === 'sparkle' ? 'bg-yellow-500/10 border-yellow-500/30' : ''}
+                  ${!item.easterEgg.animation ? 'bg-white/5 border-white/10' : ''}
+                `}>
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl pt-1">{item.easterEgg.emoji || '✨'}</span>
+                    <div className="text-aurora-text font-medium leading-relaxed">
+                      {item.easterEgg.message}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="text-right">
                 <span className="text-primary text-2xl font-bold font-mono">
                   = {displayMode === 'exact' ? (

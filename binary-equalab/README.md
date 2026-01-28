@@ -1,20 +1,105 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Binary EquaLab Web
 
-# Run and deploy your AI Studio app
+<p align="center">
+  <img src="../docs/banner_web.png" alt="Binary EquaLab Web" width="500">
+</p>
 
-This contains everything you need to run your app locally.
+<p align="center">
+  <em>🌐 Calculator CAS en el navegador</em>
+</p>
 
-View your app in AI Studio: https://ai.studio/apps/temp/1
+---
 
-## Run Locally
+## 🚀 Quick Start
 
-**Prerequisites:**  Node.js
+```bash
+pnpm install
+pnpm run dev
+```
 
+Open [http://localhost:5173](http://localhost:5173)
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+---
+
+## ✨ Features
+
+### 8 Modes
+- **Calculadora CAS** — Derivadas, integrales, límites, ecuaciones
+- **Gráficas** — 2D plotting + Epicycles PRO
+- **Ecuaciones** — Sistemas y desigualdades
+- **Matrices** — Operaciones completas
+- **Estadística** — Descriptiva, regresión, probabilidad
+- **Complejos** — Operaciones + diagrama de Argand
+- **Vectores** — 2D/3D con visualización
+- **Contador PRO** — VAN, TIR, depreciación, interés
+
+### 🎨 Epicycles PRO
+- Dibuja formas → Transformada de Fourier
+- Suavizado Catmull-Rom
+- Input paramétrico: `x = cos(t); y = sin(2*t)`
+- Templates: corazón, estrella, infinito
+
+### 🔢 Sistemas Numéricos
+```
+0b1010   → 10  (binario)
+0xFF     → 255 (hexadecimal)
+0o17     → 15  (octal)
+```
+
+### 🥚 Easter Eggs
+Prueba: `1+1`, `(-1)*(-1)`, `0b101010`
+
+---
+
+## 🛠️ Tech Stack
+
+- **React 18** + TypeScript
+- **Vite** — Fast builds
+- **Nerdamer** — CAS engine
+- **Tailwind-style** — Aurora design system
+- **lucide-react** — Icons
+
+---
+
+## 📁 Structure
+
+```
+binary-equalab/
+├── components/         # React components
+│   ├── ConsoleMode.tsx     # CAS calculator
+│   ├── GraphingMode.tsx    # Graphing + Epicycles
+│   ├── EpicyclesPRO.tsx    # Fourier visualizer
+│   ├── EquationsMode.tsx   # Equation solver
+│   ├── StatisticsMode.tsx  # Stats calculator
+│   ├── ComplexMode.tsx     # Complex numbers
+│   ├── VectorsMode.tsx     # Vector operations
+│   └── AccountingMode.tsx  # Financial functions
+├── services/           # Business logic
+│   ├── mathParser.ts       # Expression preprocessing
+│   ├── functionDefs.ts     # Spanish function definitions
+│   ├── financeFunctions.ts # VAN, TIR, etc.
+│   └── easterEggs.ts       # Hidden surprises
+└── types.ts            # TypeScript types
+```
+
+---
+
+## 🔧 Development
+
+```bash
+# Install
+pnpm install
+
+# Dev server
+pnpm run dev
+
+# Build
+pnpm run build
+
+# Preview
+pnpm run preview
+```
+
+---
+
+MIT © Binary EquaLab Team

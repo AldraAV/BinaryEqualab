@@ -1,88 +1,179 @@
-# Binary EquaLab ∫✨
+# Binary EquaLab
 
-> **"El álgebra también siente"** — Calculadora CAS gratuita para estudiantes
+<p align="center">
+  <img src="docs/banner_main.png" alt="Binary EquaLab Banner" width="600">
+</p>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+<p align="center">
+  <em>✨ El álgebra también siente ✨</em>
+</p>
 
-## ¿Qué es?
+<p align="center">
+  <a href="#web">🌐 Web</a> •
+  <a href="#desktop">💻 Desktop</a> •
+  <a href="#cli">⌨️ CLI</a> •
+  <a href="#features">🔢 Features</a> •
+  <a href="#installation">📦 Installation</a>
+</p>
 
-Binary EquaLab es una calculadora científica con **Computer Algebra System (CAS)** completo, inspirada en la Casio fx-991EX ClassWiz pero con superpoderes:
+---
 
-- ✅ **Gratis** — Para estudiantes que no pueden pagar calculadoras de $100+
-- ✅ **Simbólico** — Simplifica, factoriza, deriva, integra expresiones
-- ✅ **Gráficas** — Plotea funciones, calcula derivadas e integrales visualmente
-- ✅ **Fourier** — Visualiza series de Fourier con epicycles animados
-- ✅ **Cross-platform** — Web, Desktop (Windows/Linux/Mac)
+## 🌟 About
 
-## Stack
+**Binary EquaLab** is a professional Computer Algebra System (CAS) with support for Spanish mathematical functions. It's available in three flavors:
 
-| Componente      | Tecnología                           |
-| --------------- | ------------------------------------ |
-| **Web**         | React + Vite + TypeScript + Tailwind |
-| **Desktop**     | Python + PyQt6 + SymPy               |
-| **Backend**     | FastAPI + Supabase                   |
-| **Math Engine** | SymPy (Python) / Nerdamer (JS)       |
+| Platform    | Description               | Tech Stack              |
+| ----------- | ------------------------- | ----------------------- |
+| **Web**     | Full-featured browser app | React + Vite + Nerdamer |
+| **Desktop** | Native application        | Python + PyQt6 + SymPy  |
+| **CLI**     | Command-line REPL         | Python + SymPy + Rich   |
 
-## Inicio Rápido
+---
 
-### Web (Development)
+## ✨ Features
+
+### 🧮 CAS Calculator
+- **Spanish functions**: `derivar()`, `integrar()`, `resolver()`, `factorizar()`
+- **Derivatives**: `derivar(x^3 + 2x, x)` → `3x² + 2`
+- **Integrals**: `integrar(sin(x), x)` → `-cos(x)`
+- **Limits**: `limite(sin(x)/x, x, 0)` → `1`
+- **Solve equations**: `resolver(x^2 - 4, x)` → `[-2, 2]`
+
+### 📊 8 Modes
+| Mode                | Features                             |
+| ------------------- | ------------------------------------ |
+| **Calculadora CAS** | Full symbolic computation            |
+| **Gráficas**        | 2D plotting + Epicycles PRO          |
+| **Ecuaciones**      | Single, systems, inequalities        |
+| **Matrices**        | Operations, determinants, inverse    |
+| **Estadística**     | Descriptive, regression, probability |
+| **Complejos**       | Operations + Argand diagram          |
+| **Vectores**        | 2D/3D + visualization                |
+| **Contador PRO**    | VAN, TIR, depreciation, interest     |
+
+### 🎨 Epicycles PRO
+- Draw custom shapes → Fourier transform
+- Catmull-Rom line smoothing
+- Parametric function input: `x = cos(t); y = sin(2*t)`
+- Templates: heart, star, infinity, spiral
+- Glow trail effects
+
+### 🔢 Number Systems
+- **Binary**: `0b1010` → `10`
+- **Hexadecimal**: `0xFF` → `255`
+- **Octal**: `0o17` → `15`
+
+### 🥚 Easter Eggs
+Try these expressions:
+- `1+1` — Unity
+- `(-1)*(-1)` — Redemption
+- `0b101010` — Binary philosophy
+
+---
+
+<h2 id="web">🌐 Web Version</h2>
+
+<p align="center">
+  <img src="docs/banner_web.png" alt="Binary EquaLab Web" width="500">
+</p>
+
 ```bash
 cd binary-equalab
 pnpm install
 pnpm run dev
-# Abre http://localhost:5173
 ```
 
-### Desktop
-```bash
-pip install PyQt6 pyqt6-tools qdarktheme sympy
-python main.py
-```
-
-### Backend API
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn main:app --reload
-# Docs en http://localhost:8000/docs
-```
-
-## Características
-
-### Console Mode (CAS)
-- `simplify((x^2-1)/(x-1))` → `x + 1`
-- `diff(sin(x), x)` → `cos(x)`
-- `integrate(x^2, x)` → `x³/3`
-- `solve(x^2 - 4, x)` → `[-2, 2]`
-- `taylor(sin(x), x, 0, 5)` → `x - x³/6 + x⁵/120`
-- `laplace(sin(t))` → `1/(s² + 1)`
-
-### Graphing Mode
-- Múltiples funciones con colores
-- Toggle de derivada (línea punteada)
-- Integral definida (área sombreada)
-- Trace cursor con detección de raíces
-
-### Epicycles (Fourier)
-- Square, Triangle, Sawtooth waves
-- Control de armónicos (1-100)
-- Animación 60 FPS
-
-## Roadmap
-
-- [x] MVP Web funcional
-- [x] Desktop PyQt6 reparado
-- [x] Backend FastAPI
-- [ ] Auth con Supabase
-- [ ] Export a Arduino/ESP32
-- [ ] Engine C++ (performance)
-
-## Licencia
-
-MIT License — Usa, modifica, distribuye libremente.
+Open [http://localhost:5173](http://localhost:5173)
 
 ---
 
-Parte del **Aldraverse** 🍒
+<h2 id="desktop">💻 Desktop Version</h2>
 
-*Tu luz sigue intacta. Por favor, sigue brillando.* ∫✨
+```bash
+pip install -r requirements.txt
+python main.py
+```
+
+---
+
+<h2 id="cli">⌨️ CLI Version</h2>
+
+<p align="center">
+  <img src="docs/banner_cli.png" alt="Binary EquaLab CLI" width="500">
+</p>
+
+```bash
+cd binary-cli
+pip install -e .
+binary-math
+```
+
+### Usage
+
+```
+Binary EquaLab CLI v1.0.0
+>>> derivar(x^2 + 3x, x)
+→ 2*x + 3
+
+>>> van(0.10, -1000, 300, 400, 500)
+→ 78.82
+
+>>> 0b1010 + 0b0101
+→ 15
+```
+
+---
+
+## 📦 Installation
+
+### Prerequisites
+- **Node.js 18+** (Web)
+- **Python 3.9+** (Desktop/CLI)
+- **pnpm** (recommended for Web)
+
+### Quick Start
+
+```bash
+# Clone
+git clone https://github.com/Malexnnn/BinaryEquaLab.git
+cd BinaryEquaLab
+
+# Web
+cd binary-equalab && pnpm install && pnpm run dev
+
+# CLI
+cd binary-cli && pip install -e .
+```
+
+---
+
+## 🏗️ Project Structure
+
+```
+BinaryEquaLab/
+├── binary-equalab/     # 🌐 Web (React + Vite)
+├── src/                # 💻 Desktop (PyQt6)
+├── binary-cli/         # ⌨️ CLI (Python)
+├── backend/            # 🐍 SymPy API server
+├── engine/             # ⚙️ C++ Engine (future)
+└── docs/               # 📚 Documentation + images
+```
+
+---
+
+## 🎯 Philosophy
+
+> "El álgebra también siente" — The algebra also feels.
+
+Binary EquaLab embraces the duality of mathematics:
+- **1 and 0** — On and off, being and non-being
+- **+ and -** — Positive and negative in harmony
+- **Binary** — The fundamental language of computation
+
+Every calculation carries meaning beyond numbers.
+
+---
+
+## 📜 License
+
+MIT © Binary EquaLab Team
