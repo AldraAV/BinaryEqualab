@@ -13,7 +13,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
     Play, Pause, RefreshCw, ZoomIn, ZoomOut,
     Pencil, Trash2, Move, MousePointer2, Sparkles,
-    Heart, Star, Infinity, FileFunction, Waves
+    Heart, Star, Infinity, Sigma, Waves
 } from 'lucide-react';
 
 type WaveType = 'square' | 'triangle' | 'sawtooth' | 'custom';
@@ -604,15 +604,15 @@ const EpicyclesPRO: React.FC = () => {
                         <div className="grid grid-cols-3 gap-2">
                             {[
                                 { mode: 'drawing' as InputMode, icon: Pencil, label: 'Dibujar' },
-                                { mode: 'function' as InputMode, icon: FileFunction, label: 'f(t)' },
+                                { mode: 'function' as InputMode, icon: Sigma, label: 'f(t)' },
                                 { mode: 'animation' as InputMode, icon: Play, label: 'Animar' },
                             ].map(({ mode, icon: Icon, label }) => (
                                 <button
                                     key={mode}
                                     onClick={() => setInputMode(mode)}
                                     className={`py-2 px-3 text-xs font-bold rounded-lg transition-all border flex flex-col items-center gap-1 ${inputMode === mode
-                                            ? 'bg-aurora-primary text-white border-aurora-primary shadow-lg'
-                                            : 'bg-transparent text-aurora-muted border-white/10 hover:bg-white/5'
+                                        ? 'bg-aurora-primary text-white border-aurora-primary shadow-lg'
+                                        : 'bg-transparent text-aurora-muted border-white/10 hover:bg-white/5'
                                         }`}
                                 >
                                     <Icon size={16} />
@@ -727,8 +727,8 @@ const EpicyclesPRO: React.FC = () => {
                                                 timeRef.current.t = 0;
                                             }}
                                             className={`py-2 px-3 text-xs font-bold rounded-lg transition-all border ${waveType === type && fourierCoeffs.length === 0
-                                                    ? 'bg-aurora-primary text-white border-aurora-primary'
-                                                    : 'bg-transparent text-aurora-muted border-white/10 hover:bg-white/5'
+                                                ? 'bg-aurora-primary text-white border-aurora-primary'
+                                                : 'bg-transparent text-aurora-muted border-white/10 hover:bg-white/5'
                                                 }`}
                                         >
                                             {type === 'square' && '▭ Cuadrada'}
@@ -740,10 +740,10 @@ const EpicyclesPRO: React.FC = () => {
                                         disabled={fourierCoeffs.length === 0}
                                         onClick={() => { setWaveType('custom'); pathRef.current = []; }}
                                         className={`py-2 px-3 text-xs font-bold rounded-lg transition-all border ${waveType === 'custom' && fourierCoeffs.length > 0
-                                                ? 'bg-aurora-primary text-white border-aurora-primary'
-                                                : fourierCoeffs.length === 0
-                                                    ? 'bg-transparent text-aurora-muted/30 border-white/5 cursor-not-allowed'
-                                                    : 'bg-transparent text-aurora-muted border-white/10 hover:bg-white/5'
+                                            ? 'bg-aurora-primary text-white border-aurora-primary'
+                                            : fourierCoeffs.length === 0
+                                                ? 'bg-transparent text-aurora-muted/30 border-white/5 cursor-not-allowed'
+                                                : 'bg-transparent text-aurora-muted border-white/10 hover:bg-white/5'
                                             }`}
                                     >
                                         ✏️ Custom
