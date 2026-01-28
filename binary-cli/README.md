@@ -123,4 +123,4 @@ pytest
 
 ---
 
-MIT © Binary EquaLab Team
+MIT © Malexnnn/ Aldra ORG.

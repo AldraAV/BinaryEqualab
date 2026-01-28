@@ -102,4 +102,4 @@ pnpm run preview
 
 ---
 
-MIT © Binary EquaLab Team
+MIT © Malexnnn/ Aldra ORG.

@@ -176,4 +176,4 @@ Every calculation carries meaning beyond numbers.
 
 ## 📜 License
 
-MIT © Binary EquaLab Team
+MIT © Malexnnn/ Aldra ORG.
