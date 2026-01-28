@@ -23,16 +23,41 @@ class ParseResult:
 class MathParser:
     """Smart Math Parser with preprocessing and error detection"""
     
-    # Common function names
+    # Common function names (English + Spanish)
     FUNCTIONS = [
+        # English
         'sin', 'cos', 'tan', 'cot', 'sec', 'csc',
         'asin', 'acos', 'atan', 'acot', 'asec', 'acsc',
         'sinh', 'cosh', 'tanh', 'coth',
         'arcsin', 'arccos', 'arctan',
         'sqrt', 'cbrt', 'abs', 'floor', 'ceil', 'round',
         'log', 'ln', 'exp', 'log10', 'log2',
-        'factorial', 'gamma', 'sign', 'mod'
+        'factorial', 'gamma', 'sign', 'mod',
+        'diff', 'integrate', 'solve', 'simplify', 'expand', 'factor', 'limit', 'taylor',
+        # Spanish (Binary EquaLab native)
+        'sen', 'derivar', 'integrar', 'resolver', 'simplificar', 'expandir', 'factorizar',
+        'limite', 'arcsen', 'arccos', 'arctan', 'raiz', 'piso', 'techo',
+        'sumatoria', 'productoria', 'sustituir'
     ]
+    
+    # Spanish → English function mapping
+    SPANISH_TO_ENGLISH = {
+        'derivar': 'diff',
+        'integrar': 'integrate',
+        'resolver': 'solve',
+        'simplificar': 'simplify',
+        'expandir': 'expand',
+        'factorizar': 'factor',
+        'limite': 'limit',
+        'sen': 'sin',
+        'arcsen': 'asin',
+        'raiz': 'sqrt',
+        'piso': 'floor',
+        'techo': 'ceil',
+        'sumatoria': 'Sum',
+        'productoria': 'Product',
+        'sustituir': 'subs',
+    }
     
     # Constants mapping
     CONSTANTS = {
@@ -82,7 +107,10 @@ class MathParser:
                 return result
             expr = result.expression
             
-            # Step 7: Validate operators
+            # Step 7: Translate Spanish functions to English
+            expr = cls._translate_to_english(expr)
+            
+            # Step 8: Validate operators
             result = cls._validate_operators(expr)
             if not result.success:
                 return result
@@ -240,6 +268,17 @@ class MathParser:
             expression=expr,
             display_expression=expr
         )
+    
+    @classmethod
+    def _translate_to_english(cls, expr: str) -> str:
+        """Translate Spanish function names to English for SymPy"""
+        # Sort by length descending to avoid partial matches
+        sorted_funcs = sorted(cls.SPANISH_TO_ENGLISH.items(), key=lambda x: -len(x[0]))
+        for spanish, english in sorted_funcs:
+            # Match function call pattern: spanish_func(
+            pattern = rf'\b{spanish}\s*\('
+            expr = re.sub(pattern, f'{english}(', expr, flags=re.IGNORECASE)
+        return expr
     
     @staticmethod
     def _format_for_display(expr: str) -> str:
