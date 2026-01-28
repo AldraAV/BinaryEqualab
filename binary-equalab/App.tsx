@@ -5,6 +5,10 @@ import ConsoleMode from './components/ConsoleMode';
 import GraphingMode from './components/GraphingMode';
 import MatrixMode from './components/MatrixMode';
 import AccountingMode from './components/AccountingMode';
+import EquationsMode from './components/EquationsMode';
+import StatisticsMode from './components/StatisticsMode';
+import ComplexMode from './components/ComplexMode';
+import VectorsMode from './components/VectorsMode';
 import { AppMode } from './types';
 import { Menu } from 'lucide-react';
 import { CalculatorProvider } from './CalculatorContext';
@@ -24,6 +28,14 @@ const App: React.FC = () => {
         return <MatrixMode />;
       case AppMode.ACCOUNTING:
         return <AccountingMode />;
+      case AppMode.EQUATIONS:
+        return <EquationsMode />;
+      case AppMode.STATISTICS:
+        return <StatisticsMode />;
+      case AppMode.COMPLEX:
+        return <ComplexMode />;
+      case AppMode.VECTORS:
+        return <VectorsMode />;
       default:
         return <ConsoleMode />;
     }
