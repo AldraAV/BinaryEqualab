@@ -94,6 +94,19 @@ class MathEngine:
             
         self.history.append(expression)
         
+        # Check for assignment: var = expr
+        assignment_match = re.match(r'^([a-zA-Z_]\w*)\s*=\s*(.+)$', expression)
+        if assignment_match:
+            var_name, val_expr = assignment_match.groups()
+            try:
+                # Calculate value first
+                val_result = self.evaluate(val_expr)
+                # Store in symbols
+                self.symbols[var_name] = val_result
+                return val_result
+            except Exception as e:
+                raise ValueError(f"Assignment error: {e}")
+
         # Check for function calls
         for func_name, func in self.function_map.items():
             if expression.startswith(f'{func_name}('):
@@ -115,6 +128,7 @@ class MathEngine:
         # Replace Spanish trig
         replacements = {
             'seno': 'sin',
+            'sen': 'sin',
             'coseno': 'cos', 
             'tangente': 'tan',
             'arcoseno': 'asin',

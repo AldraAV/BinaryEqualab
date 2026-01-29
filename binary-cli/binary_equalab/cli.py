@@ -167,7 +167,10 @@ def one_liner(expression: str):
 
 def main():
     """CLI entry point."""
-    if len(sys.argv) > 1:
+    elif len(sys.argv) > 1 and sys.argv[1] == 'setup-shell':
+        from .shell_setup import run_setup
+        run_setup()
+    elif len(sys.argv) > 1:
         # One-liner mode
         expression = " ".join(sys.argv[1:])
         one_liner(expression)
