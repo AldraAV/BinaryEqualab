@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <!-- Dark Aurora Gradient -->
+    <linearGradient id="aurora-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#1e1e24;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#000000;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Neon Glow Filter -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="15" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Glass Effect -->
+    <linearGradient id="glass-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.1" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0.02" />
+    </linearGradient>
+  </defs>
+
+  <!-- Main Container (App Window Shape) -->
+  <rect x="32" y="32" width="448" height="448" rx="100" ry="100" fill="url(#aurora-grad)" stroke="#333" stroke-width="4" />
+  
+  <!-- Subtle Binary Background -->
+  <text x="80" y="150" font-family="monospace" font-size="40" fill="#ffffff" opacity="0.05" font-weight="bold">10101</text>
+  <text x="350" y="300" font-family="monospace" font-size="60" fill="#ffffff" opacity="0.03" font-weight="bold">01</text>
+  <text x="100" y="400" font-family="monospace" font-size="50" fill="#ffffff" opacity="0.04" font-weight="bold">110</text>
+  
+  <!-- Glass Reflection/Sheen -->
+  <path d="M 32 132 Q 256 250 480 132 L 480 132 A 100 100 0 0 1 480 132 A 100 100 0 0 1 32 132 Z" fill="url(#glass-grad)" opacity="0.5" />
+  <rect x="32" y="32" width="448" height="448" rx="100" ry="100" fill="url(#glass-grad)" />
+
+  <!-- Top Bar Decor (Window Controls) -->
+  <circle cx="100" cy="80" r="12" fill="#ff5f56" opacity="0.8" />
+  <circle cx="140" cy="80" r="12" fill="#ffbd2e" opacity="0.8" />
+  <circle cx="180" cy="80" r="12" fill="#27c93f" opacity="0.8" />
+
+  <!-- Central Integral Symbol -->
+  <!-- Mathematical Integral shape centered -->
+  <g transform="translate(256, 276) scale(1.8)" filter="url(#glow)">
+    <path d="M -20 -60 C -40 -60 -50 -40 -50 0 C -50 60 50 -60 50 0 C 50 40 40 60 20 60" 
+          fill="none" 
+          stroke="url(#symbol-grad)" 
+          stroke-width="12" 
+          stroke-linecap="round" />
+    <!-- Gradient for the symbol -->
+    <linearGradient id="symbol-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff6b35;stop-opacity:1" /> <!-- Orange -->
+      <stop offset="100%" style="stop-color:#00e5ff;stop-opacity:1" /> <!-- Cyan -->
+    </linearGradient>
+  </g>
+
+  <!-- Accent Detail -->
+  <circle cx="256" cy="276" r="120" stroke="#ffffff" stroke-width="2"  stroke-opacity="0.1" fill="none" />
+  <circle cx="256" cy="276" r="140" stroke="#ff6b35" stroke-width="1"  stroke-opacity="0.2" fill="none" stroke-dasharray="10 10" />
+
+</svg>
