@@ -42,8 +42,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentMode, setMode }) => {
               key={item.mode}
               onClick={() => setMode(item.mode)}
               className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group relative overflow-hidden text-left ${isActive
-                  ? 'bg-background-light text-primary border border-aurora-border shadow-inner'
-                  : 'text-aurora-secondary hover:bg-white/5 hover:text-aurora-text'
+                ? 'bg-background-light text-primary border border-aurora-border shadow-inner'
+                : 'text-aurora-secondary hover:bg-white/5 hover:text-aurora-text'
                 }`}
             >
               <Icon size={20} strokeWidth={isActive ? 2.5 : 2} className={`transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
@@ -55,11 +55,21 @@ const Sidebar: React.FC<SidebarProps> = ({ currentMode, setMode }) => {
         })}
       </div>
 
-      {/* Decorative Bottom Graphic */}
-      <div className="mt-auto px-6 hidden lg:block opacity-30">
-        <div className="h-32 w-full rounded-2xl bg-gradient-to-t from-primary/20 to-transparent flex items-end justify-center pb-4">
-          <GraduationCap size={48} className="text-primary" />
-        </div>
+      {/* Feedback Button */}
+      <div className="mt-auto px-2 lg:px-4 mb-4">
+        <button
+          onClick={() => window.open('https://github.com/Malexnnn/BinaryEqualab', '_blank')}
+          className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-aurora-secondary hover:bg-primary/10 hover:text-primary transition-all duration-300 group"
+        >
+          <div className="relative">
+            <GraduationCap size={20} className="group-hover:scale-110 transition-transform duration-300" />
+            <div className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
+            </div>
+          </div>
+          <span className="text-sm font-medium hidden lg:block">Feedback & Soporte</span>
+        </button>
       </div>
     </aside>
   );

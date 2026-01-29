@@ -167,9 +167,26 @@ def one_liner(expression: str):
 
 def main():
     """CLI entry point."""
-    elif len(sys.argv) > 1 and sys.argv[1] == 'setup-shell':
+    if len(sys.argv) > 1 and sys.argv[1] == 'setup-shell':
         from .shell_setup import run_setup
         run_setup()
+    elif len(sys.argv) > 1 and sys.argv[1] == 'feedback':
+        import webbrowser
+        print("""
+    ╔═══════════════════════════════════════╗
+    ║        💬 Feedback & Soporte          ║
+    ╚═══════════════════════════════════════╝
+    
+    ¡Gracias por usar Binary EquaLab! ❤️
+    
+    Estoy abierto a cualquier sugerencia, apoyo, financiamiento,
+    compañía, o reporte de errores.
+    
+    🐛 Bugs / Mejoras: https://github.com/Malexnnn/BinaryEqualab/issues
+    📧 Contacto: Ver perfil de GitHub
+        """)
+        webbrowser.open("https://github.com/Malexnnn/BinaryEqualab")
+
     elif len(sys.argv) > 1:
         # One-liner mode
         expression = " ".join(sys.argv[1:])

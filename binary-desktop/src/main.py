@@ -12,7 +12,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     # 2. NOW import qfluentwidgets (PySide6 version)
-    from qfluentwidgets import FluentWindow, setTheme, Theme, setThemeColor, FluentIcon as FIF
+    from qfluentwidgets import FluentWindow, setTheme, Theme, setThemeColor, FluentIcon as FIF, NavigationItemPosition
 
     class MainWindow(FluentWindow):
         def __init__(self):
@@ -66,10 +66,45 @@ if __name__ == "__main__":
             self.epicyclesInterface.setObjectName("epicyclesInterface")
             self.addSubInterface(self.epicyclesInterface, FIF.VIDEO, "Epiciclos")
             
+            
             from ui.financial import FinancialWidget
             self.financeInterface = FinancialWidget()
             self.financeInterface.setObjectName("financeInterface")
             self.addSubInterface(self.financeInterface, FIF.MARKET, "Finanzas")
+
+            # Feedback (Bottom)
+            self.navigationInterface.addItem(
+                routeKey="feedback",
+                icon=FIF.CHAT,
+                text="Feedback & Soporte",
+                onClick=self.show_feedback,
+                selectable=False,
+                position=NavigationItemPosition.BOTTOM
+            )
+
+        def show_feedback(self):
+            from PySide6.QtGui import QDesktopServices
+            from PySide6.QtCore import QUrl
+            from PySide6.QtWidgets import QMessageBox
+            
+            msg = """
+            <h3 style='color:#EA580C'>💬 Feedback & Soporte</h3>
+            <p>¡Hola! Soy Aldra.</p>
+            <p>Acepto cualquier sugerencia de mejora, apoyo, compañía o financiamiento.</p>
+            <p>Cualquier inconveniente, por favor repórtalo en GitHub.</p>
+            <br>
+            <a href='https://github.com/Malexnnn/BinaryEqualab'>🐙 Ir al Repositorio (GitHub)</a>
+            """
+            
+            box = QMessageBox(self)
+            box.setWindowTitle("Binary EquaLab - Feedback")
+            box.setTextFormat(Qt.TextFormat.RichText)
+            box.setText(msg)
+            box.setIcon(QMessageBox.Icon.Information)
+            box.exec()
+            
+            QDesktopServices.openUrl(QUrl("https://github.com/Malexnnn/BinaryEqualab"))
+
 
     # Apply Aurora Theme
     setTheme(Theme.DARK)

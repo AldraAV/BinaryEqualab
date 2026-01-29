@@ -24,7 +24,22 @@ pip install -e .
 
 ---
 
-## 📖 Usage
+## 🐚 Universal Shell Setup
+Binary EquaLab incluye un configurador mágico para tu terminal. Instala temas, fuentes y plugins automáticamente.
+
+```bash
+# Ejecutar configurador
+binary setup-shell
+# O directamente:
+python -m binary_equalab.cli setup-shell
+```
+
+Soporta:
+-   **Windows**: Oh My Posh + Nerd Fonts.
+-   **Termux**: Zsh + Oh My Zsh + Autosuggestions.
+-   **Linux**: Recomendaciones de Starship.
+
+## 🚀 Uso del CLI
 
 ### REPL Mode
 ```bash
