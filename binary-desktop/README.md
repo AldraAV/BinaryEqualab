@@ -8,7 +8,7 @@ Native PyQt6 application for Binary EquaLab.
 - **Fluent Design**: Using `qfluentwidgets` for modern UI components.
 - **Core Logic**: Powered by SymPy (same as CLI/Backend).
 
-## ✨ Funcionalidades (v1.0 Aurora)
+## ✨ Funcionalidades (Aurora v2.0)
 
 ### 1. 🧮 Consola Matemática (REPL)
 -   Motor simbólico basado en SymPy.

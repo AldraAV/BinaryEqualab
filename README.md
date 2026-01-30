@@ -5,7 +5,9 @@
 </p>
 
 <p align="center">
-  <em>✨ El álgebra también siente ✨</em>
+  <em>"Las matemáticas también sienten, pero estas no se equivocan."</em>
+  <br>
+  <small>Aurora v2.0 Suite</small>
 </p>
 
 <p align="center">

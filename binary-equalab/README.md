@@ -1,4 +1,4 @@
-# Binary EquaLab Web 🌐
+# Binary EquaLab Web - Aurora v2.0 🌐
 
 > *"Las matemáticas también sienten, pero estas no se equivocan."*
 

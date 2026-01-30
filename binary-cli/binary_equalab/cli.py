@@ -99,7 +99,7 @@ def get_prompt_style():
 def print_banner():
     """Print the CLI banner using Rich panels."""
     title = Text("Binary EquaLab CLI", style="bold white")
-    version = Text("Aurora v2.0.0", style="dim")
+    version = Text("Aurora v2.0.1", style="dim")
     slogan = Text('"Las matemáticas también sienten,\npero estas no se equivocan."', style="dim italic")
 
     content = Text.assemble(title, "  ", version, "\n\n", slogan, justify="center")
@@ -153,15 +153,20 @@ def repl():
                     console.print(f"[dim]{i}.[/dim] {h}")
                 continue
             
-            # --- Easter Eggs ---
-            if cmd == 'binary':
-                console.print(Panel("[bold cyan]Las matemáticas también sienten.[/bold cyan]", border_style="cyan"))
+            # --- Easter Eggs (Math Based) ---
+            # 1+1 -> 2
+            if user_input.replace(" ", "") == "1+1":
+                console.print(Panel("[bold cyan]2[/bold cyan]\n[dim italic]El principio de todo.[/dim italic]", border_style="cyan"))
                 continue
-            if cmd == 'aldra':
-                console.print(Panel("[bold magenta]De Aldra para la gente, gratis y con alma.[/bold magenta]", border_style="magenta"))
+            
+            # (-1)*(-1) -> 1
+            if user_input.replace(" ", "") in ["(-1)*(-1)", "-1*-1"]:
+                console.print(Panel("[bold green]1[/bold green]\n[dim italic]Menos por menos es más... como en la vida.[/dim italic]", border_style="green"))
                 continue
-            if cmd == 'lupe':
-                console.print(Panel("[bold white]In Memoriam.[/bold white]", border_style="white"))
+                
+            # The Answer
+            if user_input.replace(" ", "") == "0b101010":
+                console.print(Panel("[bold magenta]42[/bold magenta]\n[dim italic]La respuesta a todo.[/dim italic]", border_style="magenta"))
                 continue
             # -------------------
             
