@@ -152,4 +152,4 @@ pytest
 
 ---
 
-MIT © Malexnnn/ Aldra ORG.
+MIT © Aldra's Team

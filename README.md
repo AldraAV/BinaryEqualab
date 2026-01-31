@@ -8,7 +8,7 @@
   <em>"Las matemáticas también sienten, pero estas no se equivocan."</em>
   <br>
   <small>Aurora v2.0 Suite</small>
-</p>
+</p>s
 
 <p align="center">
   <a href="#web">🌐 Web</a> •
@@ -178,4 +178,4 @@ Every calculation carries meaning beyond numbers.
 
 ## 📜 License
 
-MIT © Malexnnn/ Aldra ORG.
+MIT © Aldra's Team

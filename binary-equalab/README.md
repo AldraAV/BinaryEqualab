@@ -107,4 +107,4 @@ pnpm run preview
 
 ---
 
-MIT © Malexnnn/ Aldra ORG.
+MIT © Aldra's Team

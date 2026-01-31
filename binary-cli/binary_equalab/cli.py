@@ -219,6 +219,66 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == 'setup-shell':
         from .shell_setup import run_setup
         run_setup()
+    elif len(sys.argv) > 1 and sys.argv[1] == 'ai':
+        # AI Commands Mode
+        from .kimi_service import kimi_service
+        
+        if len(sys.argv) < 3:
+            console.print("[bold red]Uso:[/bold red] binary ai [solve|explain|exercises] \"consulta\"")
+            sys.exit(1)
+            
+        subcmd = sys.argv[2]
+        query = " ".join(sys.argv[3:])
+        
+        # 'exercises' command doesn't necessarily need a query if defaults are used, but we'll use query as topic
+        if subcmd != 'exercises' and not query:
+             console.print("[bold red]Error:[/bold red] Falta la consulta.")
+             sys.exit(1)
+            
+        with console.status(f"[bold green]Kimi AI ({subcmd})...[/bold green]"):
+            if subcmd == "solve":
+                result = kimi_service.solve_math_problem(query)
+                if isinstance(result, dict):
+                    console.print(Panel(
+                        f"[bold]Solución:[/bold]\n{result.get('solution', '')}\n\n"
+                        f"[bold]Dificultad:[/bold] {result.get('difficulty', '')}\n"
+                        f"[bold]Conceptos:[/bold] {', '.join(result.get('concepts', []))}",
+                        title="Kimi AI: Resolución", border_style="green"
+                    ))
+                    if result.get('steps'):
+                        console.print("\n[bold]Pasos:[/bold]")
+                        for step in result['steps']:
+                            console.print(f"• {step}")
+                    console.print(f"\n[dim italic]{result.get('reasoning', '')}[/dim italic]")
+                else:
+                    console.print(result)
+
+            elif subcmd == "explain":
+                response = kimi_service.explain_concept(query)
+                console.print(Panel(Markdown(response), title=f"Kimi AI: Explicación", border_style="blue"))
+            
+            elif subcmd == "exercises":
+                # Uso: binary ai exercises "Derivadas" [opcional: count]
+                # Por simplicidad en sys.argv, asumimos que todo el resto es el topic
+                exercises = kimi_service.generate_exercises(query if query else "Matemáticas generales")
+                
+                console.print(f"[bold u]Generando ejercicios para:[/bold u] {query}\n")
+                
+                for i, ex in enumerate(exercises, 1):
+                    console.print(Panel(
+                        f"[bold]Pregunta:[/bold]\n{ex.get('problem')}\n\n"
+                        f"[bold]Solución:[/bold]\n{ex.get('solution')}",
+                        title=f"Ejercicio {i}", border_style="magenta"
+                    ))
+                    if ex.get('steps'):
+                        with console.status(f"[dim]Ver pasos...[/dim]"):
+                            # Hack para ocultar pasos inicialmente si se quisiera, pero aquí los mostramos
+                            pass
+                        console.print(f"[dim]Pasos: {', '.join(ex.get('steps', []))}[/dim]\n")
+            else:
+                console.print(f"[bold red]Comando desconocido:[/bold red] {subcmd}")
+                sys.exit(1)
+
     elif len(sys.argv) > 1 and sys.argv[1] == 'feedback':
         import webbrowser
         print("""
@@ -231,10 +291,10 @@ def main():
     Estoy abierto a cualquier sugerencia, apoyo, financiamiento,
     compañía, o reporte de errores.
     
-    🐛 Bugs / Mejoras: https://github.com/Malexnnn/BinaryEqualab/issues
-    📧 Contacto: Ver perfil de GitHub
+    🐛 Bugs / Mejoras: https://github.com/AldrasTeam/BinaryEquaLab/issues
+    📧 Contacto: contact@aldra.dev
         """)
-        webbrowser.open("https://github.com/Malexnnn/BinaryEqualab")
+        webbrowser.open("https://github.com/AldrasTeam/BinaryEquaLab")
 
     elif len(sys.argv) > 1:
         # One-liner mode

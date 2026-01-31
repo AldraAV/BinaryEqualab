@@ -5,17 +5,27 @@ build-backend = "hatchling.build"
 [project]
 name = "binary-equalab"
 version = "2.0.2"
-description = "Advanced Algebra & Calculus CLI Tool"
+description = "Binary Equalab is a symbolic mathematics toolkit focused on clarity, performance and educational value. Designed for students, engineers and curious minds who want math to feel alive."
 readme = "README.md"
-license = "MIT"
+license = {text = "MIT"}
 authors = [
-    { name = "Malexnnn", email = "carde@example.com" }
+  {name = "Aldra", email = "contact@aldra.dev"},
+  {name = "Aldra's Team", email = "contact@aldra.dev"},
 ]
-keywords = ["calculator", "cas", "math", "symbolic", "spanish", "algebra", "calculus"]
+maintainers = [
+  {name = "Aldra (José Avilés)", email = "contact@aldra.dev"}
+]
+keywords = [
+  "symbolic-math",
+  "cas",
+  "engineering",
+  "cli",
+  "education",
+  "scientific-computing",
+  "math",
+  "aldra"
+]
 classifiers = [
-    "Development Status :: 4 - Beta",
-    "Environment :: Console",
-    "Intended Audience :: Education",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
@@ -28,10 +38,14 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    "prompt_toolkit>=3.0.0",
     "sympy>=1.12",
-    "numpy>=1.24",
-    "rich>=13.0",
-    "prompt_toolkit>=3.0",
+    "numpy>=1.24.0",
+    "matplotlib>=3.7.0",
+    "scipy>=1.10.0",
+    "requests>=2.31.0"
 ]
 
 [project.optional-dependencies]
@@ -48,9 +62,9 @@ beq = "binary_equalab.cli:main"
 bneqls = "binary_equalab.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/Malexnnn/BinaryEquaLab"
-Repository = "https://github.com/Malexnnn/BinaryEquaLab"
-Documentation = "https://github.com/Malexnnn/BinaryEquaLab#readme"
+Homepage = "https://github.com/AldrasTeam/BinaryEquaLab"
+Repository = "https://github.com/AldrasTeam/BinaryEquaLab"
+Documentation = "https://github.com/AldrasTeam/BinaryEquaLab#readme"
 
 [tool.hatch.build.targets.wheel]
 packages = ["binary_equalab"]
