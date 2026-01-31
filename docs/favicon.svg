@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <!-- Gradiente cereza izquierda -->
+    <radialGradient id="cherryL" cx="35%" cy="30%" r="65%">
+      <stop offset="0%" style="stop-color:#FF6B8A" />
+      <stop offset="50%" style="stop-color:#E91E63" />
+      <stop offset="100%" style="stop-color:#880E4F" />
+    </radialGradient>
+    
+    <!-- Gradiente cereza derecha -->
+    <radialGradient id="cherryR" cx="35%" cy="30%" r="65%">
+      <stop offset="0%" style="stop-color:#FF5277" />
+      <stop offset="50%" style="stop-color:#D81B60" />
+      <stop offset="100%" style="stop-color:#6A1B4D" />
+    </radialGradient>
+    
+    <!-- Gradiente tallo -->
+    <linearGradient id="stem" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8BC34A" />
+      <stop offset="100%" style="stop-color:#558B2F" />
+    </linearGradient>
+    
+    <!-- Gradiente hoja -->
+    <linearGradient id="leaf" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#81C784" />
+      <stop offset="100%" style="stop-color:#43A047" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Tallos -->
+  <path d="M 11 19 Q 12 12 16 7 Q 17.5 5 19 4" stroke="url(#stem)" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+  <path d="M 21 19 Q 20 14 17 9 Q 16.5 6 19 4" stroke="url(#stem)" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+  
+  <!-- Hoja -->
+  <ellipse cx="22" cy="6" rx="4" ry="2" fill="url(#leaf)" transform="rotate(35, 22, 6)"/>
+  
+  <!-- Cereza izquierda -->
+  <circle cx="11" cy="24" r="7" fill="url(#cherryL)"/>
+  <circle cx="9" cy="22" r="1.5" fill="#FFFFFF" opacity="0.7"/>
+  
+  <!-- Cereza derecha -->
+  <circle cx="21" cy="24" r="7" fill="url(#cherryR)"/>
+  <circle cx="19" cy="22" r="1.5" fill="#FFFFFF" opacity="0.7"/>
+</svg>
