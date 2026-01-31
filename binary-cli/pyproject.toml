@@ -4,16 +4,16 @@ build-backend = "hatchling.build"
 
 [project]
 name = "binary-equalab"
-version = "2.1.0"
+version = "3.0.0b1"
 description = "Binary Equalab is a symbolic mathematics toolkit focused on clarity, performance and educational value. Designed for students, engineers and curious minds who want math to feel alive."
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-  {name = "Aldra", email = "contact@aldra.dev"},
-  {name = "Aldra's Team", email = "contact@aldra.dev"},
+  {name = "Aldra", email = "manhalev1520@gmail.com"},
+  {name = "Aldra's Team", email = "manhalev1520@gmail.com"},
 ]
 maintainers = [
-  {name = "Aldra (José Avilés)", email = "contact@aldra.dev"}
+  {name = "Aldra (José Avilés)", email = "manhalev1520@gmail.com"}
 ]
 keywords = [
   "symbolic-math",
