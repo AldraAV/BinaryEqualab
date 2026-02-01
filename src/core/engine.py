@@ -275,6 +275,23 @@ class EquaEngine:
         
         return sp.inverse_laplace_transform(expr, s, t)
 
+    def fourier(self, expr_str):
+        """Calcula la Transformada de Fourier F(w) asumiendo f(t)."""
+        expr = self.parse_expression(expr_str, 't')
+        if isinstance(expr, str): return expr
+        
+        w = symbols('w')
+        # Fourier Transform: f(t) -> F(w)
+        return sp.fourier_transform(expr, t, w)
+
+    def inverse_fourier(self, expr_str):
+        """Calcula la Transformada Inversa de Fourier f(t) asumiendo F(w)."""
+        expr = self.parse_expression(expr_str, 'w')
+        if isinstance(expr, str): return expr
+        
+        w = symbols('w')
+        return sp.inverse_fourier_transform(expr, w, t)
+
     def taylor(self, expr_str, var_name='x', point=0, order=5):
         """Calcula la serie de Taylor."""
         expr = self.parse_expression(expr_str)

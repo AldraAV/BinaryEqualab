@@ -232,6 +232,14 @@ async def compute_laplace(req: ExpressionRequest):
     except Exception as e:
         return MathResponse(result="", success=False, error=str(e))
 
+@app.post("/api/fourier", response_model=MathResponse)
+async def compute_fourier(req: ExpressionRequest):
+    try:
+        result = engine.fourier(req.expression)
+        return MathResponse(result=str(result))
+    except Exception as e:
+        return MathResponse(result="", success=False, error=str(e))
+
 @app.post("/api/latex", response_model=MathResponse)
 async def to_latex(req: ExpressionRequest):
     try:
@@ -241,6 +249,10 @@ async def to_latex(req: ExpressionRequest):
         return MathResponse(result="", success=False, error=str(e))
 
 # ============================================================================
+# ============================================================================
+# AI Endpoints (Kimi K2)
+# ============================================================================
+
 # ============================================================================
 # AI Endpoints (Kimi K2)
 # ============================================================================

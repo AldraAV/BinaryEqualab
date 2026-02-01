@@ -273,6 +273,58 @@ export const FUNCTION_DEFINITIONS: FunctionDef[] = [
             en: 'Rounds up'
         },
         category: 'misc'
+    },
+
+    // ==================== INDUSTRIAL / AI ====================
+    {
+        name: 'fourier',
+        english: 'fourier',
+        syntax: 'fourier(f(t))',
+        description: {
+            es: 'Transformada de Fourier',
+            en: 'Fourier Transform'
+        },
+        category: 'calculus'
+    },
+    {
+        name: 'laplace',
+        english: 'laplace',
+        syntax: 'laplace(f(t))',
+        description: {
+            es: 'Transformada de Laplace',
+            en: 'Laplace Transform'
+        },
+        category: 'calculus'
+    },
+    {
+        name: 'sonify',
+        english: 'sonify',
+        syntax: 'sonify(expr)',
+        description: {
+            es: 'Genera audio de la función',
+            en: 'Generates audio from function'
+        },
+        category: 'misc'
+    },
+    {
+        name: 'explain',
+        english: 'explain',
+        syntax: 'explain("Tema")',
+        description: {
+            es: 'Explica un concepto con IA',
+            en: 'Explains a concept using AI'
+        },
+        category: 'misc'
+    },
+    {
+        name: 'explicar',
+        english: 'explain',
+        syntax: 'explicar("Tema")',
+        description: {
+            es: 'Explica un concepto con IA',
+            en: 'Explains a concept using AI'
+        },
+        category: 'misc'
     }
 ];
 

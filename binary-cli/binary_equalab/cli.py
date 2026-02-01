@@ -21,7 +21,7 @@ console = Console()
 
 BANNER = """
 [bold orange1]╔══════════════════════════════════════════════════════════╗
-║    [white]Binary EquaLab CLI[/white]   [dim]Aurora v2.0[/dim]                     ║
+║    [white]Binary EquaLab CLI[/white]   [dim]Aurora v3.0 (Beta)[/dim]              ║
 ║    [dim italic]"Las matemáticas también sienten,[/dim italic]                  ║
 ║    [dim italic] pero estas no se equivocan."[/dim italic]                  ║
 ╚══════════════════════════════════════════════════════════╝[/bold orange1]
@@ -80,7 +80,18 @@ HELP_TEXT = """
 | `tir(flujo0, flujo1, ...)` | `tir(-1000, 300, 400, 500)` |
 | `depreciar(costo, residual, años)` | `depreciar(10000, 1000, 5)` |
 | `interes_simple(capital, tasa, tiempo)` | `interes_simple(1000, 0.05, 3)` |
+| `interes_simple(capital, tasa, tiempo)` | `interes_simple(1000, 0.05, 3)` |
 | `interes_compuesto(capital, tasa, n, tiempo)` | `interes_compuesto(1000, 0.05, 12, 3)` |
+
+### Sistemas Numéricos (NUEVO)
+| Función | Ejemplo |
+|---------|---------|
+| `bin(n)` | `bin(10)` → `0b1010` |
+| `oct(n)` | `oct(10)` → `0o12` |
+| `hex(n)` | `hex(255)` → `0xff` |
+| `base(n, b)` | `base(10, 2)` → `1010` |
+
+### AI Assistant
 
 ### Aliases y Accesos Directos
 - **Shell**: Puedes ejecutar el programa como `binary-equalab`, `bneqls`, `beq` o `binary-math`.
@@ -99,7 +110,7 @@ def get_prompt_style():
 def print_banner():
     """Print the CLI banner using Rich panels."""
     title = Text("Binary EquaLab CLI", style="bold white")
-    version = Text("Aurora v2.0.2", style="dim")
+    version = Text("Aurora v3.0 (Beta)", style="dim")
     slogan = Text('"Las matemáticas también sienten,\npero estas no se equivocan."', style="dim italic")
 
     content = Text.assemble(title, "  ", version, "\n\n", slogan, justify="center")
@@ -220,8 +231,8 @@ def main():
         from .shell_setup import run_setup
         run_setup()
     elif len(sys.argv) > 1 and sys.argv[1] == 'ai':
-        # AI Commands Mode
-        from .kimi_service import kimi_service
+        # AI Commands Mode (Kimi K2)
+        from .services.kimi_service import kimi_service
         
         if len(sys.argv) < 3:
             console.print("[bold red]Uso:[/bold red] binary ai [solve|explain|exercises] \"consulta\"")
@@ -230,7 +241,6 @@ def main():
         subcmd = sys.argv[2]
         query = " ".join(sys.argv[3:])
         
-        # 'exercises' command doesn't necessarily need a query if defaults are used, but we'll use query as topic
         if subcmd != 'exercises' and not query:
              console.print("[bold red]Error:[/bold red] Falta la consulta.")
              sys.exit(1)
@@ -258,12 +268,15 @@ def main():
                 console.print(Panel(Markdown(response), title=f"Kimi AI: Explicación", border_style="blue"))
             
             elif subcmd == "exercises":
-                # Uso: binary ai exercises "Derivadas" [opcional: count]
-                # Por simplicidad en sys.argv, asumimos que todo el resto es el topic
-                exercises = kimi_service.generate_exercises(query if query else "Matemáticas generales")
+                count = 3 # default
+                # Simple parsing for count if present in args? For now keeping simple.
+                exercises = kimi_service.generate_exercises(query if query else "Matemáticas Generales", count)
                 
                 console.print(f"[bold u]Generando ejercicios para:[/bold u] {query}\n")
                 
+                if not exercises:
+                     console.print("No se pudieron generar ejercicios. Verifica tu API Key o intenta de nuevo.")
+
                 for i, ex in enumerate(exercises, 1):
                     console.print(Panel(
                         f"[bold]Pregunta:[/bold]\n{ex.get('problem')}\n\n"
@@ -271,10 +284,7 @@ def main():
                         title=f"Ejercicio {i}", border_style="magenta"
                     ))
                     if ex.get('steps'):
-                        with console.status(f"[dim]Ver pasos...[/dim]"):
-                            # Hack para ocultar pasos inicialmente si se quisiera, pero aquí los mostramos
-                            pass
-                        console.print(f"[dim]Pasos: {', '.join(ex.get('steps', []))}[/dim]\n")
+                         console.print(f"[dim]Pasos: {', '.join(ex.get('steps', []))}[/dim]\n")
             else:
                 console.print(f"[bold red]Comando desconocido:[/bold red] {subcmd}")
                 sys.exit(1)

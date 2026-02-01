@@ -74,6 +74,12 @@ class MathEngine:
             'recta': self._recta,
             'circulo': self._circulo,
             
+            # Numeral Systems
+            'bin': self._binario,
+            'oct': self._octal,
+            'hex': self._hexadecimal,
+            'base': self._base_n,
+            
             # Trigonometry aliases
             'seno': sin,
             'coseno': cos,
@@ -394,6 +400,41 @@ class MathEngine:
         engine = AudioEngine()
         return engine.generate(str(expr), float(duration), str(filename))
 
+    # ============ NUMERAL SYSTEMS ============
+
+    def _binario(self, number):
+        """Convert to binary: bin(10) → '0b1010'"""
+        try:
+            return bin(int(number))
+        except:
+            return bin(int(float(number)))
+
+    def _octal(self, number):
+        """Convert to octal: oct(10) → '0o12'"""
+        try:
+            return oct(int(number))
+        except:
+            return oct(int(float(number)))
+
+    def _hexadecimal(self, number):
+        """Convert to hex: hex(255) → '0xff'"""
+        try:
+            return hex(int(number))
+        except:
+            return hex(int(float(number)))
+
+    def _base_n(self, number, base):
+        """Convert to arbitrary base: base(10, 2) → '1010'"""
+        n = int(number)
+        b = int(base)
+        if n == 0:
+            return "0"
+        digits = []
+        while n:
+            digits.append(int(n % b))
+            n //= b
+        return "".join(str(d) for d in digits[::-1])
+
 # Convenience functions for direct import
 def derivar(expr, var=None, n=1):
     engine = MathEngine()
@@ -490,3 +531,19 @@ def circulo(centro, radio):
 def sonify(expr, duration=3.0, filename="output.wav"):
     engine = MathEngine()
     return engine._sonify(expr, duration, filename)
+
+def binario(number):
+    engine = MathEngine()
+    return engine._binario(number)
+
+def octal(number):
+    engine = MathEngine()
+    return engine._octal(number)
+
+def hexadecimal(number):
+    engine = MathEngine()
+    return engine._hexadecimal(number)
+
+def base(number, n):
+    engine = MathEngine()
+    return engine._base_n(number, n)

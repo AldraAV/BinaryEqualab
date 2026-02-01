@@ -6,11 +6,12 @@ import nerdamer from 'nerdamer';
 import ScientificKeypad from './ScientificKeypad';
 import { Eraser, Cloud, CloudOff, AlertCircle, ToggleLeft, ToggleRight, Sparkles } from 'lucide-react';
 import apiService from '../services/apiService';
+import { checkEasterEgg, parseNumberSystems, EasterEggResult } from '../services/easterEggs';
+import { useCalculator } from '../CalculatorContext';
+import { MathService } from '../services/MathService';
 import { parseExpression, ParseResult } from '../services/mathParser';
 import { getAutocompleteSuggestions, FunctionDef } from '../services/functionDefs';
 import { FINANCE_FUNCTIONS, FINANCE_FUNCTION_DEFS, FinanceResult } from '../services/financeFunctions';
-import { checkEasterEgg, parseNumberSystems, EasterEggResult } from '../services/easterEggs';
-
 const ConsoleMode: React.FC = () => {
   const [input, setInput] = useState('');
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -19,13 +20,8 @@ const ConsoleMode: React.FC = () => {
   const [parseError, setParseError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Variables storage (user-defined + ANS)
-  const [variables, setVariables] = useState<Record<string, string>>({
-    'ans': '0'
-  });
-
-  // Display mode: exact (symbolic) or approx (numeric)
-  const [displayMode, setDisplayMode] = useState<'exact' | 'approx'>('exact');
+  // Use Global Calculator Context
+  const { variables, setVariable, ans, setAns, isExact, toggleExact } = useCalculator();
 
   // Autocomplete suggestions
   const [suggestions, setSuggestions] = useState<FunctionDef[]>([]);
@@ -262,7 +258,11 @@ const ConsoleMode: React.FC = () => {
       } else if (processedExpr.startsWith('integrate(')) {
         const inner = extractFunctionContent(processedExpr, 'integrate');
         const parts = inner.split(',').map(s => s.trim());
-        if (parts.length >= 2) {
+        if (parts.length >= 4) {
+          // Definite Integral: integrate(f, x, a, b)
+          const res = await apiService.integral(parts[0], parts[1], parseFloat(parts[2]), parseFloat(parts[3]));
+          return res.latex || res.result;
+        } else if (parts.length >= 2) {
           const res = await apiService.integral(parts[0], parts[1]);
           return res.latex || res.result;
         }
@@ -281,6 +281,37 @@ const ConsoleMode: React.FC = () => {
         const parts = inner.split(',').map(s => s.trim());
         const res = await apiService.taylor(parts[0], parts[1] || 'x', parseFloat(parts[2]) || 0, parseInt(parts[3]) || 5);
         return res.latex || res.result;
+      } else if (processedExpr.startsWith('laplace(')) {
+        const inner = extractFunctionContent(processedExpr, 'laplace');
+        const res = await apiService.laplace(inner);
+        return res.result;
+      } else if (processedExpr.startsWith('fourier(')) {
+        const inner = extractFunctionContent(processedExpr, 'fourier');
+        const res = await apiService.fourier(inner);
+        return res.result;
+      } else if (processedExpr.startsWith('explain(') || processedExpr.startsWith('explicar(')) {
+        // AI Explain Mode
+        const funcName = processedExpr.startsWith('explain') ? 'explain' : 'explicar';
+        const inner = extractFunctionContent(processedExpr, funcName);
+        try {
+          // Use the existing apiService if we add explain method, or fetch directly
+          // Assuming apiService doesn't have explain yet, we'll fetch direct for now
+          const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'}/api/ai/explain`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: inner })
+          });
+          const data = await response.json();
+          // Format explanation as text
+          return {
+            latex: `\\text{AI Analysis}`,
+            rawValue: data.explanation || 'No explanation',
+            approxResult: 'AI',
+            easterEgg: { triggered: true, message: data.explanation, emoji: '🤖', animation: 'glow' }
+          } as any;
+        } catch (e) {
+          return `\\text{AI Service Unavailable}`;
+        }
       }
       // Default: simplify
       const res = await apiService.simplify(processedExpr);
@@ -295,6 +326,17 @@ const ConsoleMode: React.FC = () => {
   // Main evaluation function with preprocessing
   const evaluateExpression = async (expr: string): Promise<{ latex: string; rawValue: string; approxResult: string; easterEgg?: EasterEggResult }> => {
     setParseError(null);  // Clear previous errors
+
+    // Check for "sonify" command
+    if (expr.startsWith('sonify(') || expr.startsWith('sonificar(')) {
+      const inner = extractFunctionContent(expr, expr.startsWith('sonify') ? 'sonify' : 'sonificar');
+      try {
+        await MathService.sonify(inner);
+        return { latex: '\\text{🎵 Audio Playing...}', rawValue: 'Audio', approxResult: 'Audio' };
+      } catch (e) {
+        return { latex: '\\text{❌ Audio Error}', rawValue: 'Error', approxResult: 'Error' };
+      }
+    }
 
     // Parse binary/hex/octal literals (0b1010 → 10, 0xFF → 255)
     let processedExpr = parseNumberSystems(expr);
@@ -373,11 +415,8 @@ const ConsoleMode: React.FC = () => {
           displayExpr = `${assignment.varName} = ${assignment.valueExpr}`;
 
           // Store the variable
-          setVariables(prev => ({
-            ...prev,
-            [assignment.varName!]: rawValue,
-            'ans': rawValue
-          }));
+          setVariable(assignment.varName!, rawValue);
+          setAns(rawValue);
         } else {
           // Normal calculation
           const evalResult = await evaluateExpression(input);
@@ -387,7 +426,7 @@ const ConsoleMode: React.FC = () => {
           easterEggResult = evalResult.easterEgg;
 
           // Update ANS
-          setVariables(prev => ({ ...prev, 'ans': rawValue }));
+          setAns(rawValue);
         }
 
         const newItem: HistoryItem = {
@@ -432,14 +471,14 @@ const ConsoleMode: React.FC = () => {
             <div className="flex items-center gap-2">
               {/* EXACT/APPROX Toggle */}
               <button
-                onClick={() => setDisplayMode(displayMode === 'exact' ? 'approx' : 'exact')}
-                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-colors ${displayMode === 'exact'
+                onClick={toggleExact}
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-colors ${isExact
                   ? 'bg-aurora-secondary/20 text-aurora-secondary'
                   : 'bg-primary/20 text-primary'
                   }`}
-                title={displayMode === 'exact' ? 'Showing exact (symbolic)' : 'Showing approximate (numeric)'}
+                title={isExact ? 'Showing exact (symbolic)' : 'Showing approximate (numeric)'}
               >
-                {displayMode === 'exact' ? (
+                {isExact ? (
                   <><ToggleLeft size={14} /> EXACT</>
                 ) : (
                   <><ToggleRight size={14} /> ≈ APPROX</>
@@ -484,7 +523,7 @@ const ConsoleMode: React.FC = () => {
 
               <div className="text-right">
                 <span className="text-primary text-2xl font-bold font-mono">
-                  = {displayMode === 'exact' ? (
+                  = {isExact ? (
                     <MathDisplay expression={item.result} isResult inline />
                   ) : (
                     <span className="text-primary">≈ {item.approxResult || item.result}</span>

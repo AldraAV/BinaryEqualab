@@ -14,8 +14,8 @@ if cli_path not in sys.path:
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QTextEdit
 from PySide6.QtCore import Qt
 
-# Import Keypad
-from .keypad import KeypadWidget
+import winsound
+from src.core.context import get_context
 
 try:
     from binary_equalab.engine import MathEngine
@@ -29,9 +29,10 @@ class ConsoleWidget(QWidget):
         super().__init__(parent)
         self.setObjectName("ConsoleWidget")
         
-        # Initialize Math Engine
+        # Initialize Math Engine via Global Context
         if HAS_ENGINE:
-            self.engine = MathEngine()
+            self.context = get_context()
+            self.engine = self.context.get_engine()
         
         # Main Layout: Side by Side (Console Left, Keypad Right)
         main_layout = QHBoxLayout(self)
@@ -127,13 +128,21 @@ class ConsoleWidget(QWidget):
             return
 
         try:
-            # Check for sonify special command if engine supports it logic is inside evaluate usually
-            # But let's verify if evaluate handles sonify result properly
+            # Evaluate
              result = self.engine.evaluate(cmd)
+             
+             # Sync ans
+             if result is not None:
+                 self.context.update_ans(result)
+
              if str(result).endswith('.wav'):
                  # It's an audio file
                  self.append_output(f"🎵 Audio generado: {result}", "#22d3ee")
-                 # Play sound? (Requires simpleaudio or similar, skipping for now)
+                 try:
+                     # Play sound asynchronously
+                     winsound.PlaySound(result, winsound.SND_FILENAME | winsound.SND_ASYNC)
+                 except Exception as ws_e:
+                     self.append_output(f"Error al reproducir: {ws_e}", "#ef4444")
              else:
                  self.append_output(f"= {str(result)}", "#e0e0e0")
         except Exception as e:

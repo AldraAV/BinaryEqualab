@@ -134,6 +134,10 @@ class ApiService {
         return this.post('/api/laplace', { expression });
     }
 
+    async fourier(expression: string): Promise<MathResponse> {
+        return this.post('/api/fourier', { expression });
+    }
+
     async toLatex(expression: string): Promise<MathResponse> {
         return this.post('/api/latex', { expression });
     }
