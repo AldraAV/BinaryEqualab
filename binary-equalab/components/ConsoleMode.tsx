@@ -4,21 +4,65 @@ import MathDisplay from './MathDisplay';
 // @ts-ignore
 import nerdamer from 'nerdamer';
 import ScientificKeypad from './ScientificKeypad';
-import { Eraser, Cloud, CloudOff, AlertCircle, ToggleLeft, ToggleRight, Sparkles } from 'lucide-react';
+import MathKeyboardPRO from './MathKeyboardPRO';
+import { Eraser, Cloud, CloudOff, AlertCircle, ToggleLeft, ToggleRight, Sparkles, Keyboard } from 'lucide-react';
 import apiService from '../services/apiService';
 import { checkEasterEgg, parseNumberSystems, EasterEggResult } from '../services/easterEggs';
 import { useCalculator } from '../CalculatorContext';
+import { useNotifications } from '../contexts/NotificationContext';
 import { MathService } from '../services/MathService';
 import { parseExpression, ParseResult } from '../services/mathParser';
 import { getAutocompleteSuggestions, FunctionDef } from '../services/functionDefs';
 import { FINANCE_FUNCTIONS, FINANCE_FUNCTION_DEFS, FinanceResult } from '../services/financeFunctions';
+import { ERRORES, SLASH_COMMANDS, LABELS } from '../locales/es-MX';
+import { supabase } from '../contexts/AuthContext';
 const ConsoleMode: React.FC = () => {
+  const { angleMode } = useCalculator();
+  const { addNotification } = useNotifications();
   const [input, setInput] = useState('');
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [useBackend, setUseBackend] = useState(true);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [useProKeyboard, setUseProKeyboard] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Resize Panel Logic
+  const [keypadWidth, setKeypadWidth] = useState(380); // Default width
+  const [isResizing, setIsResizing] = useState(false);
+  const resizingRef = useRef(false);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const newWidth = document.body.clientWidth - e.clientX;
+      if (newWidth > 280 && newWidth < 600) {
+        setKeypadWidth(newWidth);
+      }
+    };
+
+    const handleMouseUp = () => {
+      resizingRef.current = false;
+      setIsResizing(false);
+      document.body.style.cursor = 'default';
+      document.body.style.userSelect = 'auto';
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  const startResizing = () => {
+    resizingRef.current = true;
+    setIsResizing(true);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
 
   // Use Global Calculator Context
   const { variables, setVariable, ans, setAns, isExact, toggleExact } = useCalculator();
@@ -124,6 +168,8 @@ const ConsoleMode: React.FC = () => {
       }
 
       let processedExpr = parsed.expression;
+      // Fix SymPy power syntax (**) to Nerdamer (^)
+      processedExpr = processedExpr.replace(/\*\*/g, '^');
       processedExpr = processedExpr.replace(/\binf\b/g, 'Infinity');
 
       // Helper: auto-detect variable in expression (x, y, t, etc.)
@@ -327,17 +373,74 @@ const ConsoleMode: React.FC = () => {
   const evaluateExpression = async (expr: string): Promise<{ latex: string; rawValue: string; approxResult: string; easterEgg?: EasterEggResult }> => {
     setParseError(null);  // Clear previous errors
 
-    // Check for "sonify" command
-    if (expr.startsWith('sonify(') || expr.startsWith('sonificar(')) {
-      const inner = extractFunctionContent(expr, expr.startsWith('sonify') ? 'sonify' : 'sonificar');
+    // 1. Special Commands Check (PRIORITY)
+
+    const trimmedExpr = expr.trim();
+
+    // Audio Generation: sonify(...) or sonificar(...)
+    // Regex allows optional spaces and case insensitivity: sonify ( ... )
+    const sonifyMatch = trimmedExpr.match(/^(sonify|sonificar)\s*\((.+)\)$/i);
+    if (sonifyMatch) {
+      let inner = sonifyMatch[2];
+
+      // Auto-fix: Translate 'sen' -> 'sin'
+      const { translateToEnglish } = await import('../services/functionDefs');
+      inner = translateToEnglish(inner);
+
+      // Auto-fix: Replace 'x' with 't' for audio generation implication
+      inner = inner.replace(/\bx\b/g, 't');
+
       try {
         await MathService.sonify(inner);
+        addNotification('Audio Generated', `Playing sound for: ${inner}`, '🎵');
         return { latex: '\\text{🎵 Audio Playing...}', rawValue: 'Audio', approxResult: 'Audio' };
       } catch (e) {
+        console.error("Sonify Error:", e);
         return { latex: '\\text{❌ Audio Error}', rawValue: 'Error', approxResult: 'Error' };
       }
     }
 
+    // AI Explanation: explain(...), explicar(...), ai ...
+    const explainMatch = trimmedExpr.match(/^(explain|explicar)\s*\((.+)\)$/i);
+    const aiPrefixMatch = trimmedExpr.match(/^ai\s+(.+)$/i);
+
+    if (explainMatch || aiPrefixMatch) {
+      let inner = "";
+      if (aiPrefixMatch) {
+        inner = aiPrefixMatch[1]; // "solve contrast"
+      } else if (explainMatch) {
+        inner = explainMatch[2]; // "terms"
+        // Remove quotes if present around the topic
+        inner = inner.replace(/^["'](.+)["']$/, '$1');
+      }
+
+      try {
+        // Fetch from Backend AI Service (with auth token)
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+
+        const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'}/api/ai/explain`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ query: inner })
+        });
+        const data = await response.json();
+
+        return {
+          latex: `\\text{AI Analysis}`,
+          rawValue: data.explanation || 'No explanation',
+          approxResult: 'AI',
+          easterEgg: { triggered: true, message: data.explanation, emoji: '🤖', animation: 'glow' }
+        } as any;
+      } catch (e) {
+        return { latex: `\\text{AI Service Unavailable}`, rawValue: 'Error', approxResult: 'Error' };
+      }
+    }
+
+    // 2. Normal Math Parsing
     // Parse binary/hex/octal literals (0b1010 → 10, 0xFF → 255)
     let processedExpr = parseNumberSystems(expr);
 
@@ -368,7 +471,7 @@ const ConsoleMode: React.FC = () => {
     const numMatch = latex.match(/^-?\d+\.?\d*$/);
     if (numMatch) rawValue = numMatch[0];
 
-    // Try to compute numeric approximation
+    // Try to compute numeric APROXimation
     try {
       const parsed = parseExpression(substitutedExpr);
       if (parsed.success) {
@@ -461,30 +564,41 @@ const ConsoleMode: React.FC = () => {
         <div className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-4">
           <div className="flex justify-between items-end mb-4 border-b border-aurora-border pb-2">
             <div className="flex items-center gap-2">
-              <h2 className="text-aurora-muted text-sm font-bold uppercase tracking-widest">Calculation History</h2>
+              <h2 className="text-aurora-muted text-sm font-bold uppercase tracking-widest">Historial de Cálculos</h2>
               {useBackend ? (
-                <Cloud size={14} className="text-green-500" title="Connected to SymPy backend" />
+                <Cloud size={14} className="text-green-500" title="Backend SymPy conectado" />
               ) : (
-                <CloudOff size={14} className="text-aurora-muted" title="Using client-side Nerdamer" />
+                <CloudOff size={14} className="text-aurora-muted" title="Modo local (Nerdamer)" />
               )}
             </div>
             <div className="flex items-center gap-2">
-              {/* EXACT/APPROX Toggle */}
+              {/* EXACTO/APROX Toggle */}
               <button
                 onClick={toggleExact}
                 className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-colors ${isExact
                   ? 'bg-aurora-secondary/20 text-aurora-secondary'
                   : 'bg-primary/20 text-primary'
                   }`}
-                title={isExact ? 'Showing exact (symbolic)' : 'Showing approximate (numeric)'}
+                title={isExact ? 'Mostrando resultado exacto' : 'Mostrando aproximación'}
               >
                 {isExact ? (
-                  <><ToggleLeft size={14} /> EXACT</>
+                  <><ToggleLeft size={14} /> EXACTO</>
                 ) : (
-                  <><ToggleRight size={14} /> ≈ APPROX</>
+                  <><ToggleRight size={14} /> ≈ APROX</>
                 )}
               </button>
-              <button onClick={() => setHistory([])} className="text-aurora-secondary hover:text-aurora-danger transition-colors p-1" title="Clear History">
+              <button
+                onClick={() => setUseProKeyboard(!useProKeyboard)}
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-colors ${useProKeyboard
+                  ? 'bg-gradient-to-r from-primary to-orange-500 text-white'
+                  : 'bg-background-light text-aurora-muted hover:text-aurora-text'
+                  }`}
+                title="Alternar teclado PRO"
+              >
+                <Keyboard size={16} />
+                {useProKeyboard ? 'PRO' : 'STD'}
+              </button>
+              <button onClick={() => setHistory([])} className="text-aurora-secondary hover:text-aurora-danger transition-colors p-1" title="Limpiar historial">
                 <Eraser size={16} />
               </button>
             </div>
@@ -547,6 +661,27 @@ const ConsoleMode: React.FC = () => {
                 // Trigger autocomplete on last word
                 const words = val.split(/[\s()+\-*/=,]+/);
                 const lastWord = words[words.length - 1];
+
+                // Slash command detection
+                if (val.startsWith('/')) {
+                  const slashMatches = Object.entries(SLASH_COMMANDS)
+                    .filter(([cmd]) => cmd.startsWith(val.toLowerCase()))
+                    .slice(0, 5)
+                    .map(([cmd, data]) => ({
+                      name: cmd,
+                      english: cmd,
+                      syntax: data.template,
+                      description: { es: data.description, en: data.description },
+                      category: 'misc' as const
+                    }));
+                  if (slashMatches.length > 0) {
+                    setSuggestions(slashMatches);
+                    setShowSuggestions(true);
+                    setSelectedSuggestion(0);
+                    return;
+                  }
+                }
+
                 if (lastWord && lastWord.length >= 2) {
                   const matches = getAutocompleteSuggestions(lastWord, 'es', 5);
                   setSuggestions(matches);
@@ -567,12 +702,21 @@ const ConsoleMode: React.FC = () => {
                   } else if (e.key === 'Tab' || e.key === 'Enter') {
                     if (showSuggestions && suggestions[selectedSuggestion]) {
                       e.preventDefault();
-                      // Replace last partial word with selected function
-                      const words = input.split(/[\s()+\-*/=,]+/);
-                      const lastWord = words[words.length - 1];
-                      const fnName = suggestions[selectedSuggestion].name;
-                      const newInput = input.slice(0, input.length - lastWord.length) + fnName + '(';
-                      setInput(newInput);
+                      const selected = suggestions[selectedSuggestion];
+
+                      // Check if it's a slash command
+                      if (selected.name.startsWith('/')) {
+                        // Expand slash command to template
+                        const template = selected.syntax.replace('▯', '');
+                        setInput(template);
+                      } else {
+                        // Normal function autocomplete
+                        const words = input.split(/[\s()+\-*/=,]+/);
+                        const lastWord = words[words.length - 1];
+                        const fnName = selected.name;
+                        const newInput = input.slice(0, input.length - lastWord.length) + fnName + '(';
+                        setInput(newInput);
+                      }
                       setShowSuggestions(false);
                       return;
                     }
@@ -637,8 +781,35 @@ const ConsoleMode: React.FC = () => {
       </div>
 
       {/* Right: Scientific Keypad Panel */}
-      <div className="w-full md:w-[320px] lg:w-[380px] shrink-0 h-[40vh] md:h-full border-t md:border-t-0 md:border-l border-aurora-border z-10 shadow-xl">
-        <ScientificKeypad onKeyClick={handleKeyClick} />
+      {/* Resizable Keypad Panel */}
+      <div
+        className="relative shrink-0 border-t md:border-t-0 md:border-l border-aurora-border z-10 shadow-xl bg-background flex flex-col"
+        style={{
+          width: window.innerWidth >= 768 ? `${keypadWidth}px` : '100%',
+          height: window.innerWidth >= 768 ? '100%' : '40vh'
+        }}
+      >
+        {/* Resize Handle (Desktop only) */}
+        <div
+          className="hidden md:block absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/50 transition-colors z-50"
+          onMouseDown={startResizing}
+        ></div>
+
+        <div className="flex-1 overflow-y-auto">
+          {useProKeyboard ? (
+            <MathKeyboardPRO
+              onEvaluate={(sympy, latex) => {
+                setInput(sympy);
+                setTimeout(() => {
+                  const fakeEvent = new KeyboardEvent('keydown', { key: 'Enter' });
+                  handleKeyDown({ ...fakeEvent, preventDefault: () => { } } as any);
+                }, 50);
+              }}
+            />
+          ) : (
+            <ScientificKeypad onKeyClick={handleKeyClick} />
+          )}
+        </div>
       </div>
 
     </div>
