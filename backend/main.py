@@ -163,8 +163,8 @@ app.include_router(cron_router)
 async def simplify_expression(req: ExpressionRequest):
     try:
         result = engine.simplify(req.expression)
-        latex = engine.to_latex(str(result))  # LaTeX of RESULT, not input
-        return MathResponse(result=str(result), latex=str(latex))
+        latex = engine.expr_to_latex(result)  # Use expr directly, no string conversion
+        return MathResponse(result=str(result), latex=latex)
     except Exception as e:
         return MathResponse(result="", success=False, error=str(e))
 
@@ -188,8 +188,8 @@ async def factor_expression(req: ExpressionRequest):
 async def compute_derivative(req: DerivativeRequest):
     try:
         result = engine.derivative(req.expression, req.variable, req.order)
-        latex = engine.to_latex(str(result))
-        return MathResponse(result=str(result), latex=str(latex))
+        latex = engine.expr_to_latex(result)
+        return MathResponse(result=str(result), latex=latex)
     except Exception as e:
         return MathResponse(result="", success=False, error=str(e))
 
@@ -202,8 +202,8 @@ async def compute_integral(req: IntegralRequest):
             req.lower_bound, 
             req.upper_bound
         )
-        latex = engine.to_latex(str(result))
-        return MathResponse(result=str(result), latex=str(latex))
+        latex = engine.expr_to_latex(result)
+        return MathResponse(result=str(result), latex=latex)
     except Exception as e:
         return MathResponse(result="", success=False, error=str(e))
 
@@ -227,8 +227,8 @@ async def compute_limit(req: LimitRequest):
 async def compute_taylor(req: TaylorRequest):
     try:
         result = engine.taylor(req.expression, req.variable, req.point, req.order)
-        latex = engine.to_latex(str(result))
-        return MathResponse(result=str(result), latex=str(latex))
+        latex = engine.expr_to_latex(result)
+        return MathResponse(result=str(result), latex=latex)
     except Exception as e:
         return MathResponse(result="", success=False, error=str(e))
 

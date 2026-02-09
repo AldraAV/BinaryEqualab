@@ -310,11 +310,23 @@ class EquaEngine:
         return sp.dsolve(expr)
 
     def to_latex(self, expr_str):
-        """Convierte una expresion a LaTeX."""
+        """Convierte una expresion STRING a LaTeX."""
         expr = self.parse_expression(expr_str)
         if isinstance(expr, str): return expr
         
         return sp.latex(expr)
+
+    def expr_to_latex(self, expr):
+        """Convierte una expresion SymPy directamente a LaTeX (sin re-parsear)."""
+        if expr is None:
+            return ""
+        if isinstance(expr, str):
+            return expr  # Ya es string (error o similar)
+        try:
+            return sp.latex(expr)
+        except Exception:
+            return str(expr)
+
 
     def evaluate(self, expr_str, val, var_name='x'):
         """Evalua numericamente una expresion."""

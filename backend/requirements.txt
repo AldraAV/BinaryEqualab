@@ -17,3 +17,5 @@ pyjwt>=2.8.0
 python-dotenv>=1.0.0
 httpx>=0.26.0
 
+# Payments
+stripe>=7.0.0
