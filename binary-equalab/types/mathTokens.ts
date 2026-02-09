@@ -9,11 +9,12 @@
 
 /**
  * Un placeholder vacío que el usuario debe llenar
+ * content es ahora un array para soportar expresiones como 2+3
  */
 export interface Placeholder {
     id: string;
     filled: boolean;
-    content: MathToken | null;
+    content: MathToken[];  // Cambié de MathToken | null a MathToken[]
 }
 
 /**
@@ -130,7 +131,7 @@ export function createPlaceholder(): Placeholder {
     return {
         id: generateId(),
         filled: false,
-        content: null
+        content: []
     };
 }
 

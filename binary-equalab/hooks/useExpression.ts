@@ -238,8 +238,8 @@ function getAllPlaceholders(tokens: MathToken[]): Placeholder[] {
     for (const token of tokens) {
         for (const ph of token.placeholders) {
             result.push(ph);
-            if (ph.content) {
-                result.push(...getAllPlaceholders([ph.content]));
+            if (ph.content.length > 0) {
+                result.push(...getAllPlaceholders(ph.content));
             }
         }
     }
@@ -258,12 +258,13 @@ function insertIntoPlaceholder(
     const newTokens = tokens.map(token => {
         const newPlaceholders = token.placeholders.map(ph => {
             if (ph.id === placeholderId) {
-                return { ...ph, filled: true, content: newToken };
+                // APPEND al array de contenido en lugar de reemplazar
+                return { ...ph, filled: true, content: [...ph.content, newToken] };
             }
-            if (ph.content) {
-                const result = insertIntoPlaceholder([ph.content], placeholderId, newToken);
+            if (ph.content.length > 0) {
+                const result = insertIntoPlaceholder(ph.content, placeholderId, newToken);
                 if (result.success) {
-                    return { ...ph, content: result.tokens[0] };
+                    return { ...ph, content: result.tokens };
                 }
             }
             return ph;
@@ -285,12 +286,17 @@ function clearPlaceholder(
     const newTokens = tokens.map(token => {
         const newPlaceholders = token.placeholders.map(ph => {
             if (ph.id === placeholderId) {
-                return { ...ph, filled: false, content: null };
+                // Borrar último token del array, o vaciar si solo hay uno
+                if (ph.content.length <= 1) {
+                    return { ...ph, filled: false, content: [] };
+                } else {
+                    return { ...ph, content: ph.content.slice(0, -1) };
+                }
             }
-            if (ph.content) {
-                const result = clearPlaceholder([ph.content], placeholderId);
+            if (ph.content.length > 0) {
+                const result = clearPlaceholder(ph.content, placeholderId);
                 if (result.cleared) {
-                    return { ...ph, content: result.tokens[0] };
+                    return { ...ph, content: result.tokens };
                 }
             }
             return ph;
@@ -315,13 +321,11 @@ function insertToken(
         const result = insertIntoPlaceholder(prev.tokens, prev.activePlaceholderId, newToken);
         if (result.success) {
             const { latex, sympy } = recalculate(result.tokens);
-            // Mover al siguiente placeholder vacío
-            const allPhs = getAllPlaceholders(result.tokens);
-            const nextEmpty = allPhs.find(p => !p.filled);
+            // NO avanzar automáticamente - el usuario usa Tab para moverse
             return {
                 ...prev,
                 tokens: result.tokens,
-                activePlaceholderId: nextEmpty?.id || null,
+                activePlaceholderId: prev.activePlaceholderId,  // Mantener mismo placeholder
                 latex,
                 sympy
             };

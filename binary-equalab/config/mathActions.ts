@@ -378,7 +378,10 @@ export function tokenToLatex(token: MathToken): string {
     let latex = token.latex;
 
     token.placeholders.forEach((ph, index) => {
-        const content = ph.filled && ph.content ? tokenToLatex(ph.content) : '□';
+        // ph.content ahora es un array de tokens
+        const content = ph.filled && ph.content.length > 0
+            ? ph.content.map(tokenToLatex).join(' ')
+            : '□';
         latex = latex.replace('□', content);
     });
 
@@ -392,7 +395,10 @@ export function tokenToSympy(token: MathToken): string {
     let sympy = token.sympy;
 
     token.placeholders.forEach((ph, index) => {
-        const content = ph.filled && ph.content ? tokenToSympy(ph.content) : '_';
+        // ph.content ahora es un array de tokens
+        const content = ph.filled && ph.content.length > 0
+            ? ph.content.map(tokenToSympy).join('')
+            : '_';
         sympy = sympy.replace(`{${index}}`, content);
     });
 
@@ -400,3 +406,4 @@ export function tokenToSympy(token: MathToken): string {
 }
 
 export default MATH_ACTIONS;
+
