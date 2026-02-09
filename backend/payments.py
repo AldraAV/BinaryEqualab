@@ -15,10 +15,16 @@ PRO_PRICE_ID = os.environ.get("STRIPE_PRICE_PRO")
 ELITE_PRICE_ID = os.environ.get("STRIPE_PRICE_ELITE")
 FRONTEND_URL = "http://localhost:3000" # Updated to user's port
 
-# Initialize Supabase (Service Role for Webhooks)
+# Initialize Supabase (Service Role for Webhooks) - Optional
 supabase_url = os.environ.get("SUPABASE_URL")
 supabase_service_key = os.environ.get("SUPABASE_SERVICE_KEY")
-supabase_admin: Client = create_client(supabase_url, supabase_service_key)
+
+# Only create client if credentials exist
+supabase_admin: Optional[Client] = None
+if supabase_url and supabase_service_key:
+    supabase_admin = create_client(supabase_url, supabase_service_key)
+else:
+    print("⚠️ Supabase credentials not configured - payments features disabled")
 
 router = APIRouter()
 
@@ -84,8 +90,11 @@ async def verify_session(session_id: str):
                     "updated_at": "now()"
                 }
                 
-                supabase_admin.table("users_plans").update(update_data).eq("user_id", user_id).execute()
-                print(f"Verified & Upgraded: {user_id} -> {plan_name}")
+                if supabase_admin:
+                    supabase_admin.table("users_plans").update(update_data).eq("user_id", user_id).execute()
+                    print(f"Verified & Upgraded: {user_id} -> {plan_name}")
+                else:
+                    print(f"⚠️ Supabase not configured - cannot update plan for {user_id}")
                 return {"status": "success", "plan": plan_name}
         
         return {"status": "pending"}
@@ -141,7 +150,10 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
             }
             
             # Using Service Role Key to bypass RLS if needed, or just standard
-            supabase_admin.table("users_plans").update(update_data).eq("user_id", user_id).execute()
+            if supabase_admin:
+                supabase_admin.table("users_plans").update(update_data).eq("user_id", user_id).execute()
+            else:
+                print(f"⚠️ Supabase not configured - cannot update plan for {user_id}")
 
     return {"status": "success"}
 
