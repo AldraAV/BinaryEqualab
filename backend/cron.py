@@ -3,13 +3,20 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from dotenv import load_dotenv
 from supabase import create_client, Client
+from typing import Optional
 
 load_dotenv()
 
 # Service Role is needed to see/edit all users
 supabase_url = os.environ.get("SUPABASE_URL")
 supabase_service_key = os.environ.get("SUPABASE_SERVICE_KEY")
-supabase: Client = create_client(supabase_url, supabase_service_key)
+
+# Only create client if credentials exist
+supabase: Optional[Client] = None
+if supabase_url and supabase_service_key:
+    supabase = create_client(supabase_url, supabase_service_key)
+else:
+    print("⚠️ Supabase credentials not configured - cron features disabled")
 
 router = APIRouter()
 
@@ -18,6 +25,10 @@ async def reset_monthly_quotas(secret: str = None):
     # Optional: Simple security check
     # if secret != os.environ.get("CRON_SECRET"):
     #     raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    # Check if Supabase is configured
+    if not supabase:
+        return {"status": "error", "message": "Supabase not configured - cron disabled"}
 
     try:
         # 1. Get users who need reset (period_end < now())
