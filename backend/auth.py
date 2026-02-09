@@ -57,27 +57,29 @@ async def get_current_user(
     
     try:
         token = credentials.credentials
-        # Decode JWT (Supabase uses HS256)
-        payload = jwt.decode(
-            token, 
-            JWT_SECRET, 
-            algorithms=["HS256"],
-            audience="authenticated"
-        )
+        
+        # Verify with Supabase Auth Server (More robust than local secret)
+        supabase = get_supabase()
+        user_response = supabase.auth.get_user(token)
+        
+        if not user_response or not user_response.user:
+             raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token"
+            )
+            
+        u = user_response.user
         return User(
-            id=payload.get("sub", ""),
-            email=payload.get("email", ""),
-            role=payload.get("role", "authenticated")
+            id=u.id,
+            email=u.email or "",
+            role=u.role or "authenticated"
         )
-    except jwt.ExpiredSignatureError:
+
+    except Exception as e:
+        print(f"Auth Error: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token expired"
-        )
-    except jwt.InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
+            detail="Token verification failed"
         )
 
 async def require_auth(

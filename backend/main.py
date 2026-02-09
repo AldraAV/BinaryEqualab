@@ -42,10 +42,10 @@ app = FastAPI(
 )
 
 # CORS
-origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
+origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"], # Debugging: Allow all origins to fix local CORS issues
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -146,6 +146,14 @@ async def get_me(user: User = Depends(require_auth)):
 # Include worksheets router
 from worksheets import router as worksheets_router
 app.include_router(worksheets_router)
+
+# Include payments router
+from payments import router as payments_router
+app.include_router(payments_router)
+
+# Include cron router
+from cron import router as cron_router
+app.include_router(cron_router)
 
 # ============================================================================
 # Math Endpoints
@@ -258,28 +266,87 @@ async def to_latex(req: ExpressionRequest):
 # ============================================================================
 
 from ai_service import kimi_service
+from rate_limiter import check_ai_quota, PLAN_LIMITS, supabase
+
+# --- System Status ---
+@app.get("/")
+async def read_root():
+    return {
+        "status": "online",
+        "service": "Binary EquaLab API", 
+        "version": "3.0.0b1", 
+        "backend": "Python/FastAPI + Nerdamer"
+    }
+
+# --- Plan Status Endpoint ---
+@app.get("/api/plan/status")
+async def get_plan_status(user: User = Depends(get_current_user)):
+    try:
+        response = supabase.table("users_plans").select("*").eq("user_id", user.id).single().execute()
+        if not response.data:
+            # Auto-provision 'free' plan if missing
+            new_plan = {
+                "user_id": user.id,
+                "plan": "free",
+                "ai_calls_used": 0,
+                "period_end": "now() + interval '1 month'" 
+            }
+            insert_res = supabase.table("users_plans").insert(new_plan).execute()
+            
+            if insert_res.data:
+                data = insert_res.data[0]
+            else:
+                 # Fallback if insert fails
+                return {
+                    "plan": "free",
+                    "ai_calls_used": 0,
+                    "ai_calls_limit": PLAN_LIMITS["free"]["ai_calls"],
+                    "worksheets_count": 0,
+                    "worksheets_limit": PLAN_LIMITS["free"]["worksheets"]
+                }
+        else:
+            data = response.data
+        plan = data.get("plan", "free")
+        limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])
+        
+        return {
+            "plan": plan,
+            "ai_calls_used": data.get("ai_calls_used", 0),
+            "ai_calls_limit": limits["ai_calls"],
+            "worksheets_count": data.get("worksheets_count", 0),
+            "worksheets_limit": limits["worksheets"],
+            "period_end": data.get("period_end")
+        }
+    except Exception as e:
+        # Log error but return free plan structure to avoid blocking UI
+        return {
+            "plan": "free",
+            "error": str(e),
+            "ai_calls_used": 0,
+            "ai_calls_limit": 20
+        }
 
 class AIRequest(BaseModel):
     query: str
-    
+
 class AIExercisesRequest(BaseModel):
     topic: str
     count: Optional[int] = 3
     difficulty: Optional[str] = "medio"
 
 @app.post("/api/ai/solve")
-async def ai_solve(req: AIRequest):
+async def ai_solve(req: AIRequest, user: User = Depends(check_ai_quota)):
     """Solve math problem with AI reasoning."""
     return await kimi_service.solve_math_problem(req.query)
 
 @app.post("/api/ai/explain")
-async def ai_explain(req: AIRequest):
+async def ai_explain(req: AIRequest, user: User = Depends(check_ai_quota)):
     """Explain math concept."""
     result = await kimi_service.explain_concept(req.query)
     return {"explanation": result}
 
 @app.post("/api/ai/exercises")
-async def ai_exercises(req: AIExercisesRequest):
+async def ai_exercises(req: AIExercisesRequest, user: User = Depends(check_ai_quota)):
     """Generate practice exercises."""
     return await kimi_service.generate_exercises(req.topic, req.count, req.difficulty)
 

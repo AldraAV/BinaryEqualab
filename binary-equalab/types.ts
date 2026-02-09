@@ -5,8 +5,9 @@ export enum AppMode {
   ACCOUNTING = 'ACCOUNTING',
   EQUATIONS = 'EQUATIONS',
   STATISTICS = 'STATISTICS',
-  COMPLEX = 'COMPLEX',
-  VECTORS = 'VECTORS'
+  COMPLEX = 'complex',
+  VECTORS = 'vectors',
+  DASHBOARD = 'dashboard'
 }
 
 export interface HistoryItem {

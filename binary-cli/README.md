@@ -55,7 +55,21 @@ Soporta:
 
 ## 🚀 Uso del CLI
 
-### REPL Mode
+### 🎮 Interactive TUI (Nuevo v3.0)
+La nueva interfaz inmersiva tipo "Jupyter-Lite".
+
+```bash
+binary-math tui
+```
+
+**Features:**
+-   ✨ **Autocompletado & Hints:** Escribe y recibe ayuda contextual.
+-   🎹 **Sonificación:** `sonify(sin(440*t))` reproduce el audio automáticamente.
+-   📜 **Historial:** Navega con ↑ / ↓.
+-   🖥️ **Pretty Print:** Ecuaciones renderizadas con Unicode.
+
+### Rápido REPL Mode
+Para consultas rápidas sin interfaz gráfica:
 ```bash
 binary-math
 ```

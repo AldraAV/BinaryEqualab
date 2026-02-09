@@ -1,8 +1,13 @@
 import sys
 import os
-
 # Force usage of PySide6
 os.environ["QT_API"] = "pyside6"
+
+# Fix import path to include 'binary-desktop' root so 'src.core' works
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.insert(0, parent_dir)
+sys.path.insert(0, current_dir)
 
 from PySide6.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget
 from PySide6.QtCore import Qt
@@ -97,6 +102,12 @@ if __name__ == "__main__":
             self.analyticsInterface = StatisticsWidget()
             self.analyticsInterface.setObjectName("analyticsInterface")
             self.addSubInterface(self.analyticsInterface, FIF.ALBUM, "Estadística")
+
+            # --- Cloud Interface ---
+            from ui.cloud_view import CloudWidget
+            self.cloudInterface = CloudWidget()
+            self.cloudInterface.setObjectName("cloudInterface")
+            self.addSubInterface(self.cloudInterface, FIF.CLOUD, "Nube SaaS")
 
             # Feedback (Bottom)
             self.navigationInterface.addItem(

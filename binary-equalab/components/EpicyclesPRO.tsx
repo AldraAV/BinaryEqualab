@@ -31,43 +31,30 @@ interface Point {
     y: number;
 }
 
-// Catmull-Rom spline interpolation for smooth curves
-function catmullRomSpline(points: Point[], numPoints: number = 200): Point[] {
-    if (points.length < 4) return points;
+// Laplacian smoothing (Match Desktop Engine)
+// P_new = 0.25*prev + 0.5*curr + 0.25*next
+function laplacianSmooth(points: Point[], iterations: number = 3): Point[] {
+    if (points.length < 3) return points;
+    let currentPoints = [...points];
 
-    const result: Point[] = [];
+    for (let k = 0; k < iterations; k++) {
+        const newPoints: Point[] = [currentPoints[0]]; // Keep start
 
-    for (let i = 0; i < points.length - 1; i++) {
-        const p0 = points[Math.max(i - 1, 0)];
-        const p1 = points[i];
-        const p2 = points[Math.min(i + 1, points.length - 1)];
-        const p3 = points[Math.min(i + 2, points.length - 1)];
+        for (let i = 1; i < currentPoints.length - 1; i++) {
+            const prev = currentPoints[i - 1];
+            const curr = currentPoints[i];
+            const next = currentPoints[i + 1];
 
-        const steps = Math.ceil(numPoints / points.length);
+            const x = 0.25 * prev.x + 0.5 * curr.x + 0.25 * next.x;
+            const y = 0.25 * prev.y + 0.5 * curr.y + 0.25 * next.y;
 
-        for (let t = 0; t < steps; t++) {
-            const s = t / steps;
-            const s2 = s * s;
-            const s3 = s2 * s;
-
-            const x = 0.5 * (
-                (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * s3 +
-                (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * s2 +
-                (-p0.x + p2.x) * s +
-                2 * p1.x
-            );
-            const y = 0.5 * (
-                (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * s3 +
-                (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * s2 +
-                (-p0.y + p2.y) * s +
-                2 * p1.y
-            );
-
-            result.push({ x, y });
+            newPoints.push({ x, y });
         }
-    }
 
-    return result;
+        newPoints.push(currentPoints[currentPoints.length - 1]); // Keep end
+        currentPoints = newPoints;
+    }
+    return currentPoints;
 }
 
 // Template shape generators
@@ -196,7 +183,9 @@ function computeDFT(points: Point[]): FourierCoeff[] {
         coefficients.push({ freq: k, amplitude, phase });
     }
 
-    return coefficients.sort((a, b) => b.amplitude - a.amplitude);
+    return coefficients
+        .filter(c => c.amplitude > 0.1) // Filtering noise like Desktop
+        .sort((a, b) => b.amplitude - a.amplitude);
 }
 
 const EpicyclesPRO: React.FC = () => {
@@ -250,7 +239,7 @@ const EpicyclesPRO: React.FC = () => {
     // Apply template
     const applyTemplate = (template: TemplateType) => {
         const points = templateGenerators[template](100);
-        const smoothed = catmullRomSpline(points, 300);
+        const smoothed = laplacianSmooth(points, 3);
         const coeffs = computeDFT(smoothed);
         setFourierCoeffs(coeffs);
         setWaveType('custom');
@@ -264,7 +253,7 @@ const EpicyclesPRO: React.FC = () => {
     const applyFunction = () => {
         const points = parseParametricFunction(funcExpression);
         if (points) {
-            const smoothed = catmullRomSpline(points, 300);
+            const smoothed = laplacianSmooth(points, 3);
             const coeffs = computeDFT(smoothed);
             setFourierCoeffs(coeffs);
             setWaveType('custom');
@@ -307,8 +296,8 @@ const EpicyclesPRO: React.FC = () => {
         setIsDrawing(false);
 
         if (drawnPoints.length > 10) {
-            // Apply Catmull-Rom smoothing
-            const smoothed = catmullRomSpline(drawnPoints, 300);
+            // Apply Laplacian smoothing (Desktop Engine)
+            const smoothed = laplacianSmooth(drawnPoints, 5);
 
             // Compute Fourier coefficients
             const coeffs = computeDFT(smoothed);
@@ -516,8 +505,9 @@ const EpicyclesPRO: React.FC = () => {
                     pathRef.current[pathRef.current.length - 1].x,
                     pathRef.current[pathRef.current.length - 1].y
                 );
-                gradient.addColorStop(0, 'rgba(255, 107, 53, 0.1)');
-                gradient.addColorStop(0.5, 'rgba(255, 107, 53, 0.6)');
+                // Cleaner gradient (less blurry fade)
+                gradient.addColorStop(0, 'rgba(255, 107, 53, 0)');
+                gradient.addColorStop(0.2, 'rgba(255, 107, 53, 0.4)');
                 gradient.addColorStop(1, 'rgba(255, 107, 53, 1)');
 
                 ctx.beginPath();
@@ -527,8 +517,9 @@ const EpicyclesPRO: React.FC = () => {
                 ctx.lineJoin = 'round';
 
                 if (glowEnabled) {
+                    // Subtle glow
                     ctx.shadowColor = '#ff6b35';
-                    ctx.shadowBlur = 10 / zoom;
+                    ctx.shadowBlur = 5 / zoom;
                 }
 
                 ctx.moveTo(pathRef.current[0].x, pathRef.current[0].y);
@@ -626,7 +617,7 @@ const EpicyclesPRO: React.FC = () => {
                     {inputMode === 'drawing' && (
                         <div className="p-4 rounded-xl bg-aurora-primary/10 border border-aurora-primary/30">
                             <p className="text-sm text-aurora-primary font-medium">
-                                ✏️ Dibuja una forma en el canvas. Al soltar se aplicará suavizado Catmull-Rom.
+                                ✏️ Dibuja una forma en el canvas. Al soltar se aplicará suavizado Laplaciano (Engine Desktop).
                             </p>
                             {drawnPoints.length > 0 && (
                                 <button
@@ -812,15 +803,78 @@ const EpicyclesPRO: React.FC = () => {
                         </>
                     )}
 
-                    {/* Fourier Info */}
+                    {/* Fourier Info & Editor */}
                     {waveType === 'custom' && fourierCoeffs.length > 0 && (
-                        <div className="p-4 rounded-xl bg-aurora-panel border border-white/5">
-                            <div className="flex items-center gap-2 mb-2">
-                                <div className="size-2 rounded-full bg-emerald-500"></div>
-                                <span className="text-xs font-bold text-white">Fourier DFT</span>
-                            </div>
-                            <div className="text-xs text-aurora-muted font-mono">
-                                {fourierCoeffs.length} coeficientes • Catmull-Rom smoothing
+                        <div className="space-y-4">
+                            <div className="p-4 rounded-xl bg-aurora-panel border border-white/5">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <div className="size-2 rounded-full bg-emerald-500"></div>
+                                        <span className="text-xs font-bold text-white">Fourier DFT</span>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            const code = fourierCoeffs.map(c =>
+                                                `${c.amplitude.toFixed(3)} * exp(${c.freq}j * t + ${c.phase.toFixed(3)}j)`
+                                            ).join(' + ');
+                                            const pyCode = `import numpy as np\n\ndef f(t):\n    # Generated by Binary EquaLab\n    return ${fourierCoeffs.slice(0, 20).map(c =>
+                                                `(${c.amplitude.toFixed(4)}) * np.exp(1j * (${c.freq} * t + ${c.phase.toFixed(4)}))`
+                                            ).join(' + \\\n           ')}`;
+
+                                            navigator.clipboard.writeText(pyCode);
+                                            alert("Código Python copiado al portapapeles! 🐍");
+                                        }}
+                                        className="text-[10px] px-2 py-1 bg-white/5 hover:bg-white/10 rounded border border-white/10 text-aurora-primary transition-colors"
+                                    >
+                                        Export Python
+                                    </button>
+                                </div>
+                                <div className="text-xs text-aurora-muted font-mono mb-3">
+                                    {fourierCoeffs.length} coeficientes • Top 5 Armónicos:
+                                </div>
+
+                                {/* Harmonic Editor (Top 5) */}
+                                <div className="space-y-3 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+                                    {fourierCoeffs.slice(0, 5).map((coeff, idx) => (
+                                        <div key={idx} className="bg-black/20 p-2 rounded border border-white/5">
+                                            <div className="flex justify-between text-[10px] text-aurora-muted mb-1">
+                                                <span>Freq: {coeff.freq}Hz</span>
+                                                <span className="text-aurora-primary">#{idx + 1}</span>
+                                            </div>
+
+                                            <div className="space-y-1">
+                                                <div className="flex gap-2 items-center">
+                                                    <span className="text-[10px] w-6">Amp</span>
+                                                    <input
+                                                        type="range" min="0" max="200" step="1"
+                                                        value={coeff.amplitude}
+                                                        onChange={(e) => {
+                                                            const newCoeffs = [...fourierCoeffs];
+                                                            newCoeffs[idx].amplitude = parseFloat(e.target.value);
+                                                            setFourierCoeffs(newCoeffs);
+                                                        }}
+                                                        className="flex-1 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                                                    />
+                                                    <span className="text-[10px] w-8 text-right font-mono">{coeff.amplitude.toFixed(0)}</span>
+                                                </div>
+                                                <div className="flex gap-2 items-center">
+                                                    <span className="text-[10px] w-6">Fase</span>
+                                                    <input
+                                                        type="range" min={-Math.PI} max={Math.PI} step="0.1"
+                                                        value={coeff.phase}
+                                                        onChange={(e) => {
+                                                            const newCoeffs = [...fourierCoeffs];
+                                                            newCoeffs[idx].phase = parseFloat(e.target.value);
+                                                            setFourierCoeffs(newCoeffs);
+                                                        }}
+                                                        className="flex-1 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                                                    />
+                                                    <span className="text-[10px] w-8 text-right font-mono">{coeff.phase.toFixed(1)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     )}

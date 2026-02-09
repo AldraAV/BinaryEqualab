@@ -3,6 +3,7 @@ import numpy as np
 import wave
 import struct
 import os
+import re
 from typing import Union, List
 import sympy as sp
 from .parser_enhanced import EnhancedParser
@@ -27,8 +28,22 @@ class AudioEngine:
         
         # Preprocess using our EnhancedParser (supports 2t, sin^2(t))
         clean_expr = EnhancedParser.preprocess(expr_str)
+        # Custom replacements for Sonify (since it doesn't use Engine's full pipeline)
+        replacements = {
+            'seno': 'sin', 'sen': 'sin',
+            'coseno': 'cos', 'tangente': 'tan',
+            'raiz': 'sqrt'
+        }
+        for es, en in replacements.items():
+            clean_expr = re.sub(rf'\b{es}\b', en, clean_expr, flags=re.IGNORECASE)
+            
         # Also standardize python power
         clean_expr = clean_expr.replace('^', '**')
+        
+        # Smart variable replacement: if users type 'sin(x)', they mean 'sin(t)' for audio
+        if 'x' in clean_expr and 't' not in clean_expr:
+            print("ℹ️ Auto-detecting 'x' as time variable...")
+            clean_expr = clean_expr.replace('x', 't')
         
         try:
             # Parse with SymPy

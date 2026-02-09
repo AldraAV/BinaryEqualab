@@ -16,6 +16,7 @@ from PySide6.QtCore import Qt
 
 import winsound
 from src.core.context import get_context
+from src.ui.keypad import KeypadWidget
 
 try:
     from binary_equalab.engine import MathEngine

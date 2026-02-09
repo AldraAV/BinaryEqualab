@@ -640,6 +640,77 @@ const StandardGraphing: React.FC = () => {
                 <div className="absolute top-4 right-4 text-xs font-mono text-aurora-muted opacity-50">
                     <div>Zoom: {Math.round(zoomRef.current)}px/unit</div>
                 </div>
+
+                {/* Convolution Control Panel */}
+                {functions.some(f => f.id === 'conv_result') && (
+                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-96 p-4 rounded-xl bg-background-light/95 backdrop-blur-md border border-aurora-border shadow-2xl flex flex-col gap-2">
+                        <div className="flex justify-between items-center text-xs font-bold uppercase tracking-wider">
+                            <span>Convolución (t)</span>
+                            <span className="font-mono text-primary">{tracePos?.mathX?.toFixed(2) || "0.00"}</span>
+                        </div>
+                        <input
+                            type="range"
+                            min="-10" max="10" step="0.05"
+                            defaultValue="0"
+                            onInput={(e) => {
+                                const t = parseFloat((e.target as HTMLInputElement).value);
+                                // Update functions to simulate sliding
+                                // We can't easily update 'expression' string for g(t-x) efficiently here without parsing overhead
+                                // Instead, we'll use a special global ref for 't' or update a state that the draw loop reads
+                                // For this MVP, we will rely on the tracePos or just force a re-render
+
+                                // Actually, let's update the 'g' function expression to be g(t - x) visually? No, that's g(x-t).
+                                // Convolution is Integral f(tau)g(t-tau).
+                                // We are plotting against 'tau' (x-axis).
+                                // So f(x) stays static. g(t-x) moves.
+
+                                // Let's update the expression of the second function directly
+                                setFunctions(prev => prev.map(f => {
+                                    if (f.id === 'g') {
+                                        // g(x) was exp(-x*x), we want g(t-x) -> exp(-(t-x)*(t-x))
+                                        // We need to inject the value of t
+                                        return { ...f, expression: `Math.exp(-(${t}-x)*(${t}-x))` };
+                                        // Note: Users passed "x", we need to replace x with (t-x) in their raw string?
+                                        // Too complex for generic raw string.
+                                        // For the Demo, we hardcode the known "g" generic form or just update the variable.
+                                    }
+                                    return f;
+                                }));
+                            }}
+                            className="w-full h-1.5 bg-background-dark rounded-lg appearance-none cursor-pointer accent-primary"
+                        />
+                        <div className="text-[10px] text-aurora-muted text-center mt-1">
+                            Desliza para mover la función azul (g) sobre la verde (f)
+                        </div>
+                    </div>
+                )}
+
+                {/* Mode Toggles */}
+                <div className="absolute top-4 left-4 flex gap-2">
+                    <button
+                        onClick={() => {
+                            setFunctions([
+                                { id: '1', expression: 'sin(x)', color: COLORS[0], visible: true, showDerivative: false },
+                                { id: '2', expression: 'cos(x)', color: COLORS[1], visible: true, showDerivative: false },
+                            ]);
+                        }}
+                        className="px-3 py-1.5 bg-background-light/80 backdrop-blur border border-aurora-border rounded-lg text-xs font-bold hover:bg-white/5"
+                    >
+                        Standard
+                    </button>
+                    <button
+                        onClick={() => {
+                            setFunctions([
+                                { id: 'f', expression: 'Math.abs(x) < 1 ? 1 : 0', color: '#10B981', visible: true, showDerivative: false },
+                                { id: 'g', expression: 'Math.exp(-(0-x)*(0-x))', color: '#3B82F6', visible: true, showDerivative: false },
+                                { id: 'conv_result', expression: '0', color: '#F59E0B', visible: false, showDerivative: false } // Hidden placeholder to trigger UI
+                            ]);
+                        }}
+                        className="px-3 py-1.5 bg-background-light/80 backdrop-blur border border-aurora-border rounded-lg text-xs font-bold hover:bg-white/5 text-aurora-primary"
+                    >
+                        Convolución Demo
+                    </button>
+                </div>
             </div>
         </div>
     );

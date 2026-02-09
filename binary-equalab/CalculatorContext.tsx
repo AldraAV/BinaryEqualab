@@ -28,7 +28,7 @@ export const CalculatorProvider: React.FC<{ children: ReactNode }> = ({ children
     const [angleMode, setAngleMode] = useState<AngleMode>('DEG');
     const [variables, setVariables] = useState<Record<string, string>>({});
     const [ans, setAns] = useState<string>('0');
-    const [isExact, setIsExact] = useState<boolean>(true);
+    const [isExact, setIsExact] = useState<boolean>(false);
 
     const setVariable = (name: string, value: string) => {
         setVariables(prev => ({ ...prev, [name]: value }));

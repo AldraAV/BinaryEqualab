@@ -230,6 +230,10 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == 'setup-shell':
         from .shell_setup import run_setup
         run_setup()
+    elif len(sys.argv) > 1 and sys.argv[1] == 'tui':
+        from .tui import BinaryTUI
+        app = BinaryTUI()
+        app.run()
     elif len(sys.argv) > 1 and sys.argv[1] == 'ai':
         # AI Commands Mode (Kimi K2)
         from .services.kimi_service import kimi_service
