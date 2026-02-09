@@ -10,6 +10,12 @@ NOTAS*.md
 *.private.md
 .gemini/
 
+# Database/Scripts (sensitive)
+*.sql
+*.sh
+*secrets*
+*credentials*
+
 # Python
 __pycache__/
 *.py[cod]
