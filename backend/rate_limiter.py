@@ -3,11 +3,17 @@ from supabase import create_client, Client
 from auth import get_current_user, User
 import os
 from datetime import datetime
+from typing import Optional
 
-# Initialize Supabase Client
+# Initialize Supabase Client - Optional
 url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_KEY")
-supabase: Client = create_client(url, key)
+
+supabase: Optional[Client] = None
+if url and key:
+    supabase = create_client(url, key)
+else:
+    print("⚠️ Supabase credentials not configured - rate limiting disabled")
 
 # Define Limits
 PLAN_LIMITS = {
@@ -24,6 +30,10 @@ async def check_ai_quota(user: User = Depends(get_current_user)):
     3. Increments usage if allowed.
     4. Logs request.
     """
+    
+    # If Supabase not configured, allow unlimited access
+    if not supabase:
+        return user
     
     # 1. Get User Plan
     try:
