@@ -1,5 +1,15 @@
 # Binary EquaLab - Git Ignore
 
+# Internal/Private Documents (NEVER commit these)
+*_BRIEF.md
+*_SETUP.md
+*_WALKTHROUGH.md
+*_HISTORY.md
+DIRECTIVAS*.md
+NOTAS*.md
+*.private.md
+.gemini/
+
 # Python
 __pycache__/
 *.py[cod]
