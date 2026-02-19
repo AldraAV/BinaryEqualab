@@ -137,7 +137,7 @@ Binary EquaLab CLI v1.0.0
 
 ```bash
 # Clone
-git clone https://github.com/Malexnnn/BinaryEquaLab.git
+git clone https://github.com/AldraAV/BinaryEquaLab.git
 cd BinaryEquaLab
 
 # Web

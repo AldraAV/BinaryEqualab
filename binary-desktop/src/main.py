@@ -130,7 +130,7 @@ if __name__ == "__main__":
             <p>Acepto cualquier sugerencia de mejora, apoyo, compañía o financiamiento.</p>
             <p>Cualquier inconveniente, por favor repórtalo en GitHub.</p>
             <br>
-            <a href='https://github.com/Malexnnn/BinaryEqualab'>🐙 Ir al Repositorio (GitHub)</a>
+            <a href='https://github.com/AldraAV/BinaryEqualab'>🐙 Ir al Repositorio (GitHub)</a>
             """
             
             box = QMessageBox(self)
@@ -140,7 +140,7 @@ if __name__ == "__main__":
             box.setIcon(QMessageBox.Icon.Information)
             box.exec()
             
-            QDesktopServices.openUrl(QUrl("https://github.com/Malexnnn/BinaryEqualab"))
+            QDesktopServices.openUrl(QUrl("https://github.com/AldraAV/BinaryEqualab"))
 
 
     # Apply Aurora Theme

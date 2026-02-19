@@ -122,7 +122,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentMode, setMode }) => {
       {/* Feedback Button */}
       <div className="mt-6 px-3 shrink-0">
         <button
-          onClick={() => window.open('https://github.com/Malexnnn/BinaryEqualab', '_blank')}
+          onClick={() => window.open('https://github.com/AldraAV/BinaryEqualab', '_blank')}
           className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-aurora-secondary hover:bg-primary/10 hover:text-primary transition-all duration-300 group border border-transparent hover:border-primary/20"
         >
           <div className="relative">
