@@ -167,12 +167,18 @@ BinaryEquaLab/
 
 > *"Las matemáticas también sienten, pero estas no se equivocan."*
 
-Binary EquaLab es un ecosistema matemático unificado que abarca:
-- **CLI**: Para terminales rápidas (Windows/Linux/Termux).
-- **Desktop**: App visual potente (PyQt6/Fluenta).
-- **Web**: Experiencia accesible desde cualquier navegador.
+Binary EquaLab v3.0 trasciende los números para modelar la vida. Cada pulsación simulada, cada dosis calculada y cada potencial de acción generado es un paso hacia la democratización del aprendizaje biomédico de alto nivel.
 
 Every calculation carries meaning beyond numbers.
+
+### 🐍 Python Interoperability
+Gracias a **pybind11**, el motor C++ se expone como un módulo nativo de alto rendimiento para Python, permitiendo una integración transparente con el ecosistema de IA y Ciencia de Datos.
+
+### 🧠 Hybrid AI Infrastructure (Resilience)
+Binary v3.0 introduce un sistema de orquestación de IA con **Zero-Downtime Fallback**:
+- **Groq ⚡:** Latencia ultra-baja para feedback instantáneo.
+- **Kimi K2 🌓:** Ventana de contexto masiva (128k) para análisis profundos.
+- **Explain Mode:** Explicaciones pedagógicas generadas por IA de conceptos biomédicos complejos.
 
 ---
 

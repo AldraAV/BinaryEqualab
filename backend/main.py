@@ -155,6 +155,12 @@ app.include_router(payments_router)
 from cron import router as cron_router
 app.include_router(cron_router)
 
+# Include Séptima router (Biomedical Integration)
+# Note: Requires sys.path setup or package install
+sys.path.append(os.path.join(os.path.dirname(__file__), 'routers'))
+from routers.septima import router as septima_router
+app.include_router(septima_router)
+
 # ============================================================================
 # Math Endpoints
 # ============================================================================
@@ -265,7 +271,7 @@ async def to_latex(req: ExpressionRequest):
 # AI Endpoints (Kimi K2)
 # ============================================================================
 
-from ai_service import kimi_service
+from ai_service import ai_engine
 from rate_limiter import check_ai_quota, PLAN_LIMITS, supabase
 
 # --- System Status ---
@@ -337,18 +343,18 @@ class AIExercisesRequest(BaseModel):
 @app.post("/api/ai/solve")
 async def ai_solve(req: AIRequest, user: User = Depends(check_ai_quota)):
     """Solve math problem with AI reasoning."""
-    return await kimi_service.solve_math_problem(req.query)
+    return await ai_engine.solve_math_problem(req.query)
 
 @app.post("/api/ai/explain")
 async def ai_explain(req: AIRequest, user: User = Depends(check_ai_quota)):
     """Explain math concept."""
-    result = await kimi_service.explain_concept(req.query)
+    result = await ai_engine.explain_concept(req.query)
     return {"explanation": result}
 
 @app.post("/api/ai/exercises")
 async def ai_exercises(req: AIExercisesRequest, user: User = Depends(check_ai_quota)):
     """Generate practice exercises."""
-    return await kimi_service.generate_exercises(req.topic, req.count, req.difficulty)
+    return await ai_engine.generate_exercises(req.topic, req.count, req.difficulty)
 
 # ============================================================================
 # Run with: uvicorn main:app --reload

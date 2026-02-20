@@ -1,71 +1,84 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <vector>
-#include <cmath>
-#include <string>
-#include <map>
+#include <pybind11/eigen.h> 
+
+#include "ode_solvers.hpp" // OLD generics
+#include "ode.hpp"         // NEW BioODESolver
 
 namespace py = pybind11;
+using namespace equacore;
 
-// --- High Performance Number Theory ---
-
-// Optimized primality test (Trial Division)
-bool is_prime(long long n) {
-    if (n <= 1) return false;
-    if (n <= 3) return true;
-    if (n % 2 == 0 || n % 3 == 0) return false;
-    for (long long i = 5; i * i <= n; i = i + 6)
-        if (n % i == 0 || n % (i + 2) == 0)
-            return false;
-    return true;
-}
-
-// Fast Factorization
-std::map<long long, int> get_factors(long long n) {
-    std::map<long long, int> factors;
-    
-    // Count 2s
-    while (n % 2 == 0) {
-        factors[2]++;
-        n /= 2;
-    }
-    
-    // Count odd numbers
-    for (long long i = 3; i * i <= n; i = i + 2) {
-        while (n % i == 0) {
-            factors[i]++;
-            n /= i;
-        }
-    }
-    
-    // If n > 2, it is a prime factor itself
-    if (n > 2)
-        factors[n]++;
-        
-    return factors;
-}
-
-// Numerical Integration (Trapezoidal Rule)
-double integrate(const std::function<double(double)> &func, double a, double b, int steps) {
-    double h = (b - a) / steps;
-    double sum = 0.5 * (func(a) + func(b));
-    for (int i = 1; i < steps; ++i) {
-        double x = a + h * i;
-        sum += func(x);
-    }
-    return sum * h;
-}
-
+// --- Primitives placeholders ---
+bool is_prime(long long n) { return false; } // Stub for now
 
 PYBIND11_MODULE(_equacore, m) {
-    m.doc() = "EquaCore - High-performance numerical C++ engine for Binary EquaLab";
-    
-    m.def("is_prime", &is_prime, "Check if a number is prime (C++ optimized)");
-    
-    m.def("factorize", &get_factors, "Get prime factorization as a dict {factor: power}");
-    
-    m.def("integrate", &integrate, "Numerical integration using Trapezoidal rule",
-          py::arg("func"), py::arg("a"), py::arg("b"), py::arg("steps") = 1000);
+    m.doc() = "EquaCore v3.0 - High-performance BioMedical Engine";
+    m.attr("__version__") = "3.0.0";
 
-    m.attr("__version__") = "0.0.1";
+    // --- Params Structs Bindings ---
+    py::class_<BergmanParams>(m, "BergmanParams")
+        .def(py::init<double, double, double, double, double, double>(),
+             py::arg("p1"), py::arg("p2"), py::arg("p3"), 
+             py::arg("Gb"), py::arg("Ib"), py::arg("n"));
+
+    py::class_<PKParams>(m, "PKParams")
+        .def(py::init<double, double, double, double, bool>(),
+             py::arg("ka"), py::arg("ke"), py::arg("Vd"), py::arg("D"), py::arg("oral"));
+
+    py::class_<WindkesselParams>(m, "WindkesselParams")
+        .def(py::init<double, double, double>(),
+             py::arg("R"), py::arg("C"), py::arg("P_venous"));
+             
+    py::class_<HHParams>(m, "HHParams")
+        .def(py::init<double, double, double, double, double, double, double, double>(),
+             py::arg("C_m"), py::arg("g_Na"), py::arg("g_K"), py::arg("g_L"),
+             py::arg("E_Na"), py::arg("E_K"), py::arg("E_L"), py::arg("I_ext"));
+
+
+    // --- BioODESolver ---
+    py::class_<BioODESolver> solver(m, "BioODESolver");
+
+    // Result struct
+    py::class_<BioODESolver::SimulationResult>(solver, "Result")
+        .def_readonly("t", &BioODESolver::SimulationResult::t)
+        .def_readonly("y", &BioODESolver::SimulationResult::y);
+
+    // Methods
+    solver.def_static("simulate_glucose_insulin", &BioODESolver::simulate_glucose_insulin,
+        "Simulate Bergman Minimal Model",
+        py::arg("t_start"), py::arg("t_end"), py::arg("dt"),
+        py::arg("y0"), py::arg("params")
+    );
+
+    solver.def_static("simulate_pk_1cmt", &BioODESolver::simulate_pk_1cmt,
+        "Simulate 1-Compartment PK Model",
+        py::arg("t_start"), py::arg("t_end"), py::arg("dt"),
+        py::arg("y0"), py::arg("params")
+    );
+
+    solver.def_static("simulate_windkessel", &BioODESolver::simulate_windkessel,
+        "Simulate 2-Element Windkessel Cardiovascular Model",
+        py::arg("t_start"), py::arg("t_end"), py::arg("dt"),
+        py::arg("y0"), py::arg("params"), py::arg("heart_rate")
+    );
+    
+    solver.def_static("simulate_hodgkin_huxley", &BioODESolver::simulate_hodgkin_huxley,
+        "Simulate Hodgkin-Huxley Neuron Model",
+        py::arg("t_start"), py::arg("t_end"), py::arg("dt"),
+        py::arg("y0"), py::arg("params")
+    );
+    
+    // --- Legacy / Generic ODESolver support ---
+    py::class_<ODESolver> generic_solver(m, "ODESolver");
+    py::enum_<ODESolver::Method>(generic_solver, "Method")
+        .value("Euler", ODESolver::Method::Euler)
+        .value("RungeKutta4", ODESolver::Method::RungeKutta4)
+        .export_values();
+    py::class_<ODESolver::Result>(generic_solver, "Result")
+        .def_readonly("t", &ODESolver::Result::t)
+        .def_readonly("y", &ODESolver::Result::y);
+    generic_solver.def_static("solve", &ODESolver::solve);
+    
+    // --- Utils ---
+    m.def("is_prime", &is_prime);
 }
