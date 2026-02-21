@@ -16,6 +16,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     const [mode, setMode] = useState<'login' | 'signup'>('login');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [acceptTerms, setAcceptTerms] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
@@ -31,6 +32,14 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         setSuccess(null);
 
         try {
+            if (mode === 'signup') {
+                // Enterprise-grade password validation
+                if (password.length < 8) throw new Error('Password must be at least 8 characters');
+                if (!/[A-Z]/.test(password)) throw new Error('Password must contain at least one uppercase letter');
+                if (!/[0-9]/.test(password)) throw new Error('Password must contain at least one number');
+                if (!acceptTerms) throw new Error('You must accept the Terms of Service');
+            }
+
             if (mode === 'login') {
                 const { error } = await signIn(email, password);
                 if (error) throw error;
@@ -165,6 +174,21 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     {success && (
                         <div className="bg-green-500/10 border border-green-500/30 text-green-400 px-4 py-2 rounded-lg text-sm">
                             {success}
+                        </div>
+                    )}
+
+                    {mode === 'signup' && (
+                        <div className="flex items-start gap-3 px-1">
+                            <input
+                                type="checkbox"
+                                id="terms"
+                                checked={acceptTerms}
+                                onChange={(e) => setAcceptTerms(e.target.checked)}
+                                className="mt-1 size-4 rounded border-aurora-border bg-background-dark text-primary focus:ring-primary focus:ring-offset-background-dark"
+                            />
+                            <label htmlFor="terms" className="text-xs text-aurora-muted leading-tight">
+                                I accept the <button type="button" className="text-primary hover:underline">Terms of Service</button> and <button type="button" className="text-primary hover:underline">Privacy Policy</button>.
+                            </label>
                         </div>
                     )}
 

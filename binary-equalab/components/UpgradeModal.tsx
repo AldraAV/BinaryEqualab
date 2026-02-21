@@ -12,8 +12,17 @@ import { useAuth } from '../contexts/AuthContext';
 const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, currentPlan = 'free' }) => {
     const { user } = useAuth();
     const [loading, setLoading] = React.useState(false);
+    const [billingPeriod, setBillingPeriod] = React.useState<'monthly' | 'yearly'>('monthly');
 
     if (!isOpen) return null;
+
+    const getPrice = (monthly: number) => {
+        if (billingPeriod === 'yearly') {
+            const annual = monthly * 12 * 0.85; // 15% discount
+            return (annual / 12).toFixed(2);
+        }
+        return monthly.toFixed(2);
+    };
 
     const handleUpgrade = async (plan: 'pro' | 'elite') => {
         if (!user) return;
@@ -52,6 +61,23 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, currentPla
                     <X size={24} />
                 </button>
 
+                {/* Billing Toggle */}
+                <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10 flex bg-background-dark p-1 rounded-full border border-aurora-border scale-90 md:scale-100">
+                    <button 
+                        onClick={() => setBillingPeriod('monthly')}
+                        className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${billingPeriod === 'monthly' ? 'bg-primary text-white' : 'text-aurora-muted hover:text-white'}`}
+                    >
+                        Monthly
+                    </button>
+                    <button 
+                        onClick={() => setBillingPeriod('yearly')}
+                        className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${billingPeriod === 'yearly' ? 'bg-primary text-white' : 'text-aurora-muted hover:text-white'}`}
+                    >
+                        Yearly
+                        <span className="bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded text-[10px]">-15%</span>
+                    </button>
+                </div>
+
                 {/* Free Plan */}
                 <div className="flex-1 p-8 flex flex-col border-b md:border-b-0 md:border-r border-aurora-border/50 bg-white/[0.02]">
                     <h3 className="text-xl font-bold text-aurora-text mb-2">Free</h3>
@@ -67,10 +93,10 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, currentPla
                 </div>
 
                 {/* Pro Plan */}
-                <div className="flex-1 p-8 flex flex-col border-b md:border-b-0 md:border-r border-aurora-border/50 bg-white/[0.02] relative overflow-hidden">
-                    <div className="absolute top-0 right-0 bg-blue-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg">POPULAR</div>
+                <div className="flex-1 p-8 pt-16 md:pt-8 flex flex-col border-b md:border-b-0 md:border-r border-aurora-border/50 bg-white/[0.02] relative overflow-hidden">
+                    <div className="absolute top-0 right-0 bg-blue-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase tracking-tight">POPUlar</div>
                     <h3 className="text-xl font-bold text-blue-400 mb-2">Pro</h3>
-                    <div className="text-3xl font-bold text-white mb-6">$4.99<span className="text-sm font-normal text-aurora-muted">/mo</span></div>
+                    <div className="text-3xl font-bold text-white mb-6">${getPrice(4.99)}<span className="text-sm font-normal text-aurora-muted">/mo</span></div>
                     <ul className="space-y-3 mb-8 flex-1">
                         <li className="flex gap-2 text-sm text-aurora-text"><Check size={16} className="text-blue-500" /> Fast Math Engine</li>
                         <li className="flex gap-2 text-sm text-aurora-text"><Check size={16} className="text-blue-500" /> 200 AI Calls / month</li>
@@ -87,9 +113,9 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, currentPla
                 </div>
 
                 {/* Elite Plan */}
-                <div className="flex-1 p-8 flex flex-col bg-gradient-to-b from-purple-900/20 to-transparent">
+                <div className="flex-1 p-8 pt-16 md:pt-8 flex flex-col border-b md:border-b-0 md:border-r border-aurora-border/50 bg-gradient-to-b from-purple-900/20 to-transparent">
                     <h3 className="text-xl font-bold text-purple-400 mb-2">Elite</h3>
-                    <div className="text-3xl font-bold text-white mb-6">$14.99<span className="text-sm font-normal text-aurora-muted">/mo</span></div>
+                    <div className="text-3xl font-bold text-white mb-6">${getPrice(14.99)}<span className="text-sm font-normal text-aurora-muted">/mo</span></div>
                     <ul className="space-y-3 mb-8 flex-1">
                         <li className="flex gap-2 text-sm text-aurora-text"><Check size={16} className="text-purple-500" /> Everything in Pro</li>
                         <li className="flex gap-2 text-sm text-aurora-text font-bold"><Check size={16} className="text-purple-500" /> Unlimited AI</li>
@@ -102,6 +128,24 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, currentPla
                         className={`w-full py-2 rounded-lg text-white text-sm font-bold transition-all shadow-lg ${currentPlan === 'elite' ? 'bg-white/10 cursor-not-allowed' : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 shadow-purple-900/20'}`}
                     >
                         {loading ? 'Processing...' : currentPlan === 'elite' ? 'Current Plan' : 'Get Elite'}
+                    </button>
+                </div>
+
+                {/* Institutional Plan */}
+                <div className="flex-1 p-8 pt-16 md:pt-8 flex flex-col bg-white/[0.05]">
+                    <h3 className="text-xl font-bold text-emerald-400 mb-2">Institucional</h3>
+                    <div className="text-3xl font-bold text-white mb-6">$99.00<span className="text-sm font-normal text-aurora-muted">/mo</span></div>
+                    <ul className="space-y-3 mb-8 flex-1">
+                        <li className="flex gap-2 text-sm text-aurora-text"><Check size={16} className="text-emerald-500" /> Multi-usuario</li>
+                        <li className="flex gap-2 text-sm text-aurora-text"><Check size={16} className="text-emerald-500" /> Admin Dashboard</li>
+                        <li className="flex gap-2 text-sm text-aurora-text"><Check size={16} className="text-emerald-500" /> API Access</li>
+                        <li className="flex gap-2 text-sm text-aurora-text"><Check size={16} className="text-emerald-500" /> 24/7 Dedicated Support</li>
+                    </ul>
+                    <button
+                        onClick={() => window.open('mailto:comercial@aldra.av', '_blank')}
+                        className="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition-colors shadow-lg shadow-emerald-900/20"
+                    >
+                        Contact Sales
                     </button>
                 </div>
 

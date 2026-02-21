@@ -15,10 +15,29 @@ import { Menu } from 'lucide-react';
 import { CalculatorProvider } from './CalculatorContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { useEffect } from 'react';
+
+const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000';
 
 const App: React.FC = () => {
   const [currentMode, setMode] = useState<AppMode>(AppMode.CONSOLE);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Keep-Alive for Render (Ghost requests)
+  useEffect(() => {
+    if ((import.meta as any).env.PROD) {
+      const pingId = setInterval(async () => {
+        try {
+          console.log('--- Ghost Ping: keeping Render awake ---');
+          await fetch(`${API_URL}/health`);
+        } catch (e) {
+          // Ignore network errors to prevent console spam or crashes
+        }
+      }, 5 * 60 * 1000); // Every 5 minutes
+      
+      return () => clearInterval(pingId);
+    }
+  }, []);
 
   const renderContent = () => {
     switch (currentMode) {

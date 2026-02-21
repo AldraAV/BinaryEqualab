@@ -1,0 +1,44 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+    "./components/**/*.{js,ts,jsx,tsx}",
+    "./App.tsx",
+  ],
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        background: {
+          DEFAULT: "#1C1917",
+          light: "#292524",
+          dark: "#0C0A09",
+        },
+        primary: {
+          DEFAULT: "#EA580C",
+          hover: "#C2410C",
+        },
+        secondary: {
+          DEFAULT: "#F97316",
+        },
+        aurora: {
+          text: "#E7E5E4",
+          secondary: "#A8A29E",
+          muted: "#57534E",
+          border: "#44403C",
+          success: "#10B981",
+          danger: "#EF4444",
+        }
+      },
+      fontFamily: {
+        sans: ['Inter', 'sans-serif'],
+        mono: ['JetBrains Mono', 'monospace'],
+      },
+      animation: {
+        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+      }
+    }
+  },
+  plugins: [],
+}

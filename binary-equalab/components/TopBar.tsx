@@ -26,7 +26,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNavigate }) => {
    const modes: AngleMode[] = ['DEG', 'RAD', 'GRAD'];
 
    // Real Notificaciones
-   const { Notificaciones, markAllAsRead, unreadCount } = useNotifications();
+   const { notifications, markAllAsRead, unreadCount } = useNotifications();
 
    return (
       <>
@@ -88,9 +88,9 @@ const TopBar: React.FC<TopBarProps> = ({ onNavigate }) => {
                            <span className="text-xs text-aurora-secondary">{unreadCount} nuevas</span>
                         </div>
                         <div className="max-h-64 overflow-y-auto">
-                           {Notificaciones.length === 0 ? (
+                           {(!notifications || notifications.length === 0) ? (
                               <div className="p-4 text-center text-aurora-muted text-xs">No Notificaciones</div>
-                           ) : Notificaciones.map(n => (
+                           ) : notifications.map(n => (
                               <div key={n.id} className={`p-4 border-b border-aurora-border/50 hover:bg-white/5 transition-colors ${!n.read ? 'bg-primary/5' : ''}`}>
                                  <div className="flex gap-3">
                                     <span className="text-xl">{n.icon}</span>

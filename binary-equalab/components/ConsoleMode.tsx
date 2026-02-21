@@ -16,6 +16,7 @@ import { getAutocompleteSuggestions, FunctionDef } from '../services/functionDef
 import { FINANCE_FUNCTIONS, FINANCE_FUNCTION_DEFS, FinanceResult } from '../services/financeFunctions';
 import { ERRORES, SLASH_COMMANDS, LABELS } from '../locales/es-MX';
 import { supabase } from '../contexts/AuthContext';
+import AIResponseRenderer from './AIResponseRenderer';
 const ConsoleMode: React.FC = () => {
   const { angleMode } = useCalculator();
   const { addNotification } = useNotifications();
@@ -96,6 +97,36 @@ const ConsoleMode: React.FC = () => {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
+  // Persistence: Load from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('binary_equalab_history');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Basic validation: ensure it's an array
+        if (Array.isArray(parsed)) {
+          setHistory(parsed.map((item: any) => ({
+            ...item,
+            timestamp: new Date(item.timestamp) // Restore date objects
+          })));
+        }
+      } catch (e) {
+        console.error('Error loading history from localStorage:', e);
+      }
+    }
+  }, []);
+
+  // Persistence: Save to localStorage when history changes
+  useEffect(() => {
+    if (history.length > 0) {
+      localStorage.setItem('binary_equalab_history', JSON.stringify(history));
+    }
+  }, [history]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [history]);
 
   useEffect(() => {
     // Initialize Physics & Math Constants in the CAS engine
@@ -558,7 +589,7 @@ const ConsoleMode: React.FC = () => {
     <div className="flex flex-col md:flex-row h-full w-full bg-background overflow-hidden">
 
       {/* Left: Console Output & Input Area */}
-      <div className="flex-1 flex flex-col h-full min-w-0">
+      <div className="flex-1 grid grid-rows-[1fr_auto] h-full min-w-0 overflow-hidden relative border-r border-aurora-border/30">
 
         {/* History Log */}
         <div className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-4">
@@ -617,19 +648,19 @@ const ConsoleMode: React.FC = () => {
                 <MathDisplay expression={item.expression} />
               </div>
 
-              {/* Easter Egg Display */}
-              {item.easterEgg && (
+              {/* Easter Egg / AI Response Display */}
+              {item.easterEgg && item.easterEgg.message && (
                 <div className={`
-                  my-2 p-3 rounded-lg border text-sm whitespace-pre-line animate-in fade-in zoom-in duration-500
+                  my-2 p-3 rounded-lg border text-sm animate-in fade-in zoom-in duration-500
                   ${item.easterEgg.animation === 'rainbow' ? 'bg-gradient-to-r from-red-500/10 via-green-500/10 to-blue-500/10 border-white/20' : ''}
                   ${item.easterEgg.animation === 'glow' ? 'bg-aurora-primary/10 border-aurora-primary/30 shadow-[0_0_15px_rgba(255,107,53,0.2)]' : ''}
                   ${item.easterEgg.animation === 'sparkle' ? 'bg-yellow-500/10 border-yellow-500/30' : ''}
                   ${!item.easterEgg.animation ? 'bg-white/5 border-white/10' : ''}
                 `}>
                   <div className="flex items-start gap-3">
-                    <span className="text-2xl pt-1">{item.easterEgg.emoji || '✨'}</span>
-                    <div className="text-aurora-text font-medium leading-relaxed">
-                      {item.easterEgg.message}
+                    <span className="text-2xl pt-1 shrink-0">{item.easterEgg.emoji || '✨'}</span>
+                    <div className="flex-1 min-w-0">
+                      <AIResponseRenderer content={item.easterEgg.message} />
                     </div>
                   </div>
                 </div>
@@ -650,7 +681,7 @@ const ConsoleMode: React.FC = () => {
         </div>
 
         {/* Big Input Field with Autocomplete */}
-        <div className="bg-background-dark p-6 border-t border-aurora-border shrink-0">
+        <div className="bg-background-dark p-6 border-t border-aurora-border shrink-0 z-20 shadow-[0_-10px_20px_rgba(0,0,0,0.3)]">
           <div className="relative">
             <div className={`absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold font-serif italic ${parseError ? 'text-red-500' : 'text-primary'}`}>ƒ</div>
             <input

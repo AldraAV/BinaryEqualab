@@ -1,8 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   margin: 0;
   padding: 0;
@@ -15,16 +13,16 @@ html, body, #root {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #1C1917; 
+  background: #1c1917;
 }
 ::-webkit-scrollbar-thumb {
-  background: #292524; 
+  background: #292524;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #EA580C; 
+  background: #ea580c;
 }
 
 .math-display {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
 }

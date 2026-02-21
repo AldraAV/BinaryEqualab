@@ -7,6 +7,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { createClient, SupabaseClient, User as SupabaseUser, Session } from '@supabase/supabase-js';
 
 // Supabase client
+// WARNING: sabkqxdnefbspmkglezb.supabase.co reported DNS issues. 
+// Verify project status in Supabase dashboard.
 const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://sabkqxdnefbspmkglezb.supabase.co';
 const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'sb_publishable_8Ek4wCcZ15NtsUPncgfvSg_1FGLEuSF';
 
@@ -33,11 +35,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         // Get initial session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            setUser(session?.user ?? null);
-            setLoading(false);
-        });
+        supabase.auth.getSession()
+            .then(({ data: { session } }) => {
+                setSession(session);
+                setUser(session?.user ?? null);
+                setLoading(false);
+            })
+            .catch(err => {
+                console.error("Auth initialization failed (DNS/Network):", err);
+                setLoading(false); // Proceed without auth if network fails
+            });
 
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -74,8 +81,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, signUp, signIn, signInWithGoogle, signOut }}>
-            {!loading && children}
+        <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signInWithGoogle, signOut }}>
+            {children}
         </AuthContext.Provider>
     );
 }
