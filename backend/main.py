@@ -8,7 +8,7 @@ import os
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -24,11 +24,44 @@ from src.core.engine import EquaEngine
 # Initialize engine
 engine = EquaEngine()
 
+# Security
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from security_utils import sanitize_math_expression
+
+# Setup Limiter (100 req/min global per IP)
+limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
+
 # App lifecycle
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    print("Binary EquaLab Backend starting...")
+    print("="*50)
+    print("🚀 Binary EquaLab Backend v3.0 starting...")
+    
+    # Check Math Engine
+    try:
+        test_expr = engine.simplify("x + x")
+        print(f"✅ Binary CAS Engine: READY ({test_expr})")
+    except Exception as e:
+        print(f"❌ Binary CAS Engine: ERROR ({str(e)})")
+
+    # Check Séptima Native Engine
+    from routers.septima import HAS_NATIVE_ENGINE
+    if HAS_NATIVE_ENGINE:
+        print("✅ Séptima Bio-Engine (C++/Native): ACTIVE ⚡")
+    else:
+        print("⚠️  Séptima Bio-Engine: FALLBACK (Python Mock) 🐢")
+
+    # Check Supabase
+    from rate_limiter import supabase
+    if supabase:
+        print("✅ Supabase Connection: ESTABLISHED")
+    else:
+        print("⚠️  Supabase Connection: NOT CONFIGURED (Rate limiting disabled)")
+    
+    print("="*50)
     yield
     # Shutdown
     print("Binary EquaLab Backend shutting down...")
@@ -40,6 +73,14 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan
 )
+
+# Rate Limiting state & handler
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# ─── Routers ────────────────────────────────────────────────────────────────────
+from routers.septima import router as septima_router
+app.include_router(septima_router)
 
 # CORS
 origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
@@ -94,7 +135,24 @@ class MathResponse(BaseModel):
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "service": "binary-equalab-api"}
+    """Health check endpoint and Keep-Alive for Supabase."""
+    supabase_status = "not_configured"
+    try:
+        from auth import get_supabase
+        sb = get_supabase()
+        # Perform a lightweight query to a known table to keep Supabase active
+        # This prevents the free tier project from pausing due to inactivity.
+        sb.table("users_plans").select("count", count="exact").limit(1).execute()
+        supabase_status = "active"
+    except Exception as e:
+        print(f"Supabase Keep-Alive Ping Failed: {e}")
+        supabase_status = f"inactive/error: {str(e)}"
+
+    return {
+        "status": "ok", 
+        "service": "binary-equalab-api",
+        "supabase": supabase_status
+    }
 
 # ============================================================================
 # Auth Endpoints
@@ -103,8 +161,10 @@ async def health_check():
 from auth import get_supabase, get_current_user, require_auth, User, AuthRequest, AuthResponse
 
 @app.post("/api/auth/signup", response_model=AuthResponse)
-async def signup(req: AuthRequest):
+@limiter.limit("5/15 minutes")
+async def signup(req: AuthRequest, request: Request):
     """Register a new user."""
+    # Password strength is validated on frontend, but we could add backend check here via security_utils.validate_password_strength
     try:
         supabase = get_supabase()
         response = supabase.auth.sign_up({
@@ -121,7 +181,8 @@ async def signup(req: AuthRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/auth/login", response_model=AuthResponse)
-async def login(req: AuthRequest):
+@limiter.limit("5/15 minutes")
+async def login(req: AuthRequest, request: Request):
     """Login with email and password."""
     try:
         supabase = get_supabase()
@@ -168,7 +229,8 @@ app.include_router(septima_router)
 @app.post("/api/simplify", response_model=MathResponse)
 async def simplify_expression(req: ExpressionRequest):
     try:
-        result = engine.simplify(req.expression)
+        clean_expr = sanitize_math_expression(req.expression)
+        result = engine.simplify(clean_expr)
         latex = engine.expr_to_latex(result)  # Use expr directly, no string conversion
         return MathResponse(result=str(result), latex=latex)
     except Exception as e:
@@ -177,7 +239,8 @@ async def simplify_expression(req: ExpressionRequest):
 @app.post("/api/expand", response_model=MathResponse)
 async def expand_expression(req: ExpressionRequest):
     try:
-        result = engine.expand(req.expression)
+        clean_expr = sanitize_math_expression(req.expression)
+        result = engine.expand(clean_expr)
         return MathResponse(result=str(result))
     except Exception as e:
         return MathResponse(result="", success=False, error=str(e))
@@ -185,7 +248,8 @@ async def expand_expression(req: ExpressionRequest):
 @app.post("/api/factor", response_model=MathResponse)
 async def factor_expression(req: ExpressionRequest):
     try:
-        result = engine.factor(req.expression)
+        clean_expr = sanitize_math_expression(req.expression)
+        result = engine.factor(clean_expr)
         return MathResponse(result=str(result))
     except Exception as e:
         return MathResponse(result="", success=False, error=str(e))
@@ -193,7 +257,8 @@ async def factor_expression(req: ExpressionRequest):
 @app.post("/api/derivative", response_model=MathResponse)
 async def compute_derivative(req: DerivativeRequest):
     try:
-        result = engine.derivative(req.expression, req.variable, req.order)
+        clean_expr = sanitize_math_expression(req.expression)
+        result = engine.derivative(clean_expr, req.variable, req.order)
         latex = engine.expr_to_latex(result)
         return MathResponse(result=str(result), latex=latex)
     except Exception as e:
@@ -202,8 +267,9 @@ async def compute_derivative(req: DerivativeRequest):
 @app.post("/api/integral", response_model=MathResponse)
 async def compute_integral(req: IntegralRequest):
     try:
+        clean_expr = sanitize_math_expression(req.expression)
         result = engine.integral(
-            req.expression, 
+            clean_expr, 
             req.variable, 
             req.lower_bound, 
             req.upper_bound
@@ -216,7 +282,8 @@ async def compute_integral(req: IntegralRequest):
 @app.post("/api/solve", response_model=MathResponse)
 async def solve_equation(req: ExpressionRequest):
     try:
-        result = engine.solve(req.expression, req.variable)
+        clean_expr = sanitize_math_expression(req.expression)
+        result = engine.solve(clean_expr, req.variable)
         return MathResponse(result=str(result))
     except Exception as e:
         return MathResponse(result="", success=False, error=str(e))
@@ -324,12 +391,16 @@ async def get_plan_status(user: User = Depends(get_current_user)):
             "period_end": data.get("period_end")
         }
     except Exception as e:
-        # Log error but return free plan structure to avoid blocking UI
+        # Log error but return fallback plan structure with all keys to avoid frontend crashes
+        print(f"Plan Status Error: {e}")
         return {
             "plan": "free",
-            "error": str(e),
             "ai_calls_used": 0,
-            "ai_calls_limit": 20
+            "ai_calls_limit": 20,
+            "worksheets_count": 0,
+            "worksheets_limit": 5,
+            "period_end": datetime.now().isoformat(),
+            "error": str(e)
         }
 
 class AIRequest(BaseModel):
