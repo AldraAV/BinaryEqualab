@@ -1,6 +1,8 @@
 #include "ode.hpp"
 #include <cmath>
 #include <iostream>
+#include <string>
+#include <sstream>
 
 namespace equacore {
 
@@ -217,6 +219,149 @@ namespace equacore {
         }
         return res;
 
+    }
+
+    // --- 5. PTI (Púrpura Trombocitopénica Idiopática) ---
+    // Para José de 12 años. Y para todos los niños del 10%.
+    // Ustedes no están solos.
+    //
+    // Sistema de ecuaciones:
+    //   dP/dt = Producción - Destrucción - Pérdida_sangrado
+    //   dA/dt = Producción_anticuerpos - Decay_anticuerpos
+    //
+    // Donde:
+    //   P = recuento plaquetario (plaquetas/uL)
+    //   A = nivel de anticuerpos anti-plaquetas (normalizado 0-inf)
+    //
+    // Tratamientos:
+    //   0 = Sin tratamiento (observación)
+    //   1 = Prednisona (inmunosupresor: reduce producción de anticuerpos)
+    //   2 = IVIG (bloquea receptores Fc: reduce destrucción directa)
+    //   3 = Esplenectomía (elimina sitio principal de destrucción: ~70-80% reducción)
+    
+    BioODESolver::SimulationResult BioODESolver::simulate_pti(
+        double t_start, double t_end, double dt,
+        const VectorXd& y0,
+        const PTIParams& p)
+    {
+        auto steps = static_cast<size_t>(std::ceil((t_end - t_start) / dt));
+        SimulationResult res;
+        res.t = VectorXd::LinSpaced(steps + 1, t_start, t_end);
+        res.y.reserve(steps + 1);
+        res.y.push_back(y0);
+
+        VectorXd y = y0;
+        double t = t_start;
+
+        auto system = [&](double t, const VectorXd& curr_y) -> VectorXd {
+            double P = curr_y[0];  // Plaquetas (plaquetas/uL)
+            double A = curr_y[1];  // Anticuerpos (normalizado)
+
+            VectorXd dydt(2);
+
+            // --- Producción medular ---
+            // Aumenta compensatoriamente si plaquetas bajas (feedback trombopoyetina)
+            double production = p.production_rate;
+            if (P < 150000.0) {
+                // Feedback negativo: máximo 2.5x producción normal
+                double boost = (150000.0 - P) / 150000.0;
+                production *= (1.0 + 1.5 * boost);
+            }
+
+            // --- Destrucción autoinmune ---
+            // Dinámica no lineal: destrucción más eficiente con más anticuerpos
+            double destruction = p.destruction_rate * A * std::sqrt(P + 1000.0) * P / 100.0;
+
+            // --- Efecto del tratamiento sobre destrucción ---
+            double treatment_factor = 1.0;
+            switch (p.treatment) {
+                case 1: // Prednisona: reduce destrucción parcialmente
+                    treatment_factor = 1.0 - p.treatment_efficacy * 0.6;
+                    break;
+                case 2: // IVIG: bloquea receptores Fc, reduce destrucción directamente
+                    treatment_factor = 1.0 - p.treatment_efficacy * 0.8;
+                    break;
+                case 3: // Esplenectomía: elimina sitio principal de destrucción
+                    treatment_factor = 1.0 - p.treatment_efficacy * 0.75;
+                    break;
+                default: // Sin tratamiento
+                    break;
+            }
+            destruction *= treatment_factor;
+
+            // --- Pérdida por sangrado ---
+            // Solo si plaquetas críticamente bajas (<10,000)
+            double bleeding = 0.0;
+            if (P < 10000.0) {
+                bleeding = 500.0 * (10000.0 - P) / 10000.0;
+            }
+
+            // --- Dinámica de anticuerpos ---
+            // Decay exponencial + producción autoinmune
+            double ab_decay = -std::log(2.0) / p.antibody_half_life * A;
+            double ab_prod = p.antibody_production;
+
+            // Prednisona también suprime producción de anticuerpos
+            if (p.treatment == 1) {
+                ab_prod *= (1.0 - p.treatment_efficacy * 0.7);
+            }
+
+            // --- Ecuaciones diferenciales ---
+            dydt[0] = production - destruction - bleeding;  // dP/dt
+            dydt[1] = ab_decay + ab_prod;                   // dA/dt
+
+            // Clamp: no pueden ser negativos
+            if (P <= 0.0 && dydt[0] < 0.0) dydt[0] = 0.0;
+            if (A <= 0.0 && dydt[1] < 0.0) dydt[1] = 0.0;
+
+            return dydt;
+        };
+
+        for (size_t i = 0; i < steps; ++i) {
+            y = stepRK4(system, t, y, dt);
+            // Clamp post-step
+            if (y[0] < 0.0) y[0] = 0.0;
+            if (y[1] < 0.0) y[1] = 0.0;
+            t += dt;
+            res.y.push_back(y);
+        }
+        return res;
+    }
+
+    // --- Interpretación clínica PTI ---
+    std::string BioODESolver::pti_clinical_interpretation(
+        double initial_count,
+        double final_count,
+        int days)
+    {
+        std::string result;
+
+        if (final_count < 10000) {
+            result = "CRITICO: Recuento <10,000/uL. Riesgo alto de hemorragia espontanea. "
+                     "Considerar hospitalizacion y tratamiento agresivo (IVIG o esplenectomia de urgencia).";
+        } else if (final_count < 30000) {
+            result = "SEVERO: Recuento <30,000/uL. Riesgo de sangrado con trauma menor. "
+                     "Monitoreo diario, restriccion de actividad fisica, evaluar cambio de tratamiento.";
+        } else if (final_count < 50000) {
+            result = "BAJO: Recuento <50,000/uL. Riesgo moderado. "
+                     "Evitar actividades de contacto. Monitoreo semanal recomendado.";
+        } else if (final_count < 100000) {
+            result = "MEJORIA: Recuento 50,000-100,000/uL. Rango funcional seguro. "
+                     "Continuar tratamiento actual y monitoreo quincenal.";
+        } else if (final_count < 150000) {
+            result = "RESPUESTA PARCIAL: Recuento se acerca a rango normal (150,000-400,000). "
+                     "Considerar reduccion gradual de tratamiento bajo supervision.";
+        } else {
+            result = "REMISION: Recuento normalizado (>150,000/uL). "
+                     "Evaluar suspension gradual del tratamiento. Seguimiento mensual durante 6 meses.";
+        }
+
+        double pct = ((final_count - initial_count) / initial_count) * 100.0;
+        result += " | Cambio en " + std::to_string(days) + " días: ";
+        if (pct > 0) result += "+";
+        result += std::to_string(static_cast<int>(pct)) + "%";
+
+        return result;
     }
 
 } // namespace equacore

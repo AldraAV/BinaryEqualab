@@ -54,6 +54,13 @@ async def lifespan(app: FastAPI):
     else:
         print("⚠️  Séptima Bio-Engine: FALLBACK (Python Mock) 🐢")
 
+    # Check CAS Suite Élite (Maxima)
+    from services.maxima_service import maxima
+    if os.path.exists(maxima.MAXIMA_PATH):
+        print(f"✅ CAS Suite Élite (Maxima): READY at {maxima.MAXIMA_PATH} 🧪")
+    else:
+        print("⚠️  CAS Suite Élite (Maxima): NOT FOUND (Fourier/Laplace limited) 💨")
+
     # Check Supabase
     from rate_limiter import supabase
     if supabase:
@@ -211,6 +218,10 @@ app.include_router(worksheets_router)
 # Include payments router
 from payments import router as payments_router
 app.include_router(payments_router)
+
+# Include CAS router (Suite Élite: Maxima/GiNaC)
+from routers.cas import router as cas_router
+app.include_router(cas_router)
 
 # Include cron router
 from cron import router as cron_router

@@ -64,10 +64,11 @@ Prueba comandos como: `1+1`, `(-1)*(-1)`, `0b101010` o pide un `explain` para ve
 
 - **Core:** React 19 + TypeScript
 - **Bundler:** Vite 6 (Configurado para ESM/CJS Interop)
-- **Math Engines:** Nerdamer (Local) + SymPy (Backend API) + Bio-Engine (C++/WASM)
-- **AI Services:** Groq & Kimi (Multi-AIEngine con Fallback dinámico)
-- **Rendering:** KaTeX, React-Markdown, Remark-Math, Rehype-Katex
-- **Database/Auth:** Supabase JS
+- **Math Engines:** Nerdamer (Local) + SymPy (Backend API) + **EquaCore C++ (Native via Python Bridge)**
+- **Architecture:** Mamba-SSM ready (State Space Models for bio-simulations)
+- **AI Services:** Groq & Kimi (SuperClaude Protocol with Confidence Checks)
+- **Rendering:** KaTeX Pro, React-Markdown (Séptima Optimized)
+- **Frameworks:** Antigravity Kit (ag-kit) + Awesome Skills suite
 
 ---
 

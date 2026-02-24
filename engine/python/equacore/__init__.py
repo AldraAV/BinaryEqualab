@@ -3,6 +3,27 @@ EquaCore - High-performance symbolic and numerical computation
 Python wrapper for C++ engine using GiNaC and Eigen
 """
 
+# Flags de estado del motor
+NATIVE_BIO = False
+NATIVE_SYMBOLIC = False
+
+# 1. Intento de carga del motor Bio-Médico (Séptima)
+try:
+    from ._equacore import (
+        BioODESolver,
+        ODESolver,
+        PTIParams,
+        BergmanParams,
+        HHParams,
+        PKParams,
+        WindkesselParams
+    )
+    NATIVE_BIO = True
+except ImportError:
+    # Fallback biomédico si fuera necesario (por ahora no hay fallback Python para ODEs complejos)
+    pass
+
+# 2. Intento de carga del motor Simbólico (GiNaC)
 try:
     from ._equacore import (
         Expr,
@@ -24,16 +45,12 @@ try:
         rref,
         null_space,
         column_space,
-        __version__,
+        __version__ as _ver
     )
-    
-    NATIVE_ENGINE = True
-    
+    NATIVE_SYMBOLIC = True
+    __version__ = _ver
 except ImportError:
-    # Fallback to SymPy if C++ engine not compiled
-    import warnings
-    warnings.warn("EquaCore C++ engine not found, falling back to SymPy (slower)")
-    
+    # Fallback a SymPy/NumPy para la parte simbólica
     from sympy import (
         Symbol as symbol,
         expand,
@@ -41,36 +58,35 @@ except ImportError:
         factor,
         diff,
         integrate,
-        solve,
+        solve as sym_solve,
         latex,
     )
     import numpy as np
     
-    NATIVE_ENGINE = False
-    __version__ = "1.0.0-fallback"
+    __version__ = "1.0.0-hybrid"
     
-    # Provide compatible API using SymPy/NumPy
     class Expr:
-        """SymPy-based fallback for Expression class"""
         def __init__(self, expr_str_or_val):
+            from sympy import sympify
             if isinstance(expr_str_or_val, str):
-                from sympy.parsing.sympy_parser import parse_expr
-                self._expr = parse_expr(expr_str_or_val)
+                from sympy.parsing.sympy_parser import (
+                    parse_expr, 
+                    standard_transformations, 
+                    implicit_multiplication_application, 
+                    convert_xor
+                )
+                transformations = standard_transformations + (implicit_multiplication_application, convert_xor)
+                self._expr = parse_expr(expr_str_or_val, transformations=transformations)
             else:
-                from sympy import sympify
                 self._expr = sympify(expr_str_or_val)
-        
         def expand(self): return Expr(self._expr.expand())
         def simplify(self): return Expr(self._expr.simplify())
         def factor(self): return Expr(self._expr.factor())
-        def diff(self, var, n=1): return Expr(self._expr.diff(Symbol(var), n))
-        def integrate(self, var): return Expr(self._expr.integrate(Symbol(var)))
-        def subs(self, var, val): return Expr(self._expr.subs(Symbol(var), val))
         def to_latex(self): return latex(self._expr)
         def __str__(self): return str(self._expr)
         def __repr__(self): return f"Expr({self._expr})"
-    
-    # NumPy-based matrix functions (fallback)
+
+    # NumPy Fallbacks
     def matrix(data): return np.array(data)
     def vector(data): return np.array(data)
     def add(a, b): return a + b
@@ -80,45 +96,29 @@ except ImportError:
     def inverse(m): return np.linalg.inv(m)
     def determinant(m): return np.linalg.det(m)
     def rank(m): return np.linalg.matrix_rank(m)
-    def lu(m):
-        from scipy.linalg import lu as scipy_lu
-        return scipy_lu(m)
+    def lu(m): from scipy.linalg import lu as slu; return slu(m)
     def qr(m): return np.linalg.qr(m)
     def svd(m): return np.linalg.svd(m)
     def eigen(m): return np.linalg.eigh(m)
     def solve(a, b): return np.linalg.solve(a, b)
-    def rref(m):
+    def rref(m): 
         from sympy import Matrix
         return np.array(Matrix(m).rref()[0].tolist(), dtype=float)
-    def null_space(m):
-        from scipy.linalg import null_space as scipy_null
-        return scipy_null(m)
-    def column_space(m):
-        q, r = np.linalg.qr(m)
-        return q[:, :np.linalg.matrix_rank(m)]
 
+# Estado global
+NATIVE_ENGINE = NATIVE_BIO and NATIVE_SYMBOLIC
 
-# Convenience exports
+if not NATIVE_SYMBOLIC:
+    import warnings
+    msg = "EquaCore Symbolic (GiNaC) not found. Using SymPy fallback."
+    if NATIVE_BIO:
+        msg += " | Bio-Engine (Séptima) is ACTIVE in C++ mode."
+    warnings.warn(msg)
+
+# Exportaciones dinámicas
 __all__ = [
-    'Expr',
-    'symbol',
-    'matrix',
-    'vector',
-    'add',
-    'multiply', 
-    'scale',
-    'transpose',
-    'inverse',
-    'determinant',
-    'rank',
-    'lu',
-    'qr',
-    'svd',
-    'eigen',
-    'solve',
-    'rref',
-    'null_space',
-    'column_space',
-    'NATIVE_ENGINE',
-    '__version__',
+    'Expr', 'symbol', 'matrix', 'vector', 'add', 'multiply', 'scale',
+    'transpose', 'inverse', 'determinant', 'rank', 'lu', 'qr', 'svd',
+    'eigen', 'solve', 'rref', 'NATIVE_ENGINE', 'NATIVE_BIO', 'NATIVE_SYMBOLIC',
+    'BioODESolver', 'PTIParams'
 ]

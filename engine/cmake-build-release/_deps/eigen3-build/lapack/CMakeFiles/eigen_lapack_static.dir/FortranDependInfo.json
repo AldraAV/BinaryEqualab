@@ -1,0 +1,218 @@
+{
+	"bmi-installation" : null,
+	"compiler-frontend-variant" : "GNU",
+	"compiler-id" : "GNU",
+	"compiler-simulate-id" : "",
+	"config" : "Release",
+	"cxx-modules" : {},
+	"database-info" : null,
+	"dir-cur-bld" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-build/lapack",
+	"dir-cur-src" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack",
+	"dir-top-bld" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release",
+	"dir-top-src" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine",
+	"exports" : [],
+	"forward-modules-from-target-dirs" : [],
+	"include-dirs" : 
+	[
+		"_deps\\eigen3-src",
+		"_deps\\eigen3-src\\lapack\\..\\blas"
+	],
+	"language" : "Fortran",
+	"linked-target-dirs" : [],
+	"module-dir" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-build/lapack",
+	"sources" : 
+	{
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/clacgv.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/clacgv.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/cladiv.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/cladiv.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/clarf.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/clarf.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/clarfb.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/clarfb.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/clarfg.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/clarfg.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/clarft.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/clarft.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/dladiv.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/dladiv.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/dlamch.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/dlamch.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/dlapy2.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/dlapy2.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/dlapy3.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/dlapy3.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/dlarf.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/dlarf.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/dlarfb.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/dlarfb.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/dlarfg.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/dlarfg.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/dlarft.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/dlarft.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/dsecnd_NONE.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/dsecnd_NONE.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/ilaclc.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/ilaclc.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/ilaclr.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/ilaclr.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/iladlc.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/iladlc.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/iladlr.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/iladlr.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/ilaslc.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/ilaslc.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/ilaslr.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/ilaslr.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/ilazlc.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/ilazlc.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/ilazlr.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/ilazlr.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/second_NONE.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/second_NONE.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/sladiv.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/sladiv.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/slamch.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/slamch.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/slapy2.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/slapy2.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/slapy3.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/slapy3.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/slarf.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/slarf.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/slarfb.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/slarfb.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/slarfg.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/slarfg.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/slarft.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/slarft.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/zlacgv.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/zlacgv.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/zladiv.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/zladiv.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/zlarf.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/zlarf.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/zlarfb.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/zlarfb.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/zlarfg.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/zlarfg.f"
+		},
+		"_deps/eigen3-build/lapack/CMakeFiles/eigen_lapack_static.dir/zlarft.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/lapack/zlarft.f"
+		}
+	},
+	"submodule-ext" : ".smod",
+	"submodule-sep" : "@"
+}

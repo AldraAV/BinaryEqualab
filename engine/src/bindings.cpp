@@ -67,6 +67,28 @@ PYBIND11_MODULE(_equacore, m) {
         py::arg("t_start"), py::arg("t_end"), py::arg("dt"),
         py::arg("y0"), py::arg("params")
     );
+
+    // --- PTI (Púrpura Trombocitopénica Idiopática) ---
+    py::class_<PTIParams>(m, "PTIParams")
+        .def(py::init<>())
+        .def_readwrite("production_rate", &PTIParams::production_rate)
+        .def_readwrite("destruction_rate", &PTIParams::destruction_rate)
+        .def_readwrite("antibody_half_life", &PTIParams::antibody_half_life)
+        .def_readwrite("antibody_production", &PTIParams::antibody_production)
+        .def_readwrite("treatment", &PTIParams::treatment)
+        .def_readwrite("treatment_efficacy", &PTIParams::treatment_efficacy)
+        .def_readwrite("initial_platelets", &PTIParams::initial_platelets);
+
+    solver.def_static("simulate_pti", &BioODESolver::simulate_pti,
+        "Simula tratamiento de PTI (Púrpura Trombocitopénica Idiopática)",
+        py::arg("t_start"), py::arg("t_end"), py::arg("dt"),
+        py::arg("y0"), py::arg("params")
+    );
+
+    solver.def_static("pti_clinical_interpretation", &BioODESolver::pti_clinical_interpretation,
+        "Genera interpretación clínica del resultado de simulación PTI",
+        py::arg("initial_count"), py::arg("final_count"), py::arg("days")
+    );
     
     // --- Legacy / Generic ODESolver support ---
     py::class_<ODESolver> generic_solver(m, "ODESolver");

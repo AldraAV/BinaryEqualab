@@ -1,0 +1,32 @@
+{
+	"bmi-installation" : null,
+	"compiler-frontend-variant" : "GNU",
+	"compiler-id" : "GNU",
+	"compiler-simulate-id" : "",
+	"config" : "Release",
+	"cxx-modules" : {},
+	"database-info" : null,
+	"dir-cur-bld" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-build/blas",
+	"dir-cur-src" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/blas",
+	"dir-top-bld" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release",
+	"dir-top-src" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine",
+	"exports" : [],
+	"forward-modules-from-target-dirs" : [],
+	"include-dirs" : 
+	[
+		"_deps\\eigen3-src"
+	],
+	"language" : "Fortran",
+	"linked-target-dirs" : [],
+	"module-dir" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-build/blas",
+	"sources" : 
+	{
+		"_deps/eigen3-build/blas/CMakeFiles/eigen_blas_static.dir/fortran/complexdots.f.obj" : 
+		{
+			"language" : "Fortran",
+			"source" : "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src/blas/fortran/complexdots.f"
+		}
+	},
+	"submodule-ext" : ".smod",
+	"submodule-sep" : "@"
+}

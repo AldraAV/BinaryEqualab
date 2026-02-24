@@ -431,3 +431,87 @@ async def simulate_pk(req: PKSimulationRequest):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PK simulation error: {e}")
+# ─── Servicios de Explicación (Séptima Pro) ──────────────────────────────────────
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from services.symbolic_explainer import SymbolicExplainer
+from services.ai_explainer import AIExplainer
+
+symbolic_explainer = SymbolicExplainer()
+ai_explainer = AIExplainer()
+
+# ─── DTOs PTI ──────────────────────────────────────────────────────────────────
+
+class PTISimulationRequest(BaseModel):
+    t_start: float = 0.0
+    t_end: float = 30.0  # días
+    dt: float = 0.1
+    y0: List[float] = Field(default=[150000.0, 1.0], description="[Plaquetas, Anticuerpos]")
+    params: Dict[str, Any] = {}
+    mode: str = "student" # student | family | research
+
+class PTIResponse(BaseModel):
+    t: List[float]
+    y: List[List[float]]
+    interpretation: str
+    symbolic_steps: List[dict]
+    ai_narrative: str
+    metadata: dict
+
+# ─── Endpoints ──────────────────────────────────────────────────────────────────
+
+@router.post("/bio/pti", response_model=PTIResponse)
+async def simulate_pti(req: PTISimulationRequest):
+    """
+    Simulación integral de PTI con explicaciones simbólicas y de IA.
+    """
+    try:
+        tic = time.perf_counter()
+        
+        if not HAS_NATIVE_ENGINE:
+            raise HTTPException(status_code=503, detail="Motor nativo C++ no disponible para PTI.")
+
+        # 1. Configurar parámetros del motor C++
+        p = eq.PTIParams()
+        p.production_rate = req.params.get("production_rate", 50000.0)
+        p.destruction_rate = req.params.get("destruction_rate", 0.1)
+        p.antibody_half_life = req.params.get("antibody_half_life", 5.0)
+        p.antibody_production = req.params.get("antibody_production", 0.05)
+        p.treatment = req.params.get("treatment", 0)
+        p.treatment_efficacy = req.params.get("treatment_efficacy", 0.8)
+        p.initial_platelets = req.y0[0]
+
+        # 2. Ejecutar simulación en el motor nativo
+        import numpy as np
+        y0_np = np.array(req.y0)
+        res = eq.BioODESolver.simulate_pti(req.t_start, req.t_end, req.dt, y0_np, p)
+        
+        # 3. Interpretación clínica (Nativa)
+        interpretation = eq.BioODESolver.pti_clinical_interpretation(
+            req.y0[0], res.y[-1][0], int(req.t_end - req.t_start)
+        )
+
+        # 4. Generar Explicación Simbólica (KaTeX)
+        symbolic_steps = symbolic_explainer.explain_pti(req.params, req.y0, res)
+
+        # 5. Generar Narrativa de IA
+        ai_narrative = await ai_explainer.generate_explanation(
+            {"treatment_name": ["Ninguno", "Prednisona", "IVIG", "Esplenectomía"][p.treatment]},
+            {"p_initial": req.y0[0], "p_final": res.y[-1][0], "days": int(req.t_end - req.t_start)},
+            mode=req.mode
+        )
+
+        elapsed_ms = (time.perf_counter() - tic) * 1000
+
+        return PTIResponse(
+            t=list(res.t),
+            y=[list(row) for row in res.y],
+            interpretation=interpretation,
+            symbolic_steps=symbolic_steps,
+            ai_narrative=ai_narrative,
+            metadata={"engine": "cpp", "execution_time_ms": round(elapsed_ms, 2)}
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PTI simulation error: {str(e)}")
+
+# (Resto de endpoints anteriores se mantienen antes de este bloque...)

@@ -24,6 +24,17 @@ from .geometry import GeometryEngine
 # Symbol shortcuts
 x, y, z, t, n, k = symbols('x y z t n k')
 
+# Import core EquaEngine if available (for Bio-Engine v3.0 inheritence)
+import sys
+import os
+try:
+    # Try to reach the main core engine
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../'))
+    from src.core.engine import EquaEngine
+    HAS_CORE_ENGINE = True
+except ImportError:
+    HAS_CORE_ENGINE = False
+
 
 class MathEngine:
     """
@@ -35,6 +46,9 @@ class MathEngine:
         self.symbols = {'x': x, 'y': y, 'z': z, 't': t, 'n': n, 'k': k}
         self.last_result = None
         self.history: List[str] = []
+        
+        # Initialize Core Bio-Engine if available
+        self.core = EquaEngine() if HAS_CORE_ENGINE else None
         
         # Spanish → SymPy function mapping
         self.function_map = {
@@ -140,6 +154,12 @@ class MathEngine:
         
         # Standard expression evaluation
         try:
+            if self.core:
+                # Use Core Engine logic (v3.0)
+                result = self.core.simplify(expression)
+                self.last_result = result
+                return result
+            
             parsed = self.parse(expression)
             result = sp.simplify(parsed)
             self.last_result = result

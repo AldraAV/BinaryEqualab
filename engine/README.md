@@ -8,6 +8,7 @@ High-performance symbolic and numerical computation engine for Binary EquaLab.
 - **CLN** - Arbitrary precision numbers (GiNaC dependency)
 - **Eigen3** - Linear algebra (~10-50x faster than NumPy)
 - **pybind11** - Python bindings with NumPy interop
+- **Bio-Engine Extension:** Native ODE models for Bergman, Windkessel, Hodgkin-Huxley and PTI (Hermatology).
 
 ## Quick Start
 

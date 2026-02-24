@@ -16,10 +16,11 @@
     "nerdamer": "1.1.13",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
+    "react-katex": "^3.1.0",
     "react-markdown": "^9.0.1",
+    "recharts": "^3.7.0",
     "rehype-katex": "^7.0.0",
-    "remark-math": "^6.0.0",
-    "recharts": "^3.7.0"
+    "remark-math": "^6.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

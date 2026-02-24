@@ -95,7 +95,11 @@ const ConsoleMode: React.FC = () => {
   };
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Dar tiempo a los useEffect de MathDisplay/KaTeX para que inyecten el DOM
+    // antes de calcular la posición final de scroll
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }, 100);
   };
 
   // Persistence: Load from localStorage on mount
@@ -122,10 +126,8 @@ const ConsoleMode: React.FC = () => {
     if (history.length > 0) {
       localStorage.setItem('binary_equalab_history', JSON.stringify(history));
     }
-  }, [history]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Siempre hacer scroll al fondo cuando cambie el historial
+    scrollToBottom();
   }, [history]);
 
   useEffect(() => {
@@ -144,10 +146,6 @@ const ConsoleMode: React.FC = () => {
       console.warn("Nerdamer constants initialization warning:", e);
     }
   }, []);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [history]);
 
   // Clear parse error when input changes
   useEffect(() => {
