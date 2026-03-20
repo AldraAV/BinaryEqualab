@@ -7,27 +7,44 @@ from sympy import pretty
 from .engine import MathEngine
 
 class MathSuggester(Suggester):
-    """Basic auto-complete for math commands."""
+    """Auto-complete for math commands."""
     def __init__(self):
         super().__init__(use_cache=False)
         self.suggestions = [
-            "derivar(", "integrar(", "limite(", "sumatoria(", 
+            # Calculus
+            "derivar(", "integrar(", "limite(", "sumatoria(", "taylor(",
+            # Algebra
             "simplificar(", "expandir(", "factorizar(", "resolver(",
+            "parciales(", "mcd(", "mcm(", "esPrimo(",
+            "combinar(", "permutar(", "factoresPrimos(",
+            # Trig
+            "sin(", "cos(", "tan(", "csc(", "sec(", "cot(",
+            "senh(", "cosh(", "tanh(",
+            # Arithmetic
+            "mod(", "maximo(", "minimo(", "signo(", "raizcub(", "redondear(",
+            # Stats
+            "media(", "mediana(", "desviacion(", "varianza(",
+            "covarianza(", "correlacion(", "regresion(",
+            "normalpdf(", "binomialpmf(",
+            # Finance
+            "van(", "tir(", "depreciar(", "interes_simple(", "interes_compuesto(",
+            # Geometry / Audio
             "sonify(", "distancia(", "recta(", "circulo(",
-            "sin(", "cos(", "tan(", "sqrt(", "log(",
-            "matrix(", "help", "clear", "exit", "quit"
+            # Numeral
+            "bin(", "hex(", "base(",
+            # General
+            "sqrt(", "log(", "matrix(",
+            "help", "clear", "exit",
         ]
         
     async def get_suggestion(self, value: str) -> str | None:
         if not value: 
             return None
-        # Simple prefix match
-        word = value.split(" ")[-1] # last word
+        word = value.split(" ")[-1]
         if not word: return None
         
         for s in self.suggestions:
             if s.startswith(word) and s != word:
-                # Return the ending part to complete the word
                 return s[len(word):]
         return None
 
@@ -107,16 +124,32 @@ class BinaryTUI(App):
     # Help Dictionary for Contextual Hints
     HELP_DOCS = {
         "derivar": "💡 derivar(expr, var) - Calcula la derivada. Ej: derivar(x^2, x)",
-        "integrar": "💡 integrar(expr, var, [a, b]) - Integral indefinida o definida. Ej: integrar(sin(x), x)",
-        "limite": "💡 limite(expr, var, punto) - Calcula el límite. Ej: limite(sin(x)/x, x, 0)",
-        "sumatoria": "💡 sumatoria(expr, var, a, b) - Suma de a hasta b. Ej: sumatoria(n^2, n, 1, 10)",
-        "simplificar": "💡 simplificar(expr) - Reduce la expresión. Ej: simplificar((x^2-1)/(x-1))",
-        "expandir": "💡 expandir(expr) - Expande polinomios. Ej: expandir((x+1)^2)",
-        "factorizar": "💡 factorizar(expr) - Factoriza polinomios. Ej: factorizar(x^2 - 1)",
-        "resolver": "💡 resolver(expr, var) - Encuentra las raíces. Ej: resolver(x^2 - 4, x)",
-        "sonify": "💡 sonify(expr) - Genera y reproduce audio. Ej: sonify(sin(440*2*pi*t))",
-        "distancia": "💡 distancia(p1, p2) - Distancia Euclidiana. Ej: distancia((0,0), (3,4))",
-        "matrix": "💡 matrix([[a,b],[c,d]]) - Crea una matriz. Ej: matrix([[1,2],[3,4]])",
+        "integrar": "💡 integrar(expr, var, [a, b]) - Integral indefinida o definida.",
+        "limite": "💡 limite(expr, var, punto) - Calcula el límite.",
+        "sumatoria": "💡 sumatoria(expr, var, a, b) - Suma de a hasta b.",
+        "taylor": "💡 taylor(expr, var, punto, orden) - Serie de Taylor.",
+        "simplificar": "💡 simplificar(expr) - Reduce la expresión.",
+        "expandir": "💡 expandir(expr) - Expande polinomios.",
+        "factorizar": "💡 factorizar(expr) - Factoriza polinomios.",
+        "resolver": "💡 resolver(expr, var) - Encuentra raíces.",
+        "parciales": "💡 parciales(expr, var) - Fracciones parciales.",
+        "mcd": "💡 mcd(a, b) - Máximo común divisor. Ej: mcd(24, 36) → 12",
+        "mcm": "💡 mcm(a, b) - Mínimo común múltiplo. Ej: mcm(4, 6) → 12",
+        "esPrimo": "💡 esPrimo(n) - Verifica si es primo. Ej: esPrimo(97)",
+        "combinar": "💡 combinar(n, k) - Combinaciones C(n,k).",
+        "permutar": "💡 permutar(n, k) - Permutaciones P(n,k).",
+        "factoresPrimos": "💡 factoresPrimos(n) - Descomposición en primos.",
+        "media": "💡 media(valores...) - Media aritmética.",
+        "covarianza": "💡 covarianza(xs..., ys...) - Covarianza entre dos series.",
+        "correlacion": "💡 correlacion(xs..., ys...) - Correlación de Pearson.",
+        "regresion": "💡 regresion(xs..., ys...) - Regresión lineal.",
+        "normalpdf": "💡 normalpdf(x, mu, sigma) - PDF de distribución normal.",
+        "binomialpmf": "💡 binomialpmf(k, n, p) - PMF de distribución binomial.",
+        "sonify": "💡 sonify(expr) - Genera y reproduce audio.",
+        "distancia": "💡 distancia(p1, p2) - Distancia Euclidiana.",
+        "matrix": "💡 matrix([[a,b],[c,d]]) - Crea una matriz.",
+        "van": "💡 van(tasa, flujos...) - Valor Actual Neto.",
+        "tir": "💡 tir(flujos...) - Tasa Interna de Retorno.",
         "help": "💡 presiona Enter para ver la ayuda completa.",
         "clear": "💡 Limpia la pantalla.",
     }
@@ -136,7 +169,7 @@ class BinaryTUI(App):
 
     def on_mount(self) -> None:
         """Called when app starts."""
-        self.title = "Binary EquaLab TUI"
+        self.title = "Binary EquaLab TUI v3.1"
         log = self.query_one(RichLog)
         log.write("[bold green]System Ready.[/] Type 'help' for commands.")
         log.write("[dim italic]Consejo: Usa 'sonify(sin(440*t))' para escuchar ecuaciones.[/dim italic]")

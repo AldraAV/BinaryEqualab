@@ -55,8 +55,8 @@ Soporta:
 
 ## 🚀 Uso del CLI
 
-### 🎮 Interactive TUI (Nuevo v3.0)
-La nueva interfaz inmersiva tipo "Jupyter-Lite".
+### 🎮 Interactive TUI (v3.1)
+La interfaz inmersiva tipo "Jupyter-Lite" con 50+ autocompletados.
 
 ```bash
 binary-math tui
@@ -75,18 +75,20 @@ binary-math
 ```
 
 ```
-Binary EquaLab CLI v1.0.0
+Binary EquaLab CLI v3.1.0
 >>> derivar(x^2 + 3x, x)
 → 2*x + 3
 
->>> integrar(sin(x), x)
-→ -cos(x)
+>>> esPrimo(97)
+→ Sí, 97 es primo
 
->>> factorial(5)
-→ 120
+>>> f(x) := x^2 + 1
+→ Función f(x) definida.
+>>> f(5)
+→ 26
 
->>> van(0.10, -1000, 300, 400, 500)
-→ 78.82
+>>> taylor(sin(x), x, 0, 5)
+→ -x**3/6 + x
 ```
 
 ### One-liner Mode
@@ -113,36 +115,46 @@ binary-math "0b1010 + 0b0101"
 | `limite(f, x, a)`       | `limite(sin(x)/x, x, 0)`   | `1`       |
 | `sumatoria(f, n, a, b)` | `sumatoria(n^2, n, 1, 10)` | `385`     |
 
-### Algebra
-| Function         | Example                      | Result        |
-| ---------------- | ---------------------------- | ------------- |
-| `simplificar(f)` | `simplificar((x^2-1)/(x-1))` | `x+1`         |
-| `expandir(f)`    | `expandir((x+1)^2)`          | `x^2+2*x+1`   |
-| `factorizar(f)`  | `factorizar(x^2-1)`          | `(x-1)*(x+1)` |
-| `resolver(f, x)` | `resolver(x^2-4, x)`         | `[-2, 2]`     |
+### Algebra (Extended)
+| Function              | Example                      | Result              |
+| --------------------- | ---------------------------- | ------------------- |
+| `simplificar(f)`      | `simplificar((x^2-1)/(x-1))` | `x+1`              |
+| `expandir(f)`         | `expandir((x+1)^2)`          | `x^2+2*x+1`        |
+| `factorizar(f)`       | `factorizar(x^2-1)`          | `(x-1)*(x+1)`      |
+| `resolver(f, x)`      | `resolver(x^2-4, x)`         | `[-2, 2]`          |
+| `parciales(f, x)`     | `parciales(1/(x^2-1), x)`    | Partial fractions   |
+| `mcd(a, b)`           | `mcd(24, 36)`                | `12`               |
+| `mcm(a, b)`           | `mcm(4, 6)`                  | `12`               |
+| `esPrimo(n)`          | `esPrimo(97)`                | `Sí, 97 es primo`  |
+| `combinar(n, k)`      | `combinar(10, 3)`            | `120`              |
+| `permutar(n, k)`      | `permutar(10, 3)`            | `720`              |
+| `factoresPrimos(n)`   | `factoresPrimos(360)`        | `2^3 × 3^2 × 5`    |
 
-### Statistics
+### Statistics (Extended)
 | Function          | Example                        |
 | ----------------- | ------------------------------ |
 | `media(...)`      | `media(1, 2, 3, 4, 5)` → `3`   |
 | `mediana(...)`    | `mediana(1, 2, 3, 4, 5)` → `3` |
 | `desviacion(...)` | Standard deviation             |
 | `varianza(...)`   | Variance                       |
+| `covarianza(xs..., ys...)` | Covariance              |
+| `correlacion(xs..., ys...)` | Pearson correlation    |
+| `regresion(xs..., ys...)` | Linear regression (m, b) |
+| `normalpdf(x, μ, σ)` | Normal PDF                  |
+| `binomialpmf(k, n, p)` | Binomial PMF              |
 
-### Finance
-| Function                        | Example                                |
-| ------------------------------- | -------------------------------------- |
-| `van(r, cf0, cf1, ...)`         | `van(0.10, -1000, 300, 400)`           |
-| `tir(cf0, cf1, ...)`            | `tir(-1000, 300, 400, 500)`            |
-| `depreciar(cost, res, years)`   | `depreciar(10000, 1000, 5)`            |
-| `interes_simple(c, r, t)`       | `interes_simple(1000, 0.05, 3)`        |
-| `interes_compuesto(c, r, n, t)` | `interes_compuesto(1000, 0.05, 12, 3)` |
+### Trigonometry
+`sin`, `cos`, `tan`, `csc`, `sec`, `cot`, `asin`, `acos`, `atan`, `acsc`, `asec`, `acot`, `sinh`, `cosh`, `tanh`
 
-### Number Systems
+Aliases: `seno`=`sin`, `coseno`=`cos`, `tangente`=`tan`, `senh`=`sinh`
+
+### Scripting
 ```
-0b1010    → 10   (binary)
-0xFF      → 255  (hexadecimal)
-0o17      → 15   (octal)
+>>> f(x) := x^2 + 1
+→ Función f(x) definida.
+>>> f(3)
+→ 10
+>>> a = 5; b = 3    # Batch con ;
 ```
 
 ---

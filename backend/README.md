@@ -3,9 +3,11 @@
 FastAPI backend for Binary EquaLab CAS calculator.
 
 ## Stack
-- **Framework:** FastAPI
+- **Framework:** FastAPI + Uvicorn
+- **Math Engine:** SymEngine (C++ native, ~1ms) + SymPy (fallback, timeout 5s)
+- **Native Engine:** EquaCore C++ (pybind11) — `sym`, `calculus`, `linalg`, `stats`
+- **CAS Backends:** Maxima (Laplace, integrales simbólicas)
 - **Auth:** Supabase (JWT + OAuth)
-- **Math Engine:** SymPy
 - **Database:** PostgreSQL (via Supabase)
 
 ## Setup
@@ -25,14 +27,20 @@ uvicorn main:app --reload
 ### Health
 - `GET /health` - Health check
 
-### Math (Symbolic)
-- `POST /api/simplify` - Simplify expression
-- `POST /api/expand` - Expand expression
-- `POST /api/factor` - Factor expression
-- `POST /api/derivative` - Compute derivative
-- `POST /api/integral` - Compute integral
-- `POST /api/solve` - Solve equation
-- `POST /api/latex` - Convert to LaTeX
+### CAS (64 functions)
+- `POST /api/cas/evaluate` - Evaluate expression (SymEngine → SymPy cascade)
+- `POST /api/cas/simplify` - Simplify
+- `POST /api/cas/expand` - Expand
+- `POST /api/cas/factor` - Factor
+- `POST /api/cas/derivative` - Derivative
+- `POST /api/cas/limit` - Limit
+- `POST /api/cas/integrate` - Integral
+- `POST /api/cas/taylor` - Taylor series
+
+### Bio-Engine
+- `POST /api/bio/simulate_pti` - PTI simulation
+- `POST /api/bio/simulate_bergman` - Glucose model
+- `POST /api/bio/simulate_hh` - Hodgkin-Huxley neuron
 
 ### Worksheets (Auth Required)
 - `GET /api/worksheets` - List user worksheets

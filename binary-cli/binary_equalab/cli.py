@@ -21,7 +21,7 @@ console = Console()
 
 BANNER = """
 [bold orange1]╔══════════════════════════════════════════════════════════╗
-║    [white]Binary EquaLab CLI[/white]   [dim]Aurora v3.0 (Beta)[/dim]              ║
+║    [white]Binary EquaLab CLI[/white]   [dim]Aurora v3.1[/dim]                    ║
 ║    [dim italic]"Las matemáticas también sienten,[/dim italic]                  ║
 ║    [dim italic] pero estas no se equivocan."[/dim italic]                  ║
 ╚══════════════════════════════════════════════════════════╝[/bold orange1]
@@ -30,32 +30,36 @@ BANNER = """
   [cyan]help[/cyan]     - Lista de funciones disponibles
   [cyan]exit[/cyan]     - Salir
   [cyan]cls[/cyan]      - Limpiar pantalla
-  
-[dim]Pro Tip:[/dim] Usa [bold]sonify(expr)[/bold] para escuchar funciones o [bold]recta(p1, p2)[/bold] para geometría.
+   
+[dim]Pro Tip:[/dim] Usa [bold]f(x) := x^2[/bold] para definir funciones, [bold];[/bold] para evaluar varias a la vez.
 
 [dim]Ejemplos:[/dim]
   derivar(cos^2(2x))
-  sonify(sin(440*2*pi*t))
-  distancia((0,0), (1,1))
+  f(x) := x^2 + 1; f(3)
+  esPrimo(97)
+  taylor(sin(x), x, 0, 5)
 """
 
 HELP_TEXT = """
-## Funciones Disponibles
+## Funciones Disponibles (v3.1 — 64 funciones)
 
 ### Cálculo
 | Función | Ejemplo |
 |---------|---------|
 | `derivar(expr, var)` | `derivar(x^2, x)` → `2*x` |
 | `integrar(expr, var)` | `integrar(sin(x), x)` → `-cos(x)` |
-
-### Audio & Geometría (NUEVO)
-| Función | Ejemplo |
-|---------|---------|
-| `sonify(expr)` | `sonify(sin(440t))` (Genera output.wav) |
-| `distancia(p1, p2)` | `distancia((0,0), (3,4))` → `5` |
-| `recta(p1, p2)` | `recta((0,0), (1,1))` → `y=x` |
 | `limite(expr, var, punto)` | `limite(sin(x)/x, x, 0)` → `1` |
 | `sumatoria(expr, var, a, b)` | `sumatoria(n^2, n, 1, 10)` |
+| `taylor(expr, var, punto, orden)` | `taylor(sin(x), x, 0, 5)` |
+
+### Trigonometría
+| Función | Alias español |
+|---------|---------|
+| `sin`, `cos`, `tan` | `seno`, `coseno`, `tangente` |
+| `csc`, `sec`, `cot` | cosecante, secante, cotangente |
+| `asin`, `acos`, `atan` | `arcoseno`, `arcocoseno`, `arcotangente` |
+| `acsc`, `asec`, `acot` | inversa extendida |
+| `sinh`, `cosh`, `tanh` | `senh`, `cosh`, `tanh` |
 
 ### Álgebra
 | Función | Ejemplo |
@@ -64,6 +68,22 @@ HELP_TEXT = """
 | `expandir(expr)` | `expandir((x+1)^2)` |
 | `factorizar(expr)` | `factorizar(x^2-1)` |
 | `resolver(expr, var)` | `resolver(x^2-4, x)` → `[-2, 2]` |
+| `parciales(expr, var)` | `parciales(1/(x^2-1), x)` |
+| `mcd(a, b)` | `mcd(24, 36)` → `12` |
+| `mcm(a, b)` | `mcm(4, 6)` → `12` |
+| `esPrimo(n)` | `esPrimo(97)` → `Sí, 97 es primo` |
+| `combinar(n, k)` | `combinar(10, 3)` → `120` |
+| `permutar(n, k)` | `permutar(10, 3)` → `720` |
+| `factoresPrimos(n)` | `factoresPrimos(360)` → `2^3 × 3^2 × 5` |
+
+### Aritmética
+| Función | Ejemplo |
+|---------|---------|
+| `mod(a, b)` | `mod(10, 3)` → `1` |
+| `maximo(a, b)` | `maximo(3, 7)` → `7` |
+| `minimo(a, b)` | `minimo(3, 7)` → `3` |
+| `signo(x)` | `signo(-5)` → `-1` |
+| `raizcub(x)` | `raizcub(27)` → `3` |
 
 ### Estadística
 | Función | Ejemplo |
@@ -72,6 +92,11 @@ HELP_TEXT = """
 | `mediana(...)` | `mediana(1, 2, 3, 4, 5)` → `3` |
 | `desviacion(...)` | `desviacion(1, 2, 3, 4, 5)` |
 | `varianza(...)` | `varianza(1, 2, 3, 4, 5)` |
+| `covarianza(xs..., ys...)` | `covarianza(1,2,3, 4,5,6)` |
+| `correlacion(xs..., ys...)` | `correlacion(1,2,3, 2,4,6)` |
+| `regresion(xs..., ys...)` | `regresion(1,2,3, 2,4,6)` |
+| `normalpdf(x, mu, sigma)` | `normalpdf(0, 0, 1)` |
+| `binomialpmf(k, n, p)` | `binomialpmf(3, 10, 0.5)` |
 
 ### Finanzas
 | Función | Ejemplo |
@@ -79,24 +104,28 @@ HELP_TEXT = """
 | `van(tasa, flujo0, flujo1, ...)` | `van(0.10, -1000, 300, 400)` |
 | `tir(flujo0, flujo1, ...)` | `tir(-1000, 300, 400, 500)` |
 | `depreciar(costo, residual, años)` | `depreciar(10000, 1000, 5)` |
-| `interes_simple(capital, tasa, tiempo)` | `interes_simple(1000, 0.05, 3)` |
-| `interes_simple(capital, tasa, tiempo)` | `interes_simple(1000, 0.05, 3)` |
-| `interes_compuesto(capital, tasa, n, tiempo)` | `interes_compuesto(1000, 0.05, 12, 3)` |
+| `interes_simple(cap, tasa, t)` | `interes_simple(1000, 0.05, 3)` |
+| `interes_compuesto(cap, tasa, n, t)` | `interes_compuesto(1000, 0.05, 12, 3)` |
 
-### Sistemas Numéricos (NUEVO)
+### Audio & Geometría
+| Función | Ejemplo |
+|---------|---------|
+| `sonify(expr)` | `sonify(sin(440*t))` |
+| `distancia(p1, p2)` | `distancia((0,0), (3,4))` → `5` |
+| `recta(p1, p2)` | `recta((0,0), (1,1))` → `y=x` |
+
+### Sistemas Numéricos
 | Función | Ejemplo |
 |---------|---------|
 | `bin(n)` | `bin(10)` → `0b1010` |
-| `oct(n)` | `oct(10)` → `0o12` |
 | `hex(n)` | `hex(255)` → `0xff` |
 | `base(n, b)` | `base(10, 2)` → `1010` |
 
-### AI Assistant
-
-### Aliases y Accesos Directos
-- **Shell**: Puedes ejecutar el programa como `binary-equalab`, `bneqls`, `beq` o `binary-math`.
-- **Trigonometría**: `seno`=`sin`, `coseno`=`cos`, `tangente`=`tan`.
-- **General**: `sonificar`=`sonify`, `derivada`=`derivar`.
+### Scripting
+- `f(x) := x^2 + 1`  → Define función
+- `f(3)`  → Evalúa: `10`
+- Separador `;` para evaluar múltiples expresiones:
+  `a = 5; b = 3; a + b` → `8`
 
 """
 
@@ -110,7 +139,7 @@ def get_prompt_style():
 def print_banner():
     """Print the CLI banner using Rich panels."""
     title = Text("Binary EquaLab CLI", style="bold white")
-    version = Text("Aurora v3.0 (Beta)", style="dim")
+    version = Text("Aurora v3.1", style="dim")
     slogan = Text('"Las matemáticas también sienten,\npero estas no se equivocan."', style="dim italic")
 
     content = Text.assemble(title, "  ", version, "\n\n", slogan, justify="center")
@@ -183,19 +212,31 @@ def repl():
             
             # Evaluate expression
             try:
-                result = engine.evaluate(user_input)
-                
-                if result is None:
-                    continue
-                
-                # Format output
-                if isinstance(result, (list, tuple)):
-                    console.print(f"[bold green]→[/bold green] {list(result)}")
-                elif isinstance(result, dict):
-                    for key, value in result.items():
-                        console.print(f"  [cyan]{key}:[/cyan] {value}")
+                # Batch support: evaluate multiple expressions with ';'
+                if ';' in user_input:
+                    results = engine.evaluate_batch(user_input)
+                    for r in results:
+                        if r is not None:
+                            if isinstance(r, (list, tuple)):
+                                console.print(f"[bold green]→[/bold green] {list(r)}")
+                            elif isinstance(r, dict):
+                                for key, value in r.items():
+                                    console.print(f"  [cyan]{key}:[/cyan] {value}")
+                            else:
+                                console.print(f"[bold green]→[/bold green] {r}")
                 else:
-                    console.print(f"[bold green]→[/bold green] {result}")
+                    result = engine.evaluate(user_input)
+                    
+                    if result is None:
+                        continue
+                    
+                    if isinstance(result, (list, tuple)):
+                        console.print(f"[bold green]→[/bold green] {list(result)}")
+                    elif isinstance(result, dict):
+                        for key, value in result.items():
+                            console.print(f"  [cyan]{key}:[/cyan] {value}")
+                    else:
+                        console.print(f"[bold green]→[/bold green] {result}")
                     
             except Exception as e:
                 console.print(f"[bold red]Error:[/bold red] {e}")

@@ -1,6 +1,6 @@
 """
-Binary EquaLab - Math Engine
-Core symbolic computation using SymPy with Spanish function translations.
+Binary EquaLab - Math Engine v3.1
+Core symbolic computation using SymEngine (C++ native) + SymPy with Spanish function translations.
 """
 
 import sympy as sp
@@ -8,14 +8,28 @@ from sympy import (
     Symbol, symbols, sin, cos, tan, sqrt, exp, log, ln, pi, E, I,
     diff, integrate, limit, summation, simplify, expand, factor, solve,
     Abs, factorial, gamma, binomial, floor, ceiling,
-    Matrix, det, Transpose
+    Matrix, det, Transpose,
+    csc, sec, cot, asin, acos, atan,
+    sinh, cosh, tanh,
+    sign, Mod, Max, Min, cbrt, gcd, lcm, isprime, apart, series,
+    factorint
 )
 from sympy.parsing.sympy_parser import (
     parse_expr, standard_transformations, implicit_multiplication_application,
     convert_xor, function_exponentiation
 )
+from sympy.stats import Normal, density
 from typing import Any, Union, List, Optional
 import re
+import math
+
+# SymEngine C++ native acceleration
+HAS_SYMENGINE = False
+try:
+    import symengine as _sym
+    HAS_SYMENGINE = True
+except ImportError:
+    pass
 
 from .parser_enhanced import EnhancedParser
 from .sonify import AudioEngine
@@ -50,6 +64,9 @@ class MathEngine:
         # Initialize Core Bio-Engine if available
         self.core = EquaEngine() if HAS_CORE_ENGINE else None
         
+        # User-defined functions (scripting)
+        self.user_functions = {}
+
         # Spanish → SymPy function mapping
         self.function_map = {
             # Calculus
@@ -57,18 +74,32 @@ class MathEngine:
             'integrar': self._integrar,
             'limite': self._limite,
             'sumatoria': self._sumatoria,
+            'taylor': self._taylor,
             
             # Algebra
             'simplificar': self._simplificar,
             'expandir': self._expandir,
             'factorizar': self._factorizar,
             'resolver': self._resolver,
+            'parciales': self._parciales,
+            'mcd': self._mcd,
+            'mcm': self._mcm,
+            'esPrimo': self._es_primo,
+            'combinar': self._combinar,
+            'permutar': self._permutar,
+            'factoresPrimos': self._factores_primos,
             
-            # Statistics
+            # Statistics (Basic)
             'media': self._media,
             'mediana': self._mediana,
             'desviacion': self._desviacion,
             'varianza': self._varianza,
+            # Statistics (Advanced)
+            'covarianza': self._covarianza,
+            'correlacion': self._correlacion,
+            'regresion': self._regresion,
+            'normalpdf': self._normalpdf,
+            'binomialpmf': self._binomialpmf,
             
             # Finance
             'van': self._van,
@@ -94,13 +125,21 @@ class MathEngine:
             'hex': self._hexadecimal,
             'base': self._base_n,
             
-            # Trigonometry aliases
-            'seno': sin,
-            'coseno': cos,
-            'tangente': tan,
-            'arcoseno': sp.asin,
-            'arcocoseno': sp.acos,
-            'arcotangente': sp.atan,
+            # Trigonometry (basic aliases)
+            'seno': sin, 'coseno': cos, 'tangente': tan,
+            'arcoseno': sp.asin, 'arcocoseno': sp.acos, 'arcotangente': sp.atan,
+            # Trigonometry (extended)
+            'csc': csc, 'sec': sec, 'cot': cot,
+            'acsc': sp.acsc, 'asec': sp.asec, 'acot': sp.acot,
+            # Hyperbolic
+            'senh': sinh, 'cosh': cosh, 'tanh': tanh,
+            # Arithmetic extended
+            'mod': lambda a, b: Mod(a, b),
+            'maximo': lambda a, b: Max(a, b),
+            'minimo': lambda a, b: Min(a, b),
+            'signo': lambda x: sign(x),
+            'raizcub': lambda x: cbrt(x),
+            'redondear': lambda x, n=0: round(float(x), int(n)),
         }
     
     def parse(self, expression: str) -> Any:
@@ -132,14 +171,23 @@ class MathEngine:
         if expression.lower().strip() in ["sentimiento", "amor", "error", "feel"]:
             return "Aquí el sentimiento existe. El error, no."
 
+        # Check for user function definition: f(x) := expr
+        func_def = re.match(r'^(\w+)\(([^)]+)\)\s*:=\s*(.+)$', expression)
+        if func_def:
+            fname, params_str, body = func_def.groups()
+            params = [p.strip() for p in params_str.split(',')]
+            self.user_functions[fname] = {'params': params, 'body': body}
+            return f"Función {fname}({', '.join(params)}) definida."
+
+        # Substitute user functions before evaluation
+        expression = self._substitute_user_functions(expression)
+
         # Check for variable assignment (e.g., "a = 5")
         assignment_match = re.match(r'^([a-zA-Z_]\w*)\s*=\s*(.+)$', expression)
         if assignment_match:
             var_name, val_expr = assignment_match.groups()
             try:
-                # Calculate value first
                 val_result = self.evaluate(val_expr)
-                # Store in symbols
                 self.symbols[var_name] = val_result
                 return val_result
             except Exception as e:
@@ -152,10 +200,18 @@ class MathEngine:
                 self.last_result = result
                 return result
         
-        # Standard expression evaluation
+        # Standard expression evaluation with SymEngine acceleration
         try:
+            if HAS_SYMENGINE:
+                try:
+                    parsed = _sym.sympify(expression)
+                    result = _sym.expand(parsed)
+                    self.last_result = result
+                    return sp.sympify(str(result))
+                except Exception:
+                    pass
+
             if self.core:
-                # Use Core Engine logic (v3.0)
                 result = self.core.simplify(expression)
                 self.last_result = result
                 return result
@@ -166,31 +222,52 @@ class MathEngine:
             return result
         except Exception as e:
             raise ValueError(f"Evaluation error: {e}")
+
+    def evaluate_batch(self, expression: str) -> list:
+        """Evaluate multiple expressions separated by ';'. Returns list of results."""
+        parts = [p.strip() for p in expression.split(';') if p.strip()]
+        results = []
+        for part in parts:
+            try:
+                result = self.evaluate(part)
+                results.append(result)
+            except Exception as e:
+                results.append(f"Error: {e}")
+        return results
+
+    def _substitute_user_functions(self, expr: str) -> str:
+        """Expand user-defined functions in expression."""
+        for fname, fdef in self.user_functions.items():
+            pattern = rf'{fname}\(([^)]+)\)'
+            match = re.search(pattern, expr)
+            while match:
+                args_str = match.group(1)
+                args = [a.strip() for a in args_str.split(',')]
+                body = fdef['body']
+                for param, arg in zip(fdef['params'], args):
+                    body = re.sub(rf'\b{param}\b', f'({arg})', body)
+                expr = expr[:match.start()] + f'({body})' + expr[match.end():]
+                match = re.search(pattern, expr)
+        return expr
     
     def _preprocess(self, expr: str) -> str:
         """Convert Spanish function names and shortcuts."""
-        # Replace Spanish trig
         replacements = {
-            'seno': 'sin',
-            'sen': 'sin',
-            'coseno': 'cos', 
-            'tangente': 'tan',
-            'arcoseno': 'asin',
-            'arcocoseno': 'acos',
-            'arcotangente': 'atan',
-            'raiz': 'sqrt',
-            'absoluto': 'Abs',
-            'logaritmo': 'log',
-            'exponencial': 'exp',
+            'seno': 'sin', 'sen': 'sin',
+            'coseno': 'cos', 'tangente': 'tan',
+            'arcoseno': 'asin', 'arcocoseno': 'acos', 'arcotangente': 'atan',
+            'raiz': 'sqrt', 'absoluto': 'Abs',
+            'logaritmo': 'log', 'exponencial': 'exp',
+            # New in v3.1
+            'senh': 'sinh',
+            'raizcub': 'cbrt',
+            'acsc': 'acsc', 'asec': 'asec', 'acot': 'acot',
         }
         
         for es, en in replacements.items():
             expr = re.sub(rf'\b{es}\b', en, expr, flags=re.IGNORECASE)
         
-        # Enhanced Parser Logic (Sugared Syntax)
         expr = EnhancedParser.preprocess(expr)
-
-        # Handle ^ as power (fallback)
         expr = expr.replace('^', '**')
         
         return expr
@@ -281,6 +358,12 @@ class MathEngine:
         if var is None:
             var = n
         return summation(expr, (var, a, b))
+
+    def _taylor(self, expr, var=None, punto=0, orden=5):
+        """Taylor series: taylor(sin(x), x, 0, 5)"""
+        if var is None:
+            var = x
+        return series(expr, var, float(punto), int(orden)).removeO()
     
     # ============ ALGEBRA ============
     
@@ -301,7 +384,40 @@ class MathEngine:
         if var is None:
             var = x
         return solve(expr, var)
-    
+
+    def _parciales(self, expr, var=None):
+        """Partial fractions: parciales(1/(x^2-1), x)"""
+        if var is None:
+            var = x
+        return apart(expr, var)
+
+    def _mcd(self, a, b):
+        """GCD: mcd(24, 36) → 12"""
+        return gcd(int(a), int(b))
+
+    def _mcm(self, a, b):
+        """LCM: mcm(4, 6) → 12"""
+        return lcm(int(a), int(b))
+
+    def _es_primo(self, n):
+        """Is prime: esPrimo(17) → 'Sí, 17 es primo'"""
+        result = isprime(int(n))
+        return f"Sí, {int(n)} es primo" if result else f"No, {int(n)} no es primo"
+
+    def _combinar(self, n, k):
+        """Combinations: combinar(10, 3) → 120"""
+        return binomial(int(n), int(k))
+
+    def _permutar(self, n, k):
+        """Permutations: permutar(10, 3) → 720"""
+        return factorial(int(n)) // factorial(int(n) - int(k))
+
+    def _factores_primos(self, n):
+        """Prime factorization: factoresPrimos(360) → {2: 3, 3: 2, 5: 1}"""
+        factors = factorint(int(n))
+        parts = [f"{p}^{e}" if e > 1 else str(p) for p, e in sorted(factors.items())]
+        return " × ".join(parts)
+
     # ============ STATISTICS ============
     
     def _media(self, *values):
@@ -312,24 +428,69 @@ class MathEngine:
     def _mediana(self, *values):
         """Median: mediana(1, 2, 3, 4, 5) → 3"""
         nums = sorted([float(v) for v in values])
-        n = len(nums)
-        mid = n // 2
-        if n % 2 == 0:
+        n_vals = len(nums)
+        mid = n_vals // 2
+        if n_vals % 2 == 0:
             return (nums[mid - 1] + nums[mid]) / 2
         return nums[mid]
     
     def _desviacion(self, *values):
         """Standard deviation: desviacion(1, 2, 3, 4, 5)"""
         nums = [float(v) for v in values]
-        mean = sum(nums) / len(nums)
-        variance = sum((x - mean) ** 2 for x in nums) / len(nums)
-        return variance ** 0.5
+        mean_val = sum(nums) / len(nums)
+        variance_val = sum((xi - mean_val) ** 2 for xi in nums) / len(nums)
+        return variance_val ** 0.5
     
     def _varianza(self, *values):
         """Variance: varianza(1, 2, 3, 4, 5)"""
         nums = [float(v) for v in values]
-        mean = sum(nums) / len(nums)
-        return sum((x - mean) ** 2 for x in nums) / len(nums)
+        mean_val = sum(nums) / len(nums)
+        return sum((xi - mean_val) ** 2 for xi in nums) / len(nums)
+
+    def _covarianza(self, *values):
+        """Covariance: covarianza(1,2,3, 4,5,6) → pass pairs"""
+        nums = [float(v) for v in values]
+        half = len(nums) // 2
+        xs, ys = nums[:half], nums[half:]
+        mx, my = sum(xs)/len(xs), sum(ys)/len(ys)
+        return sum((xi-mx)*(yi-my) for xi, yi in zip(xs, ys)) / len(xs)
+
+    def _correlacion(self, *values):
+        """Pearson correlation"""
+        nums = [float(v) for v in values]
+        half = len(nums) // 2
+        xs, ys = nums[:half], nums[half:]
+        mx, my = sum(xs)/len(xs), sum(ys)/len(ys)
+        cov = sum((xi-mx)*(yi-my) for xi, yi in zip(xs, ys)) / len(xs)
+        sx = (sum((xi-mx)**2 for xi in xs) / len(xs)) ** 0.5
+        sy = (sum((yi-my)**2 for yi in ys) / len(ys)) ** 0.5
+        if sx == 0 or sy == 0:
+            return 0
+        return round(cov / (sx * sy), 6)
+
+    def _regresion(self, *values):
+        """Linear regression: regresion(x1,x2,..., y1,y2,...) → {m, b}"""
+        nums = [float(v) for v in values]
+        half = len(nums) // 2
+        xs, ys = nums[:half], nums[half:]
+        n_pts = len(xs)
+        mx, my = sum(xs)/n_pts, sum(ys)/n_pts
+        num = sum((xi-mx)*(yi-my) for xi, yi in zip(xs, ys))
+        den = sum((xi-mx)**2 for xi in xs)
+        m = num / den if den != 0 else 0
+        b = my - m * mx
+        return {'pendiente': round(m, 6), 'intercepto': round(b, 6), 'ecuacion': f'y = {round(m,4)}x + {round(b,4)}'}
+
+    def _normalpdf(self, x_val, mu=0, sigma=1):
+        """Normal PDF: normalpdf(0, 0, 1) → 0.3989..."""
+        x_val, mu, sigma = float(x_val), float(mu), float(sigma)
+        return round((1/(sigma * math.sqrt(2*math.pi))) * math.exp(-0.5*((x_val-mu)/sigma)**2), 8)
+
+    def _binomialpmf(self, k_val, n_val, p_val):
+        """Binomial PMF: binomialpmf(3, 10, 0.5)"""
+        k_val, n_val, p_val = int(k_val), int(n_val), float(p_val)
+        coeff = math.comb(n_val, k_val)
+        return round(coeff * (p_val ** k_val) * ((1 - p_val) ** (n_val - k_val)), 8)
 
     # ============ FINANCE ============
 
@@ -455,115 +616,127 @@ class MathEngine:
             n //= b
         return "".join(str(d) for d in digits[::-1])
 
-# Convenience functions for direct import
+# ============================================================
+# Convenience functions for direct import: from binary_equalab import *
+# ============================================================
+_engine = MathEngine()
+
 def derivar(expr, var=None, n=1):
-    engine = MathEngine()
-    return engine._derivar(engine.parse(str(expr)), var, n)
+    return _engine._derivar(_engine.parse(str(expr)), var, n)
 
 def integrar(expr, var=None, a=None, b=None):
-    engine = MathEngine()
-    return engine._integrar(engine.parse(str(expr)), var, a, b)
+    return _engine._integrar(_engine.parse(str(expr)), var, a, b)
 
 def limite(expr, var=None, punto=0):
-    engine = MathEngine()
-    return engine._limite(engine.parse(str(expr)), var, punto)
+    return _engine._limite(_engine.parse(str(expr)), var, punto)
 
 def sumatoria(expr, var=None, a=0, b=10):
-    engine = MathEngine()
-    return engine._sumatoria(engine.parse(str(expr)), var, a, b)
+    return _engine._sumatoria(_engine.parse(str(expr)), var, a, b)
+
+def taylor(expr, var=None, punto=0, orden=5):
+    return _engine._taylor(_engine.parse(str(expr)), var, punto, orden)
 
 def simplificar(expr):
-    engine = MathEngine()
-    return engine._simplificar(engine.parse(str(expr)))
+    return _engine._simplificar(_engine.parse(str(expr)))
 
 def expandir(expr):
-    engine = MathEngine()
-    return engine._expandir(engine.parse(str(expr)))
+    return _engine._expandir(_engine.parse(str(expr)))
 
 def factorizar(expr):
-    engine = MathEngine()
-    return engine._factorizar(engine.parse(str(expr)))
+    return _engine._factorizar(_engine.parse(str(expr)))
 
 def resolver(expr, var=None):
-    engine = MathEngine()
-    return engine._resolver(engine.parse(str(expr)), var)
+    return _engine._resolver(_engine.parse(str(expr)), var)
+
+def parciales(expr, var=None):
+    return _engine._parciales(_engine.parse(str(expr)), var)
+
+def mcd(a, b):
+    return _engine._mcd(a, b)
+
+def mcm(a, b):
+    return _engine._mcm(a, b)
+
+def esPrimo(n):
+    return _engine._es_primo(n)
+
+def combinar(n, k):
+    return _engine._combinar(n, k)
+
+def permutar(n, k):
+    return _engine._permutar(n, k)
+
+def factoresPrimos(n):
+    return _engine._factores_primos(n)
 
 def van(tasa, *flujos):
-    engine = MathEngine()
-    return engine._van(tasa, *flujos)
+    return _engine._van(tasa, *flujos)
 
 def tir(*flujos):
-    engine = MathEngine()
-    return engine._tir(*flujos)
+    return _engine._tir(*flujos)
 
 def depreciar(costo, residual, años):
-    engine = MathEngine()
-    return engine._depreciar(costo, residual, años)
+    return _engine._depreciar(costo, residual, años)
 
 def interes_simple(capital, tasa, tiempo):
-    engine = MathEngine()
-    return engine._interes_simple(capital, tasa, tiempo)
+    return _engine._interes_simple(capital, tasa, tiempo)
 
 def interes_compuesto(capital, tasa, n, tiempo):
-    engine = MathEngine()
-    return engine._interes_compuesto(capital, tasa, n, tiempo)
+    return _engine._interes_compuesto(capital, tasa, n, tiempo)
 
 def media(*values):
-    engine = MathEngine()
-    return engine._media(*values)
+    return _engine._media(*values)
 
 def mediana(*values):
-    engine = MathEngine()
-    return engine._mediana(*values)
+    return _engine._mediana(*values)
 
 def desviacion(*values):
-    engine = MathEngine()
-    return engine._desviacion(*values)
+    return _engine._desviacion(*values)
 
 def varianza(*values):
-    engine = MathEngine()
-    return engine._varianza(*values)
+    return _engine._varianza(*values)
 
+def covarianza(*values):
+    return _engine._covarianza(*values)
 
+def correlacion(*values):
+    return _engine._correlacion(*values)
 
-# ... (Global functions) ...
+def regresion(*values):
+    return _engine._regresion(*values)
+
+def normalpdf(x, mu=0, sigma=1):
+    return _engine._normalpdf(x, mu, sigma)
+
+def binomialpmf(k, n, p):
+    return _engine._binomialpmf(k, n, p)
 
 def distancia(p1, p2):
-    engine = MathEngine()
-    return engine._distancia(p1, p2)
+    return _engine._distancia(p1, p2)
 
 def punto_medio(p1, p2):
-    engine = MathEngine()
-    return engine._punto_medio(p1, p2)
+    return _engine._punto_medio(p1, p2)
 
 def pendiente(p1, p2):
-    engine = MathEngine()
-    return engine._pendiente(p1, p2)
+    return _engine._pendiente(p1, p2)
 
 def recta(p1, p2):
-    engine = MathEngine()
-    return engine._recta(p1, p2)
+    return _engine._recta(p1, p2)
 
 def circulo(centro, radio):
-    engine = MathEngine()
-    return engine._circulo(centro, radio)
+    return _engine._circulo(centro, radio)
 
 def sonify(expr, duration=3.0, filename="output.wav"):
-    engine = MathEngine()
-    return engine._sonify(expr, duration, filename)
+    return _engine._sonify(expr, duration, filename)
 
 def binario(number):
-    engine = MathEngine()
-    return engine._binario(number)
+    return _engine._binario(number)
 
 def octal(number):
-    engine = MathEngine()
-    return engine._octal(number)
+    return _engine._octal(number)
 
 def hexadecimal(number):
-    engine = MathEngine()
-    return engine._hexadecimal(number)
+    return _engine._hexadecimal(number)
 
 def base(number, n):
-    engine = MathEngine()
-    return engine._base_n(number, n)
+    return _engine._base_n(number, n)
