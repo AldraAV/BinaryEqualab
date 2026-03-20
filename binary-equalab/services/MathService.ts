@@ -29,11 +29,14 @@ export class MathService {
 
         try {
             // Normalize for JS math
-            const expressionJS = expression.replace(/\^/g, '**');
+            let expressionJS = expression.replace(/\^/g, '**');
+
+            // Force variables to 't' for nerdamer compatibility if x or other is used
+            expressionJS = expressionJS.replace(/\b(x|y|z)\b/gi, 't');
 
             // Build function directly using nerdamer if possible, or fallback
             // nerdamer.buildFunction(['t']) returns a compiled function
-            const func = nerdamer(expression).buildFunction(['t']);
+            const func = nerdamer(expressionJS).buildFunction(['t']);
 
             for (let i = 0; i < length; i++) {
                 const t = i / sampleRate;

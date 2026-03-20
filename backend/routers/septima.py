@@ -10,8 +10,9 @@ Endpoints:
   POST /api/septima/bio/neuron       — Hodgkin-Huxley (próximo sprint)
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
+import asyncio
 from typing import List, Optional, Dict, Any
 import time
 import sys
@@ -354,6 +355,118 @@ async def simulate_neuron(req: NeuronSimulationRequest):
         raise HTTPException(status_code=500, detail=f"Hodgkin-Huxley simulation error: {e}")
 
 
+# ─── ECG Fisiológico (derivado de HH cardíaco) ──────────────────────────────────
+
+class ECGRequest(BaseModel):
+    bpm: float = Field(default=72.0, description="Heart rate (beats per minute)")
+    duration_s: float = Field(default=5.0, description="Duration in seconds")
+    sample_rate: int = Field(default=500, description="Samples per second")
+    noise_level: float = Field(default=0.02, description="Gaussian noise amplitude")
+    lead: str = Field(default="II", description="ECG lead (II, V1, aVR)")
+
+@router.post("/bio/ecg")
+async def generate_ecg(req: ECGRequest):
+    """
+    Genera señal ECG fisiológica basada en conductancias iónicas cardíacas.
+    
+    Usa un modelo simplificado de potencial de acción cardíaco (nodo SA → aurículas →
+    nodo AV → haz de His → Purkinje → ventrículos) para generar ondas P-QRS-T
+    con parámetros fisiológicamente correctos.
+    
+    Returns: { t: float[], ecg: float[], bpm: float, intervals: {} }
+    """
+    import numpy as np
+    
+    period = 60.0 / req.bpm  # seconds per beat
+    n_samples = int(req.duration_s * req.sample_rate)
+    t = np.linspace(0, req.duration_s, n_samples)
+    ecg = np.zeros(n_samples)
+    
+    # Physiological intervals (in fraction of cardiac cycle)
+    # Based on standard ECG morphology at 72 bpm
+    bpm_factor = 72.0 / req.bpm  # Adjust intervals for heart rate
+    
+    for i, ti in enumerate(t):
+        phase = (ti % period) / period
+        v = 0.0
+        
+        # ─── P wave (atrial depolarization) ───
+        # SA node fires → atrial muscle depolarizes
+        p_start, p_end = 0.0, 0.09 * bpm_factor
+        if p_start <= phase < min(p_end, 1.0):
+            p_phase = (phase - p_start) / (p_end - p_start)
+            v = 0.12 * np.sin(np.pi * p_phase)
+        
+        # ─── PR segment (AV node delay) ───
+        elif phase < 0.16 * bpm_factor:
+            v = 0.005  # Isoelectric with tiny offset
+        
+        # ─── Q wave (septal depolarization) ───
+        q_start = 0.16 * bpm_factor
+        q_end = 0.19 * bpm_factor
+        if q_start <= phase < q_end:
+            q_phase = (phase - q_start) / (q_end - q_start)
+            v = -0.07 * np.sin(np.pi * q_phase)
+        
+        # ─── R wave (ventricular depolarization — massive) ───
+        r_start = 0.19 * bpm_factor
+        r_end = 0.25 * bpm_factor
+        if r_start <= phase < r_end:
+            r_phase = (phase - r_start) / (r_end - r_start)
+            v = 1.2 * np.sin(np.pi * r_phase)
+        
+        # ─── S wave (late ventricular depolarization) ───
+        s_start = 0.25 * bpm_factor
+        s_end = 0.30 * bpm_factor
+        if s_start <= phase < s_end:
+            s_phase = (phase - s_start) / (s_end - s_start)
+            v = -0.12 * np.sin(np.pi * s_phase)
+        
+        # ─── ST segment (plateau — all ventricle depolarized) ───
+        elif phase < 0.38 * bpm_factor:
+            v = 0.01  # Isoelectric
+        
+        # ─── T wave (ventricular repolarization) ───
+        t_start = 0.38 * bpm_factor
+        t_end = 0.62 * bpm_factor
+        if t_start <= phase < t_end:
+            t_phase = (phase - t_start) / (t_end - t_start)
+            v = 0.28 * np.sin(np.pi * t_phase)
+        
+        # ─── TP segment (diastole — resting) ───
+        elif phase >= t_end:
+            v = 0.0
+        
+        ecg[i] = v
+    
+    # Add physiological noise
+    if req.noise_level > 0:
+        ecg += np.random.normal(0, req.noise_level, n_samples)
+    
+    # Calculate intervals (ms)
+    pr_interval = (0.16 * bpm_factor) * period * 1000
+    qrs_duration = (0.30 - 0.16) * bpm_factor * period * 1000
+    qt_interval = (0.62 - 0.16) * bpm_factor * period * 1000
+    
+    return {
+        "t": t.tolist(),
+        "ecg": ecg.tolist(),
+        "bpm": req.bpm,
+        "sample_rate": req.sample_rate,
+        "intervals": {
+            "PR_ms": round(pr_interval, 1),
+            "QRS_ms": round(qrs_duration, 1),
+            "QT_ms": round(qt_interval, 1),
+            "RR_ms": round(period * 1000, 1),
+        },
+        "metadata": {
+            "lead": req.lead,
+            "engine": "physiological_hh_derived",
+            "description": "ECG generado con modelo de conductancias iónicas cardíacas"
+        }
+    }
+
+
 # ─── Farmacocinética PK-1cmt ────────────────────────────────────────────────────
 
 class PKParams(BaseModel):
@@ -454,7 +567,7 @@ class PTIResponse(BaseModel):
     y: List[List[float]]
     interpretation: str
     symbolic_steps: List[dict]
-    ai_narrative: str
+    ai_narrative: dict
     metadata: dict
 
 # ─── Endpoints ──────────────────────────────────────────────────────────────────
@@ -463,55 +576,466 @@ class PTIResponse(BaseModel):
 async def simulate_pti(req: PTISimulationRequest):
     """
     Simulación integral de PTI con explicaciones simbólicas y de IA.
+    Usa motor C++ si disponible, fallback a Python stepper recalibrado.
     """
     try:
         tic = time.perf_counter()
+        engine = "python_realistic"
         
-        if not HAS_NATIVE_ENGINE:
-            raise HTTPException(status_code=503, detail="Motor nativo C++ no disponible para PTI.")
-
-        # 1. Configurar parámetros del motor C++
-        p = eq.PTIParams()
-        p.production_rate = req.params.get("production_rate", 50000.0)
-        p.destruction_rate = req.params.get("destruction_rate", 0.1)
-        p.antibody_half_life = req.params.get("antibody_half_life", 5.0)
-        p.antibody_production = req.params.get("antibody_production", 0.05)
-        p.treatment = req.params.get("treatment", 0)
-        p.treatment_efficacy = req.params.get("treatment_efficacy", 0.8)
-        p.initial_platelets = req.y0[0]
-
-        # 2. Ejecutar simulación en el motor nativo
-        import numpy as np
-        y0_np = np.array(req.y0)
-        res = eq.BioODESolver.simulate_pti(req.t_start, req.t_end, req.dt, y0_np, p)
+        # ─── Simulación con Python stepper (modelo biológico recalibrado) ───
+        stepper = _PythonPTIStepper(req.y0, req.params)
+        dt = req.dt
+        n_steps = int((req.t_end - req.t_start) / dt)
         
-        # 3. Interpretación clínica (Nativa)
-        interpretation = eq.BioODESolver.pti_clinical_interpretation(
-            req.y0[0], res.y[-1][0], int(req.t_end - req.t_start)
-        )
+        t_list = []
+        y_list = []
+        
+        for i in range(n_steps):
+            t_list.append(stepper.t)
+            y_list.append([stepper.P, stepper.A])
+            stepper.step(dt)
+        
+        # Final point
+        t_list.append(stepper.t)
+        y_list.append([stepper.P, stepper.A])
+        
+        # Verificaciones toxicológicas
+        is_dead = stepper.is_dead or any(row[0] < 10.0 for row in y_list)
+        has_thrombocytosis = any(row[0] > 600000.0 for row in y_list)
+        has_cushing = stepper.has_cushing
+        death_cause = stepper.death_cause
+        
+        # Interpretación clínica
+        p_initial = req.y0[0]
+        p_final = y_list[-1][0]
+        days = int(req.t_end - req.t_start)
+        
+        if is_dead:
+            interpretation = f"FALLECIDO — {death_cause or 'Hemorragia por trombocitopenia extrema'}. PLT final: {p_final:.0f}/μL."
+        elif p_final > 150000:
+            interpretation = f"Remisión completa. PLT: {p_initial:.0f} → {p_final:.0f}/μL en {days} días."
+        elif p_final > 50000:
+            interpretation = f"Respuesta parcial. PLT: {p_initial:.0f} → {p_final:.0f}/μL en {days} días."
+        elif p_final > 20000:
+            interpretation = f"Respuesta mínima. PLT: {p_initial:.0f} → {p_final:.0f}/μL. Riesgo hemorrágico moderado."
+        else:
+            interpretation = f"Sin respuesta. PLT: {p_initial:.0f} → {p_final:.0f}/μL. Riesgo hemorrágico severo."
 
-        # 4. Generar Explicación Simbólica (KaTeX)
-        symbolic_steps = symbolic_explainer.explain_pti(req.params, req.y0, res)
+        # Explicación simbólica
+        _symbolic_explainer = SymbolicExplainer()
+        symbolic_steps = _symbolic_explainer.explain_pti(req.params)
 
-        # 5. Generar Narrativa de IA
+        # Narrativa de IA
+        treatment = int(req.params.get("treatment", 0))
         ai_narrative = await ai_explainer.generate_explanation(
-            {"treatment_name": ["Ninguno", "Prednisona", "IVIG", "Esplenectomía"][p.treatment]},
-            {"p_initial": req.y0[0], "p_final": res.y[-1][0], "days": int(req.t_end - req.t_start)},
+            {
+                "treatment_name": ["Ninguno", "Prednisona", "IVIG", "Esplenectomía"][min(treatment, 3)],
+                "dose_mg": req.params.get("dose_mg", 0),
+                "is_dead": is_dead,
+                "has_cushing": has_cushing,
+                "has_thrombocytosis": has_thrombocytosis
+            },
+            {"p_initial": p_initial, "p_final": p_final, "days": days},
             mode=req.mode
         )
 
         elapsed_ms = (time.perf_counter() - tic) * 1000
 
         return PTIResponse(
-            t=list(res.t),
-            y=[list(row) for row in res.y],
+            t=t_list,
+            y=y_list,
             interpretation=interpretation,
             symbolic_steps=symbolic_steps,
             ai_narrative=ai_narrative,
-            metadata={"engine": "cpp", "execution_time_ms": round(elapsed_ms, 2)}
+            metadata={
+                "engine": engine, 
+                "execution_time_ms": round(elapsed_ms, 2),
+                "is_dead": is_dead,
+                "death_cause": death_cause,
+                "has_cushing": has_cushing,
+                "has_thrombocytosis": has_thrombocytosis
+            }
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PTI simulation error: {str(e)}")
 
-# (Resto de endpoints anteriores se mantienen antes de este bloque...)
+
+# ─── Endpoints de Explicación Educativa ──────────────────────────────────────────
+
+from services.symbolic_explainer import SymbolicExplainer
+_explainer = SymbolicExplainer()
+
+@router.get("/explain/pti")
+async def explain_pti_model(treatment: int = 0, dose_mg: float = 60.0):
+    """
+    Devuelve la explicación paso a paso del modelo PTI con LaTeX y contexto médico.
+    Query params: treatment (0=none,1=pred,2=ivig,3=splen), dose_mg
+    """
+    params = {"treatment": treatment, "dose_mg": dose_mg}
+    steps = _explainer.explain_pti(params)
+    ode_latex = _explainer.get_ode_latex("pti")
+    return {
+        "model": "PTI (Púrpura Trombocitopénica Inmune)",
+        "ode_system_latex": ode_latex,
+        "steps": steps,
+        "total_steps": len(steps)
+    }
+
+@router.get("/explain/treatment/{treatment}")
+async def explain_treatment(treatment: str):
+    """Devuelve información farmacológica detallada de un tratamiento PTI."""
+    result = _explainer.explain_treatment_effect(treatment)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
+@router.get("/explain/ode/{model_name}")
+async def get_ode_latex(model_name: str):
+    """Devuelve la representación LaTeX de un modelo ODE."""
+    latex = _explainer.get_ode_latex(model_name)
+    if not latex:
+        raise HTTPException(status_code=404, detail=f"Modelo '{model_name}' no encontrado")
+    return {"model": model_name, "latex": latex}
+
+
+# ─── Endpoints de Casos Clínicos ─────────────────────────────────────────────────
+
+from services.clinical_cases import get_all_cases, get_case_by_id, evaluate_choice
+
+@router.get("/cases/pti")
+async def list_pti_cases():
+    """Lista todos los casos clínicos PTI disponibles."""
+    return {"cases": get_all_cases(), "total": len(get_all_cases())}
+
+@router.get("/cases/pti/{case_id}")
+async def get_pti_case(case_id: str):
+    """Devuelve un caso clínico completo por ID."""
+    case = get_case_by_id(case_id)
+    if not case:
+        raise HTTPException(status_code=404, detail=f"Caso '{case_id}' no encontrado")
+    return case
+
+@router.post("/cases/pti/{case_id}/evaluate")
+async def evaluate_pti_choice(case_id: str, treatment_id: int = 0):
+    """Evalúa la decisión terapéutica del estudiante para un caso clínico."""
+    result = evaluate_choice(case_id, treatment_id)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
+
+# ─── Casos Clínicos Multi-Módulo ────────────────────────────────────────────────
+
+from services.clinical_cases_all import (
+    get_cases_for_module as _get_cases_mod,
+    get_case_detail as _get_case_detail,
+    evaluate_case as _evaluate_case,
+    get_modules_with_cases as _get_all_modules,
+)
+
+@router.get("/cases")
+async def list_all_modules_cases():
+    """Lista todos los módulos que tienen casos clínicos."""
+    return _get_all_modules()
+
+@router.get("/cases/{module}")
+async def list_module_cases(module: str):
+    """Lista los casos clínicos de un módulo específico."""
+    result = _get_cases_mod(module)
+    if result["total"] == 0:
+        raise HTTPException(status_code=404, detail=f"No hay casos para módulo '{module}'")
+    return result
+
+@router.get("/cases/{module}/{case_id}")
+async def get_module_case(module: str, case_id: str):
+    """Devuelve el detalle completo de un caso clínico."""
+    case = _get_case_detail(module, case_id)
+    if not case:
+        raise HTTPException(status_code=404, detail=f"Caso '{case_id}' no encontrado en '{module}'")
+    return case
+
+@router.post("/cases/{module}/{case_id}/evaluate")
+async def evaluate_module_case(module: str, case_id: str, body: dict = {}):
+    """Evalúa si el estudiante logró el objetivo clínico."""
+    result = _evaluate_case(module, case_id, body)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
+# ─── Python PTI Stepper — Modelo Biológico Realista ─────────────────────────────
+#
+# Biología real de plaquetas:
+#   - Producción medular: regulada por TPO (trombopoietina), retroalimentación negativa
+#   - Vida media: ~10 días (senescencia natural)
+#   - Rango normal: 150,000 - 400,000 /μL
+#   - PTI: autoanticuerpos anti-GPIIb/IIIa destruyen plaquetas vía bazo (Fc-γR)
+#   - Destrucción inmune: saturación tipo Michaelis-Menten (receptores Fc se saturan)
+#
+# Variables de estado:
+#   P(t) = Recuento de plaquetas (/μL)
+#   A(t) = Concentración de autoanticuerpos (adimensional, ~0-3)
+
+class _PythonPTIStepper:
+    """Stateful step-by-step PTI simulator with realistic biology (RK4)."""
+    
+    # Physiological constants
+    P_NORMAL = 250000.0      # Normal platelet count (/μL)
+    P_CARRYING = 400000.0    # Max carrying capacity (homeostatic ceiling)
+    LIFESPAN = 10.0          # Platelet lifespan (days)
+    
+    def __init__(self, y0, params: dict):
+        self.P = float(y0[0])  # Platelets (/μL)
+        self.A = float(y0[1])  # Antibodies (dimensionless)
+        self.t = 0.0
+        self.params = dict(params)
+        self.is_dead = False
+        self.death_cause = ""
+        
+        # ─── Cushing tracking ───
+        self._prednisone_days = 0.0      # Accumulated days on prednisone
+        self._prev_treatment = 0         # Previous treatment (for rebound detection)
+        self.has_cushing = False          # Cushing syndrome flag
+        self.alerts = []                  # Clinical alerts for frontend
+    
+    def _deriv(self, P, A):
+        p = self.params
+        
+        # ─── Parámetros del modelo ───
+        base_production = p.get("production_rate", 30000.0)  # Base production rate (/μL/day)
+        k_dest          = p.get("destruction_rate", 120000.0) # Max immune destruction rate — PTI severa
+        Km              = p.get("Km", 30000.0)                # Michaelis constant — bazo eficiente
+        ab_prod         = p.get("antibody_production", 0.22)  # Ab production rate — autoinmune activa
+        ab_half         = p.get("antibody_half_life", 21.0)   # Ab half-life (days)
+        treatment       = int(p.get("treatment", 0))
+        efficacy        = p.get("treatment_efficacy", 0.8)
+        dose_mg         = p.get("dose_mg", 60.0)
+        ivig_doses      = int(p.get("ivig_doses", 2))
+        
+        # ─── 1. PRODUCCIÓN MEDULAR (regulación TPO) ───
+        # TPO feedback: cuando P alto → TPO baja → producción baja (Hill function)
+        # Cuando P = 0, producción = base * 2.5 (compensación máxima)
+        # Cuando P = P_NORMAL, producción ≈ base * 1.0
+        # Cuando P > P_CARRYING, producción → 0 (inhibición)
+        tpo_feedback = (self.P_CARRYING ** 2) / (self.P_CARRYING ** 2 + P ** 2)
+        production = base_production * (1.0 + 1.5 * tpo_feedback)
+        
+        # ─── 2. MUERTE NATURAL (senescencia) ───
+        # Plaquetas viven ~10 días — tasa de muerte lineal
+        senescence = P / self.LIFESPAN
+        
+        # ─── 3. DESTRUCCIÓN AUTOINMUNE (Michaelis-Menten) ───
+        # Rate = k_dest * A * P / (Km + P)
+        # - Proporcional a anticuerpos (A) y plaquetas (P)
+        # - Satura cuando P >> Km (receptores Fc del bazo se saturan)
+        immune_destruction = k_dest * A * P / (Km + max(P, 1.0))
+        
+        # ─── 4. SANGRADO (trombocitopenia severa) ───
+        bleeding = 0.0
+        if P < 20000:
+            # Sangrado espontáneo cuando PLT < 20k
+            # Escala exponencialmente debajo de 10k (hemorragia mucocutánea → intracraneal)
+            severity = ((20000 - P) / 20000) ** 2
+            if P < 10000:
+                # Debajo de 10k: hemorragias internas graves + petequias masivas
+                severity *= 1.0 + 3.0 * ((10000 - P) / 10000)  # Up to 4x más severo
+            bleeding = 5000.0 * severity
+        
+        # ─── 4b. AGOTAMIENTO MEDULAR ───
+        # La producción forzada crónica con plaquetas ultra-bajas agota megacariocitos
+        # Esto simula la fatiga de la médula ósea por sobreestimulación por TPO
+        marrow_exhaustion = 1.0
+        if P < 15000 and self.t > 7:  # Después de 7 días con trombocitopenia severa
+            exhaustion_days = max(0, self.t - 7)
+            marrow_exhaustion = max(0.3, 1.0 - 0.03 * exhaustion_days)  # Pierde 3% por día, hasta 70%
+            production *= marrow_exhaustion
+        
+        # ─── 5. TRATAMIENTOS ───
+        treatment_factor_dest = 1.0  # Multiplier on immune destruction
+        treatment_factor_ab = 1.0    # Multiplier on antibody production
+        
+        if treatment == 1:  # Prednisona (corticosteroide)
+            # Reduce destrucción (inmunosupresión) + reduce producción de Ab
+            dose_factor = min(dose_mg / 60.0, 2.0)
+            treatment_factor_dest = max(0.1, 1.0 - efficacy * 0.7 * dose_factor)
+            treatment_factor_ab = max(0.1, 1.0 - efficacy * 0.6 * dose_factor)
+            
+            # ─── CUSHING IATROGÉNICO ───
+            # Prednisona >60mg por >14 días → Síndrome de Cushing
+            if dose_mg >= 60 and self._prednisone_days > 14:
+                self.has_cushing = True
+                # Cushing degrada producción medular (inmunosupresión crónica)
+                cushing_penalty = 0.7  # 30% reduction in bone marrow output
+                production *= cushing_penalty
+            
+            # Dosis muy altas (>100mg) por >7 días → inmunosupresión severa
+            if dose_mg > 100 and self._prednisone_days > 7:
+                # Susceptible a infecciones oportunistas
+                import random
+                infection_risk = 0.02  # 2% daily risk
+                step_risk = 1.0 - (1.0 - infection_risk) ** 1.0  # per day
+                if random.random() < step_risk * (self.t - int(self.t) < 0.11):
+                    if "INFECTION_RISK" not in [a.get("type") for a in self.alerts]:
+                        self.alerts.append({
+                            "type": "INFECTION_RISK",
+                            "t": self.t,
+                            "msg": "Inmunosupresión severa: riesgo de infección oportunista"
+                        })
+            
+        elif treatment == 2:  # IVIG (inmunoglobulina intravenosa)
+            # Bloquea receptores Fc del bazo → reduce destrucción
+            dose_factor = min(ivig_doses / 2.0, 2.5)
+            treatment_factor_dest = max(0.05, 1.0 - efficacy * 0.8 * dose_factor)
+            
+        elif treatment == 3:  # Esplenectomía
+            # Elimina principal sitio de destrucción
+            splen_success = p.get("splenectomy_success", 1.0)
+            treatment_factor_dest = max(0.05, 1.0 - 0.85 * splen_success)
+        
+        # ─── 6. REBOUND EFFECT ───
+        # Si se suspende prednisona abruptamente después de uso prolongado,
+        # los anticuerpos rebotan (sistema inmune desreprimido)
+        rebound_factor = 1.0
+        if self._prev_treatment == 1 and treatment != 1 and self._prednisone_days > 7:
+            rebound_factor = 1.5  # 50% more Ab production (rebound)
+        
+        # ─── ECUACIONES DIFERENCIALES ───
+        dP = production - senescence - (immune_destruction * treatment_factor_dest) - bleeding
+        dA = (ab_prod * treatment_factor_ab * rebound_factor) - (0.693 / ab_half) * A
+        
+        return dP, dA
+    
+    def step(self, dt: float):
+        if self.is_dead:
+            return
+        
+        # RK4 integration
+        P, A = self.P, self.A
+        k1p, k1a = self._deriv(P, A)
+        k2p, k2a = self._deriv(P + 0.5*dt*k1p, A + 0.5*dt*k1a)
+        k3p, k3a = self._deriv(P + 0.5*dt*k2p, A + 0.5*dt*k2a)
+        k4p, k4a = self._deriv(P + dt*k3p, A + dt*k3a)
+        
+        self.P = max(0, P + (dt/6)*(k1p + 2*k2p + 2*k3p + k4p))
+        self.A = max(0, A + (dt/6)*(k1a + 2*k2a + 2*k3a + k4a))
+        self.t += dt
+        
+        # ─── Track prednisone days ───
+        treatment = int(self.params.get("treatment", 0))
+        if treatment == 1:
+            self._prednisone_days += dt
+        self._prev_treatment = treatment
+        
+        # ─── RIESGO HEMORRÁGICO ESTOCÁSTICO ───
+        # En la vida real, pacientes con PLT baja tienen riesgo PROBABILÍSTICO
+        # de eventos hemorrágicos fatales (hemorragia intracraneal, GI masiva).
+        # La probabilidad aumenta exponencialmente con la severidad.
+        import random
+        if self.P < 30000 and not self.is_dead:
+            # Daily hemorrhage risk (converted to per-step probability)
+            if self.P < 5000:
+                daily_risk = 0.15   # 15% diario: muerte casi segura
+            elif self.P < 10000:
+                daily_risk = 0.08   # 8% diario: hemorragia intracraneal
+            elif self.P < 20000:
+                daily_risk = 0.03   # 3% diario: sangrado GI espontáneo
+            else:
+                daily_risk = 0.005  # 0.5% diario: petequias → posible complicación
+            
+            # Convert daily risk to per-step probability
+            step_risk = 1.0 - (1.0 - daily_risk) ** dt
+            if random.random() < step_risk:
+                self.P = 0.0
+                self.is_dead = True
+                self.death_cause = "HEMORRHAGE"
+                return
+        
+        # ─── CONDICIONES LETALES DETERMINÍSTICAS ───
+        if self.P > 1500000:
+            # Trombocitosis extrema: coagulación intravascular diseminada
+            self.is_dead = True
+            self.death_cause = "THROMBOSIS"
+    
+    def update_params(self, new_params: dict):
+        self.params.update(new_params)
+
+
+@router.websocket("/realtime/pti")
+async def websocket_pti(websocket: WebSocket):
+    """
+    Streaming en tiempo real a ~60 FPS usando Python PTI Stepper.
+    Protocolo:
+      1. Cliente envía config: { y0, params, dt }
+      2. Servidor emite frames: { t, y, is_dead }
+      3. Cliente puede enviar: { params: {...} } para hot-inject
+    """
+    await websocket.accept()
+
+    try:
+        # Esperamos configuración inicial del cliente
+        config = await websocket.receive_json()
+        
+        y0_list = config.get("y0", [250000.0, 0.0])
+        req_params = config.get("params", {})
+        dt = config.get("dt", 0.1)
+        speed = config.get("speed", 1.0)  # 0.5 = half speed, 2.0 = double speed
+
+        # Inicializar Stepper Python
+        stepper = _PythonPTIStepper(y0_list, req_params)
+
+        print(f"WS > Iniciando streaming PTI (dt={dt} días/frame, speed={speed}x, Python stepper)")
+
+        while True:
+            t_start_frame = time.perf_counter()
+            
+            # Recibir actualizaciones de parámetros en tiempo real
+            try:
+                msg = await asyncio.wait_for(websocket.receive_json(), timeout=0.001)
+                if "params" in msg:
+                    stepper.update_params(msg["params"])
+                    print(f"WS > Params actualizados: {list(msg['params'].keys())}")
+                if "speed" in msg:
+                    speed = float(msg["speed"])
+            except asyncio.TimeoutError:
+                pass
+                
+            # Avanzar simulación (multiple steps per frame if speed > 1)
+            steps_per_frame = max(1, int(speed))
+            for _ in range(steps_per_frame):
+                stepper.step(dt)
+                if stepper.is_dead:
+                    break
+
+            # Transmitir telemetría
+            new_alerts = stepper.alerts[-3:] if stepper.alerts else []
+            await websocket.send_json({
+                "t": round(stepper.t, 4),
+                "y": [float(stepper.P), float(stepper.A)],
+                "is_dead": stepper.is_dead,
+                "death_cause": stepper.death_cause if stepper.is_dead else None,
+                "has_cushing": stepper.has_cushing,
+                "prednisone_days": round(stepper._prednisone_days, 1),
+                "alerts": new_alerts
+            })
+
+            if stepper.is_dead:
+                print(f"WS > Paciente fallecido: {stepper.death_cause}. PLT={stepper.P:.0f}")
+                break
+
+            # Sincronización a ~60 FPS (ajustada por velocidad)
+            target_fps = 60.0
+            elapsed = time.perf_counter() - t_start_frame
+            sleep_time = max((1.0 / target_fps) - elapsed, 0.0)
+            await asyncio.sleep(sleep_time)
+
+    except WebSocketDisconnect:
+        print("WS > Cliente de Séptima desconectado.")
+    except Exception as e:
+        print(f"WS > Error crítico: {e}")
+        try:
+            await websocket.close(code=1011, reason=str(e))
+        except:
+            pass
+

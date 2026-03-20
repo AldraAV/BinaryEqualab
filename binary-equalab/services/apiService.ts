@@ -79,19 +79,23 @@ class ApiService {
 
     // Math Operations
     async simplify(expression: string, variable: string = 'x'): Promise<MathResponse> {
-        return this.post('/api/simplify', { expression, variable });
+        return this.post('/api/cas/simplify', { expression, variable });
+    }
+
+    async evaluate(expression: string, variable: string = 'x'): Promise<MathResponse> {
+        return this.post('/api/cas/evaluate', { expression, var: variable });
     }
 
     async expand(expression: string, variable: string = 'x'): Promise<MathResponse> {
-        return this.post('/api/expand', { expression, variable });
+        return this.post('/api/cas/expand', { expression, variable });
     }
 
     async factor(expression: string, variable: string = 'x'): Promise<MathResponse> {
-        return this.post('/api/factor', { expression, variable });
+        return this.post('/api/cas/factor', { expression, variable });
     }
 
     async derivative(expression: string, variable: string = 'x', order: number = 1): Promise<MathResponse> {
-        return this.post('/api/derivative', { expression, variable, order });
+        return this.post('/api/cas/derivative', { expression, variable, order });
     }
 
     async integral(
@@ -100,7 +104,7 @@ class ApiService {
         lowerBound?: number,
         upperBound?: number
     ): Promise<MathResponse> {
-        return this.post('/api/integral', {
+        return this.post('/api/cas/integrate', {
             expression,
             variable,
             lower_bound: lowerBound,
@@ -109,37 +113,49 @@ class ApiService {
     }
 
     async solve(expression: string, variable: string = 'x'): Promise<MathResponse> {
-        return this.post('/api/solve', { expression, variable });
+        return this.post('/api/cas/solve-ode', { expression, variable });
     }
 
     async limit(
         expression: string,
         variable: string = 'x',
-        point: number = 0,
+        point: string = '0',
         direction: string = '+'
     ): Promise<MathResponse> {
-        return this.post('/api/limit', { expression, variable, point, direction });
+        return this.post('/api/cas/limit', { expression, variable, point, direction });
     }
 
     async taylor(
         expression: string,
         variable: string = 'x',
-        point: number = 0,
+        point: string = '0',
         order: number = 5
     ): Promise<MathResponse> {
-        return this.post('/api/taylor', { expression, variable, point, order });
+        return this.post('/api/cas/taylor', { expression, variable, point, order });
     }
 
     async laplace(expression: string): Promise<MathResponse> {
-        return this.post('/api/laplace', { expression });
+        return this.post('/api/cas/laplace', { expression });
     }
 
     async fourier(expression: string): Promise<MathResponse> {
-        return this.post('/api/fourier', { expression });
+        return this.post('/api/cas/fourier', { expression });
+    }
+
+    async ilaplace(expression: string): Promise<MathResponse> {
+        return this.post('/api/cas/ilaplace', { expression });
+    }
+
+    async ifourier(expression: string): Promise<MathResponse> {
+        return this.post('/api/cas/ifourier', { expression });
     }
 
     async toLatex(expression: string): Promise<MathResponse> {
         return this.post('/api/latex', { expression });
+    }
+
+    async plot(expression: string, variable: string = 'x', xMin: number = -10, xMax: number = 10, points: number = 200): Promise<{expression: string, points: {x: number, y: number}[], success: boolean}> {
+        return this.post('/api/cas/plot', { expression, var: variable, x_min: xMin, x_max: xMax, points });
     }
 
     // Utility

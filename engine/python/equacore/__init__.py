@@ -50,6 +50,13 @@ try:
     NATIVE_SYMBOLIC = True
     __version__ = _ver
 except ImportError:
+    # 3. Intento de carga de SymEngine y Linalg C++ (Nuevos endpoints optimizados)
+    try:
+        from ._equacore import symbolic, linalg
+        NATIVE_SYMENGINE = True
+    except ImportError:
+        NATIVE_SYMENGINE = False
+
     # Fallback a SymPy/NumPy para la parte simbólica
     from sympy import (
         Symbol as symbol,
@@ -120,5 +127,5 @@ __all__ = [
     'Expr', 'symbol', 'matrix', 'vector', 'add', 'multiply', 'scale',
     'transpose', 'inverse', 'determinant', 'rank', 'lu', 'qr', 'svd',
     'eigen', 'solve', 'rref', 'NATIVE_ENGINE', 'NATIVE_BIO', 'NATIVE_SYMBOLIC',
-    'BioODESolver', 'PTIParams'
+    'NATIVE_SYMENGINE', 'BioODESolver', 'PTIParams', 'symbolic', 'linalg'
 ]

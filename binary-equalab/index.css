@@ -1,10 +1,40 @@
+@import "tailwindcss";
+
+@theme {
+  /* Altar Digital Premium Palette */
+  --color-background: #0b0e14; /* Deep Space Black */
+  --color-background-light: #151a22; /* Midnight Slate */
+  --color-background-dark: #05070a; /* Void */
+
+  /* Glowing Accents */
+  --color-primary: #ff5a1f; /* Aurora Orange */
+  --color-primary-hover: #ff7b4c;
+  --color-secondary: #00ead3; /* Neon Teal */
+
+  /* Text & Borders */
+  --color-aurora-text: #f8fafc;
+  --color-aurora-secondary: #94a3b8;
+  --color-aurora-muted: #475569;
+  --color-aurora-border: #1e293b;
+  --color-aurora-success: #10b981;
+  --color-aurora-danger: #ef4444;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
 html,
 body,
 #root {
   height: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden; /* Prevent body scroll, let specific divs scroll */
+  overflow: hidden;
+  background-color: var(--color-background);
+  color: var(--color-aurora-text);
+  font-family: var(--font-sans);
 }
 
 /* Custom Scrollbar */
@@ -13,16 +43,39 @@ body,
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #1c1917;
+  background: var(--color-background-dark);
 }
 ::-webkit-scrollbar-thumb {
-  background: #292524;
+  background: var(--color-aurora-border);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #ea580c;
+  background: var(--color-primary);
 }
 
 .math-display {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
+}
+
+/* Glassmorphism Utilities */
+@layer utilities {
+  .glass-panel {
+    background: rgba(21, 26, 34, 0.6);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  }
+
+  .glass-button {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .glass-button:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+  }
 }

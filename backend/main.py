@@ -18,6 +18,8 @@ load_dotenv()
 
 # Import our math engine (reuse from desktop)
 import sys
+if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from src.core.engine import EquaEngine
 
@@ -60,6 +62,16 @@ async def lifespan(app: FastAPI):
         print(f"✅ CAS Suite Élite (Maxima): READY at {maxima.MAXIMA_PATH} 🧪")
     else:
         print("⚠️  CAS Suite Élite (Maxima): NOT FOUND (Fourier/Laplace limited) 💨")
+
+    # Check PubMed Data Engine
+    try:
+        from services.pubmed_service import HAS_HTTPX
+        if HAS_HTTPX:
+            print("✅ Data Engine (PubMed API): READY 📚")
+        else:
+            print("⚠️  Data Engine (PubMed API): httpx not installed (pip install httpx)")
+    except Exception:
+        print("⚠️  Data Engine (PubMed API): NOT LOADED")
 
     # Check Supabase
     from rate_limiter import supabase
@@ -115,19 +127,19 @@ class DerivativeRequest(BaseModel):
 class IntegralRequest(BaseModel):
     expression: str
     variable: Optional[str] = "x"
-    lower_bound: Optional[float] = None
-    upper_bound: Optional[float] = None
+    lower_bound: Optional[str] = None
+    upper_bound: Optional[str] = None
 
 class LimitRequest(BaseModel):
     expression: str
     variable: Optional[str] = "x"
-    point: float = 0
+    point: Optional[str] = "0"
     direction: Optional[str] = "+"
 
 class TaylorRequest(BaseModel):
     expression: str
     variable: Optional[str] = "x"
-    point: Optional[float] = 0
+    point: Optional[str] = "0"
     order: Optional[int] = 5
 
 class MathResponse(BaseModel):
@@ -223,6 +235,10 @@ app.include_router(payments_router)
 from routers.cas import router as cas_router
 app.include_router(cas_router)
 
+# Include Medical Data router (PubMed API)
+from routers.medical_data import router as medical_data_router
+app.include_router(medical_data_router)
+
 # Include cron router
 from cron import router as cron_router
 app.include_router(cron_router)
@@ -278,12 +294,16 @@ async def compute_derivative(req: DerivativeRequest):
 @app.post("/api/integral", response_model=MathResponse)
 async def compute_integral(req: IntegralRequest):
     try:
+        import sympy as sp
         clean_expr = sanitize_math_expression(req.expression)
+        # Parse symbolic bounds if provided
+        a = sp.sympify(req.lower_bound, locals={'pi': sp.pi, 'e': sp.E, 'inf': sp.oo, 'oo': sp.oo}) if req.lower_bound else None
+        b = sp.sympify(req.upper_bound, locals={'pi': sp.pi, 'e': sp.E, 'inf': sp.oo, 'oo': sp.oo}) if req.upper_bound else None
         result = engine.integral(
             clean_expr, 
             req.variable, 
-            req.lower_bound, 
-            req.upper_bound
+            a, 
+            b
         )
         latex = engine.expr_to_latex(result)
         return MathResponse(result=str(result), latex=latex)
@@ -302,7 +322,10 @@ async def solve_equation(req: ExpressionRequest):
 @app.post("/api/limit", response_model=MathResponse)
 async def compute_limit(req: LimitRequest):
     try:
-        result = engine.limit(req.expression, req.variable, req.point, req.direction)
+        import sympy as sp
+        # Parse symbolic point
+        point = sp.sympify(req.point, locals={'pi': sp.pi, 'e': sp.E, 'inf': sp.oo, 'oo': sp.oo}) if req.point else 0
+        result = engine.limit(req.expression, req.variable, point, req.direction)
         return MathResponse(result=str(result))
     except Exception as e:
         return MathResponse(result="", success=False, error=str(e))
@@ -310,7 +333,10 @@ async def compute_limit(req: LimitRequest):
 @app.post("/api/taylor", response_model=MathResponse)
 async def compute_taylor(req: TaylorRequest):
     try:
-        result = engine.taylor(req.expression, req.variable, req.point, req.order)
+        import sympy as sp
+        # Parse symbolic point
+        point = sp.sympify(req.point, locals={'pi': sp.pi, 'e': sp.E, 'inf': sp.oo, 'oo': sp.oo}) if req.point else 0
+        result = engine.taylor(req.expression, req.variable, point, req.order)
         latex = engine.expr_to_latex(result)
         return MathResponse(result=str(result), latex=latex)
     except Exception as e:
@@ -329,6 +355,24 @@ async def compute_fourier(req: ExpressionRequest):
     try:
         result = engine.fourier(req.expression)
         return MathResponse(result=str(result))
+    except Exception as e:
+        return MathResponse(result="", success=False, error=str(e))
+
+@app.post("/api/ilaplace", response_model=MathResponse)
+async def compute_inverse_laplace(req: ExpressionRequest):
+    try:
+        result = engine.inverse_laplace(req.expression)
+        latex = engine.expr_to_latex(result)
+        return MathResponse(result=str(result), latex=latex)
+    except Exception as e:
+        return MathResponse(result="", success=False, error=str(e))
+
+@app.post("/api/ifourier", response_model=MathResponse)
+async def compute_inverse_fourier(req: ExpressionRequest):
+    try:
+        result = engine.inverse_fourier(req.expression)
+        latex = engine.expr_to_latex(result)
+        return MathResponse(result=str(result), latex=latex)
     except Exception as e:
         return MathResponse(result="", success=False, error=str(e))
 

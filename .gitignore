@@ -73,3 +73,23 @@ CAS_FEATURE_REQUIREMENTS.md
 GAP_ANALYSIS.md
 1PLAN.md
 
+# C++ Engine Build Artifacts
+engine/cmake-build-*/
+cmake-build-*/
+*.pyd
+*.pdb
+*.obj
+*.o
+*.a
+*.lib
+*.exp
+*.ilk
+libgcc_s_seh-1.dll
+libstdc++-6.dll
+libwinpthread-1.dll
+
+# Debug/Temp files
+ninja_*.txt
+build_tmp.ps1
+diff_bindings.txt
+*.log

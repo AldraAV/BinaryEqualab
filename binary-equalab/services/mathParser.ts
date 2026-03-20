@@ -30,10 +30,13 @@ export class MathParser {
         'log', 'ln', 'exp', 'log10', 'log2',
         'factorial', 'gamma', 'sign', 'mod',
         'diff', 'integrate', 'solve', 'simplify', 'expand', 'factor', 'limit', 'taylor',
+        'laplace', 'fourier', 'ilaplace', 'ifourier', 'inverse_laplace', 'inverse_fourier',
+        'plot', 'sonify', 'explain',
         // Spanish (Binary EquaLab native)
         'sen', 'derivar', 'integrar', 'resolver', 'simplificar', 'expandir', 'factorizar',
         'limite', 'arcsen', 'arccos', 'arctan', 'raiz', 'piso', 'techo',
-        'sumatoria', 'productoria', 'sustituir'
+        'sumatoria', 'productoria', 'sustituir',
+        'graficar', 'sonificar', 'explicar'
     ];
 
     // Greek letters and constants
@@ -239,7 +242,7 @@ export class MathParser {
 
     /**
      * Fix function call patterns
-     * Examples: sinx → sin(x), sin2x → sin(2*x), lnx → ln(x)
+     * Examples: sinx → sin(x), sin2x → sin(2*x), lnx → ln(x), integrate(f(x)*g(x)) → integrate(f(x)*g(x), x)
      */
     private static fixFunctionCalls(expr: string): string {
         for (const func of this.FUNCTIONS) {
@@ -251,6 +254,77 @@ export class MathParser {
             const patternNumVar = new RegExp(`\\b${func}(\\d+)([a-zA-Z])`, 'g');
             expr = expr.replace(patternNumVar, `${func}($1*$2)`);
         }
+
+        // Helper: auto-detect variable in expression
+        const detectVariable = (exprStr: string): string => {
+            const vars = exprStr.match(/\b([xytuvwsz])\b/gi);
+            if (vars) {
+                if (vars.includes('x')) return 'x';
+                if (vars.includes('y')) return 'y';
+                if (vars.includes('t')) return 't';
+                return vars[0];
+            }
+            return 'x';
+        };
+
+        // Helper to extract nested arguments
+        const fixFunctionArgs = (exprStr: string, funcNames: string[], transform: (args: string[]) => string) => {
+            let result = exprStr;
+            for (const funcName of funcNames) {
+                const regex = new RegExp(`\\b${funcName}\\s*\\(`, 'gi');
+                let match;
+                while ((match = regex.exec(result)) !== null) {
+                    const startStr = match.index;
+                    const startArgs = startStr + match[0].length;
+                    let depth = 1;
+                    let i = startArgs;
+                    while (i < result.length && depth > 0) {
+                        if (result[i] === '(') depth++;
+                        if (result[i] === ')') depth--;
+                        i++;
+                    }
+                    if (depth === 0) {
+                        const inner = result.slice(startArgs, i - 1);
+                        const args: string[] = [];
+                        let currentArg = '';
+                        let argDepth = 0;
+                        for (let j = 0; j < inner.length; j++) {
+                            if (inner[j] === '(') argDepth++;
+                            if (inner[j] === ')') argDepth--;
+                            if (inner[j] === ',' && argDepth === 0) {
+                                args.push(currentArg.trim());
+                                currentArg = '';
+                            } else {
+                                currentArg += inner[j];
+                            }
+                        }
+                        if (currentArg.trim()) args.push(currentArg.trim());
+                        
+                        const replaced = transform(args);
+                        result = result.slice(0, startStr) + `${funcName}(${replaced})` + result.slice(i);
+                        regex.lastIndex = startStr + funcName.length + replaced.length + 2;
+                    }
+                }
+            }
+            return result;
+        };
+
+        // Fix integrate()
+        expr = fixFunctionArgs(expr, ['integrate'], (args) => {
+            if (args.length === 1) return `${args[0]}, ${detectVariable(args[0])}`;
+            if (args.length === 2) return `${args[0]}, ${args[1]}`;
+            if (args.length === 3) return `${args[0]}, ${args[1]}, ${args[2]}, x`;
+            if (args.length === 4) return `${args[0]}, ${args[2]}, ${args[3]}, ${args[1]}`;
+            return args.join(', ');
+        });
+
+        // Fix diff() / derivative()
+        expr = fixFunctionArgs(expr, ['diff', 'derivative'], (args) => {
+            if (args.length === 1) return `${args[0]}, ${detectVariable(args[0])}`;
+            if (args.length === 2) return `${args[0]}, ${args[1]}`;
+            if (args.length === 3) return `${args[0]}, ${args[1]}, ${args[2]}`;
+            return args.join(', ');
+        });
 
         return expr;
     }

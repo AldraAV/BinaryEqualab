@@ -30,6 +30,8 @@
 | **Desktop** | Native application        | Python + PyQt6 + SymPy  |
 | **CLI**     | Command-line REPL         | Python + SymPy + Rich   |
 
+> **⚠️ AVISO IMPORTANTE (DISCLAIMER MÉDICO)**: Binary EquaLab y el sub-proyecto *Séptima Bio-Engine* son herramientas estrictamente con fines **educativos** y de demostración de arquitectura de software. Los modelos biomédicos aquí presentados (como el Hodgkin-Huxley, Farmacocinética de 1 Compartimento, Windkessel y Púrpura Trombocitopénica Inmune) funcionan exclusivamente en base a aproximaciones matemáticas teóricas (Euler, Runge-Kutta 4) y análisis de LLMs. **Este software NO está certificado por ninguna entidad de salud (FDA/EMA) y BAJO NINGUNA CIRCUNSTANCIA debe utilizarse para diagnósticos, dosificación de tratamientos, ni tomas de decisiones clínicas reales.**
+
 ---
 
 ## ✨ Features
@@ -170,8 +172,8 @@ BinaryEquaLab/
 Binary EquaLab v3.0 trasciende los números para modelar la vida. Cada pulsación simulada, cada dosis calculada y cada potencial de acción generado es un paso hacia la democratización del aprendizaje biomédico de alto nivel.
 
 Every calculation carries meaning beyond numbers.
-### ⚙️ Engine C++ (EquaCore v3.0)
-- **High-Performance Bio-Engine:** Modelos de ODE nativos integrados vía **pybind11**.
+### ⚙️ Engine C++ (EquaCore v3.0 - *Alfa Experimental*)
+- **High-Performance Bio-Engine:** Modelos de ODE nativos integrados vía **pybind11**. (Estado: Prototipo).
 - **Modelos Soportados:** Bergman (Glucosa), Windkessel (Cardio), Hodgkin-Huxley (Neurona) y **PTI (Hermatología)**.
 - **Interoperabilidad:** C++ Nativo (MinGW/GCC) + Python 3.11.
 

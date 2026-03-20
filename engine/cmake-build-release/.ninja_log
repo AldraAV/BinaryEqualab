@@ -1,1 +1,9 @@
-# ninja log v7
+# ninja log v6
+225	44442	7956795308061833	CMakeFiles/equacore_static.dir/src/ode_solvers.cpp.obj	43758cda16cb3d30
+192	44470	7956795307731080	CMakeFiles/equacore_static.dir/src/calculus.cpp.obj	ec851004abf7e70f
+249	44474	7956795308305472	CMakeFiles/equacore_static.dir/src/fft.cpp.obj	1be9f3c2390e4c39
+370	44477	7956795309576848	CMakeFiles/equacore_static.dir/src/stats.cpp.obj	f21417bca8c61881
+211	44481	7956795307931024	CMakeFiles/equacore_static.dir/src/ode.cpp.obj	134abcbc2cdf0551
+173	44486	7956795307555381	CMakeFiles/equacore_static.dir/src/expression.cpp.obj	beb37895e1e6ad3f
+262	44490	7956795308435753	CMakeFiles/equacore_static.dir/src/sparse.cpp.obj	b69994b79a24d254
+278	64238	7956795308572583	CMakeFiles/equacore_static.dir/src/linear.cpp.obj	321582f3e61573e6

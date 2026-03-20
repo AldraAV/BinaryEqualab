@@ -1,27 +1,31 @@
 #pragma once
 /**
  * EquaCore - Symbolic Mathematics Engine
- * Wrapper around GiNaC for high-performance symbolic computation
+ * Wrapper around SymEngine for high-performance symbolic computation
  */
 
 #include <string>
 #include <vector>
-#include <ginac/ginac.h>
+#include <memory>
+#include <symengine/basic.h>
+#include <symengine/symbol.h>
+#include <symengine/parser.h>
+#include <symengine/eval_double.h>
 
 namespace equacore {
 
-using GiNaC::ex;
-using GiNaC::symbol;
-using GiNaC::parser;
+using SymEngine::Basic;
+using SymEngine::RCP;
+using SymEngine::Symbol;
+using ex = RCP<const Basic>;
+using symbol = RCP<const Symbol>;
 
 /**
  * Parse a mathematical expression from string
  * @param expr_str Expression string (e.g., "x^2 + 2*x + 1")
- * @param symbols Map of symbol names to GiNaC symbols
- * @return Parsed GiNaC expression
+ * @return Parsed SymEngine expression
  */
-ex parse(const std::string& expr_str, 
-         const GiNaC::symtab& symbols = GiNaC::symtab());
+ex parse(const std::string& expr_str);
 
 /**
  * Expand an expression (e.g., (x+y)^2 -> x^2 + 2*x*y + y^2)
@@ -52,15 +56,8 @@ ex diff(const ex& e, const symbol& s, int n = 1);
 ex integrate(const ex& e, const symbol& s);
 
 /**
- * Compute definite integral
- */
-ex integrate(const ex& e, const symbol& s, const ex& a, const ex& b);
-
-/**
- * Solve equation for a symbol
- * @param eq Equation (left side, implicitly = 0)
- * @param s Symbol to solve for
- * @return List of solutions
+ * Solve equation iteratively or symbolically depending on module capability
+ * (Symengine's native solve is structurally different from GiNaC's list)
  */
 std::vector<ex> solve(const ex& eq, const symbol& s);
 

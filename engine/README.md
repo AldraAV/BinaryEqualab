@@ -1,93 +1,94 @@
-# EquaCore - C++ Math Engine
+# EquaCore — C++ Math & Bio Engine v3.0
 
-High-performance symbolic and numerical computation engine for Binary EquaLab.
+> El motor unificado de Binary EquaLab y Séptima Biomédica.
+> *"De 3,000 plaquetas nació el código que salva vidas."*
 
-## Dependencies
+## Qué es
 
-- **GiNaC** - Symbolic algebra (~100-250x faster than SymPy)
-- **CLN** - Arbitrary precision numbers (GiNaC dependency)
-- **Eigen3** - Linear algebra (~10-50x faster than NumPy)
-- **pybind11** - Python bindings with NumPy interop
-- **Bio-Engine Extension:** Native ODE models for Bergman, Windkessel, Hodgkin-Huxley and PTI (Hermatology).
+EquaCore es un motor C++20 de alto rendimiento que integra:
+- **CAS simbólico** — Expression Tree con derivadas, integrales, límites, series de Taylor
+- **Álgebra lineal** — Eigen3 (det, inv, LU, QR, SVD, Eigen decomposition, RREF)
+- **ODE numéricos** — RK4, Euler, adaptativo, sistemas acoplados
+- **Bio-Engine** — Modelos biomédicos nativos (Bergman, Windkessel, Hodgkin-Huxley, PK-1cmt, PTI)
+- **FFT** — Con fallback DFT si FFTW3 no disponible
+- **Python bindings** — via pybind11 con NumPy interop
 
-## Quick Start
+### Capas de Cómputo
 
-### 1. Install vcpkg (if not installed)
-```bash
-git clone https://github.com/microsoft/vcpkg.git
-cd vcpkg && ./bootstrap-vcpkg.sh  # Linux/Mac
-# or: .\bootstrap-vcpkg.bat       # Windows
+```
+1. EquaCore C++ (RÁPIDO)     → Derivadas, eval, integrales numéricas, ODE, Bio, FFT
+2. Maxima subprocess (PRECISO) → Laplace, integrales simbólicas, solve, factorización
+3. SymPy fallback (RESPALDO)  → Si EquaCore no compilado + Maxima no instalado
 ```
 
-### 2. Install Dependencies
-```bash
-./vcpkg install cln ginac eigen3 pybind11
+> Maxima vive en `backend/services/maxima_service.py` — no es parte del build C++.
+
+## Dependencias
+
+- **Eigen3** — Álgebra lineal (descargado automáticamente via FetchContent)
+- **pybind11** — Python bindings (`pip install pybind11`)
+- **Opcionales:** OpenBLAS, FFTW3, SuiteSparse
+
+## Build
+
+```powershell
+# Usar workflow /build-engine (CLion MinGW + Ninja)
+# O manualmente:
+cmake -DCMAKE_BUILD_TYPE=Release -G Ninja -S . -B cmake-build-release
+cmake --build cmake-build-release --target _equacore --parallel
 ```
 
-### 3. Build
-```bash
-# Configure
-cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake
+## Uso en Python
 
-# Build
-cmake --build build --config Release
-```
-
-### 4. Use in Python
 ```python
-from equacore import Expr, symbol, matrix
-
-# Symbolic computation
-x = symbol("x")
-expr = Expr("(x + 1)^10")
-expanded = expr.expand()
-print(expanded.to_latex())
-
-# Differentiation
-derivative = expr.diff("x")
-print(derivative)
-
-# Linear algebra (with NumPy interop)
+from equacore import BioODESolver, PTIParams, PTIStepper
 import numpy as np
-A = matrix([[1, 2], [3, 4]])
-inv_A = inverse(A)
-print(inv_A)  # Returns NumPy array
+
+# Simular PTI
+params = PTIParams()
+params.production_rate = 1e11
+params.initial_platelets = 150000
+y0 = np.array([150000.0, 0.0])
+result = BioODESolver.simulate_pti(0, 30, 0.1, y0, params)
 ```
 
-## Project Structure
+## Estructura
 
 ```
 engine/
-├── CMakeLists.txt           # Build configuration
-├── vcpkg.json               # Dependencies manifest
-├── include/equacore/        # C++ headers
-│   ├── symbolic.hpp         # GiNaC wrapper
-│   └── linear.hpp           # Eigen wrapper
-├── src/                     # C++ source
-│   ├── symbolic.cpp
-│   ├── linear.cpp
-│   └── bindings.cpp         # pybind11 module
-└── python/equacore/         # Python package
-    └── __init__.py          # With SymPy fallback
+├── CMakeLists.txt
+├── include/equacore/
+│   ├── expression.hpp     # Expression Tree (CAS simbólico)
+│   ├── calculus.hpp        # Derivadas, integrales, límites, Taylor
+│   ├── ode.hpp             # Bio-Engine (PTI, Bergman, HH, etc.)
+│   ├── ode_solvers.hpp     # RK4, Euler genéricos
+│   └── symbolic.hpp        # SymEngine wrapper (legacy)
+├── src/
+│   ├── expression.cpp      # CAS: Expression Tree implementation
+│   ├── calculus.cpp         # CAS: Calculus operations
+│   ├── ode.cpp              # Bio models (5 simulaciones)
+│   ├── ode_solvers.cpp      # ODE métodos numéricos
+│   ├── fft.cpp              # FFT/IFFT (FFTW3 or DFT fallback)
+│   ├── linear.cpp           # Eigen3 wrappers
+│   ├── numeric.cpp          # Métodos numéricos
+│   ├── sparse.cpp           # Matrices dispersas
+│   └── bindings.cpp         # pybind11 → Python
+└── python/equacore/
+    └── __init__.py          # Python package (SymPy fallback)
 ```
 
 ## Fallback Mode
 
-If the C++ engine is not compiled, the Python package falls back to SymPy/NumPy:
+Si el motor C++ no está compilado, Python cae a SymPy/NumPy:
 
 ```python
 from equacore import NATIVE_ENGINE
-print(NATIVE_ENGINE)  # True if C++ engine, False if fallback
+print(NATIVE_ENGINE)  # True = C++, False = SymPy fallback
 ```
 
-## WASM Build (for Web)
+## WASM Build (futuro)
 
 ```bash
-# Configure with Emscripten
 emcmake cmake -B build_wasm -S . -DBUILD_WASM=ON
-
-# Build
 cmake --build build_wasm
 ```
-
-Output: `wasm/equacore.js` + `wasm/equacore.wasm`

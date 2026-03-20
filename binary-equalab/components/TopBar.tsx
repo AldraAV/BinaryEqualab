@@ -30,29 +30,29 @@ const TopBar: React.FC<TopBarProps> = ({ onNavigate }) => {
 
    return (
       <>
-         <header className="h-16 bg-background/80 backdrop-blur-md border-b border-aurora-border flex items-center justify-between px-6 sticky top-0 z-30">
+         <header className="h-16 glass-panel flex items-center justify-between px-6 sticky top-0 z-30">
 
             {/* Search / Context */}
             <div className="flex items-center gap-4 flex-1">
                {/* Search Input (Hidden on mobile) */}
                <div className="relative group hidden md:block">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-aurora-muted group-focus-within:text-primary transition-colors" size={18} />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-aurora-secondary group-focus-within:text-primary transition-colors" size={18} />
                   <input
                      type="text"
                      placeholder="Buscar funciones, historial..."
-                     className="bg-background-light border border-aurora-border rounded-full py-2 pl-10 pr-4 text-sm text-aurora-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-64 transition-all"
+                     className="bg-background-dark/50 border border-white/5 rounded-full py-2 pl-10 pr-4 text-sm text-aurora-text focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 w-64 transition-all shadow-inner"
                   />
                </div>
 
                {/* Angle Mode Toggle */}
-               <div className="flex items-center gap-1 bg-background-light border border-aurora-border rounded-lg p-1">
+               <div className="flex items-center gap-1 glass-button rounded-xl p-1 shadow-inner">
                   {modes.map(mode => (
                      <button
                         key={mode}
                         onClick={() => setAngleMode(mode)}
-                        className={`px-3 py-1 text-xs font-bold rounded transition-all ${angleMode === mode
-                           ? 'bg-primary text-white shadow'
-                           : 'text-aurora-muted hover:text-aurora-text'
+                        className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${angleMode === mode
+                           ? 'bg-primary text-white shadow-[0_0_10px_rgba(255,90,31,0.5)]'
+                           : 'text-aurora-secondary hover:text-white hover:bg-white/5'
                            }`}
                      >
                         {mode}
@@ -71,7 +71,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNavigate }) => {
                <div className="relative">
                   <button
                      onClick={() => setShowNotificaciones(!showNotificaciones)}
-                     className="p-2 text-aurora-secondary hover:text-aurora-text hover:bg-white/5 rounded-full transition-colors relative"
+                     className="p-2 text-aurora-secondary hover:text-secondary hover:bg-secondary/10 rounded-full transition-colors relative"
                   >
                      <Bell size={20} />
                      {unreadCount > 0 && (
@@ -81,7 +81,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNavigate }) => {
 
                   {/* Notification Dropdown */}
                   {showNotificaciones && (
-                     <div className="absolute right-0 top-full mt-2 w-80 bg-background-light border border-aurora-border rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+                     <div className="absolute right-0 top-full mt-2 w-80 glass-panel rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
                         {/* ... (Existing Notification UI) ... */}
                         <div className="p-3 border-b border-aurora-border bg-white/5 flex justify-between items-center">
                            <h3 className="font-bold text-sm">Notificaciones</h3>
@@ -111,7 +111,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNavigate }) => {
                </div>
                <button
                   onClick={() => setShowSettingsModal(true)}
-                  className="p-2 text-aurora-secondary hover:text-aurora-text hover:bg-white/5 rounded-full transition-colors"
+                  className="p-2 text-aurora-secondary hover:text-secondary hover:bg-secondary/10 rounded-full transition-colors"
                >
                   <Settings size={20} />
                </button>

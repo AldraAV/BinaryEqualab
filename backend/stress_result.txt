@@ -1,0 +1,40 @@
+============================================================
+TEST DE ESTRES FINAL - FASE 5
+Motor: C++ SymEngine -> SymPy (timeout 5s) -> Error 408
+============================================================
+
+--- GRUPO A: Operaciones Simples (< 2s) ---
+
+  [ERROR] Suma basica (4.16s) - HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/cas/evaluate (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000020C033DB690>: Failed to establish a new connection: [WinError 10061] No se puede establecer una conexión ya que el equipo de destino denegó expresamente dicha conexión'))
+  [ERROR] Seno de pi (4.05s) - HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/cas/evaluate (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000020C03575E10>: Failed to establish a new connection: [WinError 10061] No se puede establecer una conexión ya que el equipo de destino denegó expresamente dicha conexión'))
+  [ERROR] Derivada x^3 (4.05s) - HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/cas/derivative (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000020C035841D0>: Failed to establish a new connection: [WinError 10061] No se puede establecer una conexión ya que el equipo de destino denegó expresamente dicha conexión'))
+  [RESULTADO INESPERADO] Integral x^2 = ((x ^ (2 + 1)) / (2 + 1)) (equacore, 4.80s, LENTO)
+  [OK] Expand (x+1)^3 = x**3 + 3*x**2 + 3*x + 1 (sympy, 2.07s, LENTO)
+  [OK] Factor x^2-1 = (x - 1)*(x + 1) (sympy, 2.02s, LENTO)
+  [OK] Limite sin(x)/x = 1 (sympy, 2.08s, LENTO)
+  [OK] Media [1,2,3] = 2 (sympy, 2.05s, LENTO)
+  [OK] Det 2x2 = -2 (sympy, 2.04s, LENTO)
+  [OK] Taylor sin(x) = 0.00833333*x**5 - 0.166667*x**3 + x (equacore, 3.55s, LENTO)
+  [OK] Simplify = 1 (sympy, 4.65s, LENTO)
+  [OK] sen(pi) espanol = 0 (sympy, 2.04s, LENTO)
+  [OK] raiz(16) = 4 (sympy, 2.03s, LENTO)
+  [OK] mcd(12,8) = 4 (sympy, 2.03s, LENTO)
+  [OK] esPrimo(17) = True (sympy, 2.11s, LENTO)
+
+Grupo A: 11/15 pasaron
+
+--- GRUPO B: Pruebas de Estres (timeout o respuesta) ---
+
+  [CONGELADO] Taylor grado 20 de exp(sin(x)) (17.20s) - SERVIDOR NO RESPONDIO!
+  [TIMEOUT CONTROLADO] Integral imposible (10.49s) - Servidor sigue vivo!
+  [RESUELTO] Factorizacion n enorme (sympy, 2.52s)
+  [CONGELADO] Derivada 10 veces sin(cos(tan(x))) (17.06s) - SERVIDOR NO RESPONDIO!
+
+Grupo B: 2/4 no congelaron el servidor
+
+--- PRUEBA FINAL: Servidor vivo despues del estres? ---
+  [SERVIDOR VIVO] 1+1 = 2. Todo bien!
+
+============================================================
+RESULTADO FINAL: 13/19 pruebas superadas
+============================================================

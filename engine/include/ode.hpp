@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <map>
+#include <functional>
 #include <Eigen/Dense>
 
 namespace equacore {
@@ -55,10 +56,27 @@ namespace equacore {
         
         // Tratamiento: 0=NONE, 1=PREDNISONE, 2=IVIG, 3=SPLENECTOMY
         int treatment;
-        double treatment_efficacy;  // 0.0-1.0 (eficacia del tratamiento actual)
+        double treatment_efficacy;  // 0.0-1.0 (eficacia base)
+        
+        // Variables Dosis-Dependientes y Letalidad
+        double dose_mg;             // Dosis en mg para Prednisona (0-100)
+        int ivig_doses;             // Número de dosis de IVIG
+        double splenectomy_success; // Factor estocástico de éxito (0.0 a 1.0)
         
         // Paciente
         double initial_platelets;   // recuento inicial (plaquetas/μL)
+
+        PTIParams() : 
+            production_rate(50000.0),
+            destruction_rate(0.05),
+            antibody_half_life(21.0),
+            antibody_production(0.5),
+            treatment(0),
+            treatment_efficacy(0.0),
+            dose_mg(0.0),
+            ivig_doses(0),
+            splenectomy_success(0.0),
+            initial_platelets(250000.0) {}
     };
 
     class BioODESolver {
@@ -124,6 +142,21 @@ namespace equacore {
             double final_count,
             int days
         );
+
+        // --- Stateful Steppers para WebSockets (Telemetría en Vivo) ---
+        class PTIStepper {
+        public:
+            PTIStepper(const VectorXd& y0, const PTIParams& params);
+            VectorXd step(double dt);
+            VectorXd get_state() const;
+            void set_params(const PTIParams& params);
+            double P() const { return y[0]; }
+            double A() const { return y[1]; }
+
+        private:
+            VectorXd y;
+            PTIParams p;
+        };
 
     private:
         static VectorXd stepRK4(std::function<VectorXd(double, const VectorXd&)> f, double t, const VectorXd& y, double dt);

@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include <sstream>
+#include <algorithm>
 
 namespace equacore {
 
@@ -275,25 +276,25 @@ namespace equacore {
             // --- Efecto del tratamiento sobre destrucción ---
             double treatment_factor = 1.0;
             switch (p.treatment) {
-                case 1: // Prednisona: reduce destrucción parcialmente
-                    treatment_factor = 1.0 - p.treatment_efficacy * 0.6;
+                case 1: // Prednisona: dependiente de dosis (mg)
+                    treatment_factor = std::max(0.0, 1.0 - (p.dose_mg / 80.0) * p.treatment_efficacy);
                     break;
-                case 2: // IVIG: bloquea receptores Fc, reduce destrucción directamente
-                    treatment_factor = 1.0 - p.treatment_efficacy * 0.8;
+                case 2: // IVIG: dependiente de dosis (ampollas)
+                    treatment_factor = std::max(0.0, 1.0 - (p.ivig_doses * 0.3) * p.treatment_efficacy);
                     break;
-                case 3: // Esplenectomía: elimina sitio principal de destrucción
-                    treatment_factor = 1.0 - p.treatment_efficacy * 0.75;
+                case 3: // Esplenectomía: Usa success stocástico de Python
+                    treatment_factor = std::max(0.0, 1.0 - p.splenectomy_success * p.treatment_efficacy);
                     break;
                 default: // Sin tratamiento
                     break;
             }
             destruction *= treatment_factor;
 
-            // --- Pérdida por sangrado ---
-            // Solo si plaquetas críticamente bajas (<10,000)
+            // --- Pérdida por sangrado (CRÍTICA NO LINEAL) ---
             double bleeding = 0.0;
             if (P < 10000.0) {
-                bleeding = 500.0 * (10000.0 - P) / 10000.0;
+                // Sangrado asintótico exponencial si plaquetas caen a nivel fatal
+                bleeding = 2000.0 * std::exp(5.0 * (10000.0 - P) / 10000.0) - 2000.0;
             }
 
             // --- Dinámica de anticuerpos ---
@@ -301,17 +302,19 @@ namespace equacore {
             double ab_decay = -std::log(2.0) / p.antibody_half_life * A;
             double ab_prod = p.antibody_production;
 
-            // Prednisona también suprime producción de anticuerpos
+            // Prednisona (dosis alta) también suprime producción de anticuerpos profundamente
             if (p.treatment == 1) {
-                ab_prod *= (1.0 - p.treatment_efficacy * 0.7);
+                ab_prod *= std::max(0.0, 1.0 - (p.dose_mg / 80.0) * p.treatment_efficacy);
             }
 
             // --- Ecuaciones diferenciales ---
             dydt[0] = production - destruction - bleeding;  // dP/dt
             dydt[1] = ab_decay + ab_prod;                   // dA/dt
 
-            // Clamp: no pueden ser negativos
-            if (P <= 0.0 && dydt[0] < 0.0) dydt[0] = 0.0;
+            // Clamp estricto (Muerte biológica)
+            if (P <= 0.0 && dydt[0] < 0.0) {
+                dydt[0] = 0.0; // P no puede ser negativo
+            }
             if (A <= 0.0 && dydt[1] < 0.0) dydt[1] = 0.0;
 
             return dydt;
@@ -362,6 +365,61 @@ namespace equacore {
         result += std::to_string(static_cast<int>(pct)) + "%";
 
         return result;
+    }
+
+    // --- Implementación de Stateful Steppers para WebSockets ---
+    BioODESolver::PTIStepper::PTIStepper(const VectorXd& y0, const PTIParams& params) : y(y0), p(params) {}
+
+    VectorXd BioODESolver::PTIStepper::get_state() const { return y; }
+
+    void BioODESolver::PTIStepper::set_params(const PTIParams& params) { p = params; }
+
+    VectorXd BioODESolver::PTIStepper::step(double dt) {
+        auto system = [&](double /*t*/, const VectorXd& curr_y) -> VectorXd {
+            double P = curr_y[0];
+            double A = curr_y[1];
+            VectorXd dydt(2);
+
+            double production = p.production_rate;
+            if (P < 150000.0) {
+                double boost = (150000.0 - P) / 150000.0;
+                production *= (1.0 + 1.5 * boost);
+            }
+
+            double destruction = p.destruction_rate * A * std::sqrt(P + 1000.0) * P / 100.0;
+            double treatment_factor = 1.0;
+            switch (p.treatment) {
+                case 1: treatment_factor = std::max(0.0, 1.0 - (p.dose_mg / 80.0) * p.treatment_efficacy); break;
+                case 2: treatment_factor = std::max(0.0, 1.0 - (p.ivig_doses * 0.3) * p.treatment_efficacy); break;
+                case 3: treatment_factor = std::max(0.0, 1.0 - p.splenectomy_success * p.treatment_efficacy); break;
+                default: break;
+            }
+            destruction *= treatment_factor;
+
+            double bleeding = 0.0;
+            if (P < 10000.0) {
+                bleeding = 2000.0 * std::exp(5.0 * (10000.0 - P) / 10000.0) - 2000.0;
+            }
+
+            double ab_decay = -std::log(2.0) / p.antibody_half_life * A;
+            double ab_prod = p.antibody_production;
+            if (p.treatment == 1) {
+                ab_prod *= std::max(0.0, 1.0 - (p.dose_mg / 80.0) * p.treatment_efficacy);
+            }
+
+            dydt[0] = production - destruction - bleeding;
+            dydt[1] = ab_decay + ab_prod;
+
+            if (P <= 0.0 && dydt[0] < 0.0) dydt[0] = 0.0;
+            if (A <= 0.0 && dydt[1] < 0.0) dydt[1] = 0.0;
+
+            return dydt;
+        };
+
+        y = BioODESolver::stepRK4(system, 0.0, y, dt);
+        if (y[0] < 0.0) y[0] = 0.0;
+        if (y[1] < 0.0) y[1] = 0.0;
+        return y;
     }
 
 } // namespace equacore

@@ -1,6 +1,6 @@
 # Binary EquaLab - High Performance Math Engine v3.0
 # Séptima Biomédica Bio-Engine
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.10...3.31)
 project(EquaCore VERSION 3.0.0 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -23,33 +23,19 @@ FetchContent_Declare(
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 
-# ==========================================
-# CLN & GiNaC — Auto-Build (Suite Élite)
-# ==========================================
-# Se descargan y compilan automáticamente si no están en el sistema
-FetchContent_Declare(
-    cln
-    GIT_REPOSITORY https://github.com/gmp-mpfr-sys/cln.git
-    GIT_TAG        cln_1_3_6
-)
-FetchContent_Declare(
-    ginac
-    GIT_REPOSITORY https://github.com/ginac/ginac.git
-    GIT_TAG        release_1_8_6
-)
-
-set(EIGEN_BUILD_DOC OFF CACHE BOOL "" FORCE)
-set(EIGEN_BUILD_TESTING OFF CACHE BOOL "" FORCE)
-set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
-
-FetchContent_MakeAvailable(Eigen3 cln ginac)
-message(STATUS "Dependencias CAS listas (Eigen3, CLN, GiNaC)")
+FetchContent_MakeAvailable(Eigen3)
+message(STATUS "Dependencias CAS listas (Eigen3)")
 
 # ==========================================
 # pybind11 — REQUIRED (pip install pybind11)
 # ==========================================
-set(PYBIND11_FINDPYTHON ON)
-find_package(pybind11 CONFIG REQUIRED)
+if(NOT USE_SYSTEM_PYBIND11)
+    set(PYBIND11_FINDPYTHON ON)
+    find_package(pybind11 REQUIRED)
+else()
+    set(PYBIND11_FINDPYTHON ON)
+    find_package(pybind11 CONFIG REQUIRED)
+endif()
 message(STATUS "pybind11 ${pybind11_VERSION} encontrado")
 
 # ==========================================
@@ -81,15 +67,17 @@ endif()
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
 add_library(equacore_static STATIC
+    src/expression.cpp
+    src/calculus.cpp
     src/ode.cpp
     src/ode_solvers.cpp
     src/fft.cpp
     src/sparse.cpp
-    src/symbolic.cpp
     src/linear.cpp
+    src/stats.cpp
 )
 
-target_link_libraries(equacore_static PUBLIC Eigen3::Eigen cln GiNaC)
+target_link_libraries(equacore_static PUBLIC Eigen3::Eigen)
 
 if(OpenBLAS_FOUND)
     target_link_libraries(equacore_static PUBLIC ${OpenBLAS_LIBRARIES})
@@ -103,7 +91,7 @@ endif()
 
 # Módulo Python
 pybind11_add_module(_equacore src/bindings.cpp)
-target_link_libraries(_equacore PRIVATE equacore_static cln GiNaC)
+target_link_libraries(_equacore PRIVATE equacore_static)
 
 set_target_properties(_equacore PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/python/equacore

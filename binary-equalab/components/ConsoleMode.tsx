@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { HistoryItem } from '../types';
 import MathDisplay from './MathDisplay';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts';
 // @ts-ignore
 import nerdamer from 'nerdamer';
 import ScientificKeypad from './ScientificKeypad';
-import MathKeyboardPRO from './MathKeyboardPRO';
-import { Eraser, Cloud, CloudOff, AlertCircle, ToggleLeft, ToggleRight, Sparkles, Keyboard } from 'lucide-react';
+import { Eraser, Cloud, CloudOff, AlertCircle, ToggleLeft, ToggleRight, Sparkles, ChevronUp, ChevronDown } from 'lucide-react';
 import apiService from '../services/apiService';
 import { checkEasterEgg, parseNumberSystems, EasterEggResult } from '../services/easterEggs';
 import { useCalculator } from '../CalculatorContext';
@@ -25,48 +25,12 @@ const ConsoleMode: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [useBackend, setUseBackend] = useState(true);
   const [parseError, setParseError] = useState<string | null>(null);
-  const [useProKeyboard, setUseProKeyboard] = useState(false);
+  const [showToolbar, setShowToolbar] = useState(false);
+  const [toolbarTab, setToolbarTab] = useState<'FUNC' | 'ABC' | 'GREEK' | 'CONST'>('FUNC');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Resize Panel Logic
-  const [keypadWidth, setKeypadWidth] = useState(380); // Default width
-  const [isResizing, setIsResizing] = useState(false);
-  const resizingRef = useRef(false);
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!resizingRef.current) return;
-      const newWidth = document.body.clientWidth - e.clientX;
-      if (newWidth > 280 && newWidth < 600) {
-        setKeypadWidth(newWidth);
-      }
-    };
-
-    const handleMouseUp = () => {
-      resizingRef.current = false;
-      setIsResizing(false);
-      document.body.style.cursor = 'default';
-      document.body.style.userSelect = 'auto';
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, []);
-
-  const startResizing = () => {
-    resizingRef.current = true;
-    setIsResizing(true);
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-  };
-
   // Use Global Calculator Context
-  const { variables, setVariable, ans, setAns, isExact, toggleExact } = useCalculator();
+  const { variables, setVariable, ans, setAns, isExact, toggleExact, defineFunction, getUserFunction, userFunctions } = useCalculator();
 
   // Autocomplete suggestions
   const [suggestions, setSuggestions] = useState<FunctionDef[]>([]);
@@ -85,13 +49,55 @@ const ConsoleMode: React.FC = () => {
     return result;
   };
 
-  // Check if expression is an assignment (var = expr)
-  const parseAssignment = (expr: string): { isAssignment: boolean; varName?: string; valueExpr?: string } => {
+  // Check if expression is an assignment (var = expr) or function definition (f(x) := expr)
+  const parseAssignment = (expr: string): { isAssignment: boolean; isFunctionDef?: boolean; varName?: string; params?: string[]; valueExpr?: string } => {
+    // Function definition: f(x) := expr or f(x, y) := expr
+    const funcMatch = expr.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([^)]+)\)\s*:=\s*(.+)$/);
+    if (funcMatch) {
+      const params = funcMatch[2].split(',').map(s => s.trim());
+      return { isAssignment: true, isFunctionDef: true, varName: funcMatch[1].toLowerCase(), params, valueExpr: funcMatch[3] };
+    }
+    // Variable assignment: a = expr
     const match = expr.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/);
     if (match) {
       return { isAssignment: true, varName: match[1].toLowerCase(), valueExpr: match[2] };
     }
     return { isAssignment: false };
+  };
+
+  // Substitute user-defined functions in expression
+  const substituteUserFunctions = (expr: string): string => {
+    let result = expr;
+    // Iterate over user functions and expand calls
+    for (const [name, fn] of Object.entries(userFunctions)) {
+      // Match function calls like f(3) or g(x+1, 2)
+      const regex = new RegExp(`\\b${name}\\s*\\(`, 'g');
+      let match;
+      while ((match = regex.exec(result)) !== null) {
+        const startStr = match.index;
+        const startArgs = startStr + match[0].length;
+        let depth = 1;
+        let i = startArgs;
+        while (i < result.length && depth > 0) {
+          if (result[i] === '(') depth++;
+          if (result[i] === ')') depth--;
+          i++;
+        }
+        if (depth === 0) {
+          const argsStr = result.slice(startArgs, i - 1);
+          const args = splitArgsSafe(argsStr);
+          // Substitute params with args in the function body
+          let expanded = fn.body;
+          fn.params.forEach((param, idx) => {
+            const argVal = args[idx] || '0';
+            expanded = expanded.replace(new RegExp(`\\b${param}\\b`, 'g'), `(${argVal})`);
+          });
+          result = result.slice(0, startStr) + `(${expanded})` + result.slice(i);
+          regex.lastIndex = startStr + expanded.length + 2;
+        }
+      }
+    }
+    return result;
   };
 
   const scrollToBottom = () => {
@@ -181,6 +187,25 @@ const ConsoleMode: React.FC = () => {
     }
   };
 
+  // Helper: split arguments respecting nested parentheses
+  const splitArgsSafe = (argsStr: string): string[] => {
+    const args: string[] = [];
+    let current = '';
+    let depth = 0;
+    for (let i = 0; i < argsStr.length; i++) {
+      if (argsStr[i] === '(') depth++;
+      if (argsStr[i] === ')') depth--;
+      if (argsStr[i] === ',' && depth === 0) {
+        args.push(current.trim());
+        current = '';
+      } else {
+        current += argsStr[i];
+      }
+    }
+    if (current.trim()) args.push(current.trim());
+    return args;
+  };
+
   // Fallback: Client-side Nerdamer evaluation
   const evaluateWithNerdamer = (expr: string): string => {
     // First, check if it's a finance function
@@ -205,66 +230,66 @@ const ConsoleMode: React.FC = () => {
       const detectVariable = (exprStr: string): string => {
         const vars = exprStr.match(/\b([a-z])\b/gi);
         if (vars) {
-          // Prefer x, then y, then t, then first found
           if (vars.includes('x')) return 'x';
           if (vars.includes('y')) return 'y';
           if (vars.includes('t')) return 't';
           return vars[0];
         }
-        return 'x'; // default
+        return 'x';
       };
 
-      // Fix integrate() - convert to Nerdamer syntax
-      // integrate(f) → integrate(f, x)
-      // integrate(f, x) → integrate(f, x) 
-      // integrate(f, x, a, b) → defint(f, a, b, x)
-      processedExpr = processedExpr.replace(/\bintegrate\s*\(([^)]+)\)/gi, (match, argsStr) => {
-        const args = argsStr.split(',').map((s: string) => s.trim());
-        if (args.length === 1) {
-          // Indefinite integral with auto-detected variable
-          const variable = detectVariable(args[0]);
-          return `integrate(${args[0]}, ${variable})`;
-        } else if (args.length === 2) {
-          // Indefinite with specified variable
-          return `integrate(${args[0]}, ${args[1]})`;
-        } else if (args.length === 3) {
-          // Definite: integrate(f, a, b) - assume x
-          return `defint(${args[0]}, ${args[1]}, ${args[2]}, x)`;
-        } else if (args.length === 4) {
-          // Definite: integrate(f, x, a, b)
-          return `defint(${args[0]}, ${args[2]}, ${args[3]}, ${args[1]})`;
+      // Helper: extract full function content with nested parens
+      const extractAndTransform = (exprStr: string, funcNames: string[], transform: (args: string[]) => string): string => {
+        let result = exprStr;
+        for (const funcName of funcNames) {
+          const regex = new RegExp(`\\b${funcName}\\s*\\(`, 'gi');
+          let match;
+          while ((match = regex.exec(result)) !== null) {
+            const startStr = match.index;
+            const startArgs = startStr + match[0].length;
+            let depth = 1;
+            let i = startArgs;
+            while (i < result.length && depth > 0) {
+              if (result[i] === '(') depth++;
+              if (result[i] === ')') depth--;
+              i++;
+            }
+            if (depth === 0) {
+              const inner = result.slice(startArgs, i - 1);
+              const args = splitArgsSafe(inner);
+              const replaced = transform(args);
+              result = result.slice(0, startStr) + `${funcName}(${replaced})` + result.slice(i);
+              regex.lastIndex = startStr + funcName.length + replaced.length + 2;
+            }
+          }
         }
-        return match;
+        return result;
+      };
+
+      // Fix integrate()
+      processedExpr = extractAndTransform(processedExpr, ['integrate'], (args) => {
+        if (args.length === 1) return `${args[0]}, ${detectVariable(args[0])}`;
+        if (args.length === 2) return `${args[0]}, ${args[1]}`;
+        if (args.length === 3) return `defint(${args[0]}, ${args[1]}, ${args[2]}, x)`;
+        if (args.length === 4) return `${args[0]}, ${args[2]}, ${args[3]}, ${args[1]}`;
+        return args.join(', ');
       });
 
-      // Fix diff() / derivative() - convert to Nerdamer syntax
-      // diff(f) → diff(f, x)
-      // diff(f, x) → diff(f, x)
-      // diff(f, x, n) → diff(f, x, n)
-      processedExpr = processedExpr.replace(/\b(diff|derivative)\s*\(([^)]+)\)/gi, (match, funcName, argsStr) => {
-        const args = argsStr.split(',').map((s: string) => s.trim());
-        if (args.length === 1) {
-          // Auto-detect variable
-          const variable = detectVariable(args[0]);
-          return `diff(${args[0]}, ${variable})`;
-        } else if (args.length === 2) {
-          return `diff(${args[0]}, ${args[1]})`;
-        } else if (args.length === 3) {
-          // Higher order derivative
-          return `diff(${args[0]}, ${args[1]}, ${args[2]})`;
-        }
-        return match;
+      // Fix diff() / derivative()
+      processedExpr = extractAndTransform(processedExpr, ['diff', 'derivative'], (args) => {
+        if (args.length === 1) return `${args[0]}, ${detectVariable(args[0])}`;
+        if (args.length === 2) return `${args[0]}, ${args[1]}`;
+        if (args.length === 3) return `${args[0]}, ${args[1]}, ${args[2]}`;
+        return args.join(', ');
       });
 
       // Fix d/dx notation → diff(expr, x)
-      processedExpr = processedExpr.replace(/d\/d([a-z])\s*\(([^)]+)\)/gi, (match, variable, expr) => {
-        return `diff(${expr}, ${variable})`;
+      processedExpr = extractAndTransform(processedExpr, ['d/d[a-z]'], (args) => {
+        return args.join(', ');
       });
 
       // Fix factorial(n) → (n)! for Nerdamer
-      // Handles nested parentheses: factorial(2+3) → (2+3)!
       processedExpr = processedExpr.replace(/\bfactorial\s*\(([^()]+|\([^()]*\))+\)/gi, (match) => {
-        // Extract content inside factorial(...)
         const start = match.indexOf('(') + 1;
         let depth = 1;
         let i = start;
@@ -325,20 +350,28 @@ const ConsoleMode: React.FC = () => {
       } else if (processedExpr.startsWith('diff(') || processedExpr.startsWith('derivative(')) {
         const funcName = processedExpr.startsWith('diff(') ? 'diff' : 'derivative';
         const inner = extractFunctionContent(processedExpr, funcName);
-        const parts = inner.split(',').map(s => s.trim());
+        const parts = splitArgsSafe(inner);
         if (parts.length >= 2) {
           const res = await apiService.derivative(parts[0], parts[1]);
+          return res.latex || res.result;
+        } else if (parts.length === 1) {
+          const res = await apiService.derivative(parts[0], 'x');
           return res.latex || res.result;
         }
       } else if (processedExpr.startsWith('integrate(')) {
         const inner = extractFunctionContent(processedExpr, 'integrate');
-        const parts = inner.split(',').map(s => s.trim());
+        const parts = splitArgsSafe(inner);
         if (parts.length >= 4) {
-          // Definite Integral: integrate(f, x, a, b)
           const res = await apiService.integral(parts[0], parts[1], parseFloat(parts[2]), parseFloat(parts[3]));
+          return res.latex || res.result;
+        } else if (parts.length === 3) {
+          const res = await apiService.integral(parts[0], 'x', parseFloat(parts[1]), parseFloat(parts[2]));
           return res.latex || res.result;
         } else if (parts.length >= 2) {
           const res = await apiService.integral(parts[0], parts[1]);
+          return res.latex || res.result;
+        } else if (parts.length === 1) {
+          const res = await apiService.integral(parts[0], 'x');
           return res.latex || res.result;
         }
       } else if (processedExpr.startsWith('solve(')) {
@@ -348,22 +381,36 @@ const ConsoleMode: React.FC = () => {
         return res.result;
       } else if (processedExpr.startsWith('limit(')) {
         const inner = extractFunctionContent(processedExpr, 'limit');
-        const parts = inner.split(',').map(s => s.trim());
-        const res = await apiService.limit(parts[0], parts[1] || 'x', parseFloat(parts[2]) || 0);
-        return res.result;
+        const parts = splitArgsSafe(inner);
+        if (parts.length === 2) {
+          const res = await apiService.limit(parts[0], 'x', parts[1]);
+          return res.latex || res.result;
+        }
+        const res = await apiService.limit(parts[0], parts[1] || 'x', parts[2] || '0');
+        return res.latex || res.result;
       } else if (processedExpr.startsWith('taylor(')) {
         const inner = extractFunctionContent(processedExpr, 'taylor');
-        const parts = inner.split(',').map(s => s.trim());
-        const res = await apiService.taylor(parts[0], parts[1] || 'x', parseFloat(parts[2]) || 0, parseInt(parts[3]) || 5);
+        const parts = splitArgsSafe(inner);
+        const res = await apiService.taylor(parts[0], parts[1] || 'x', parts[2] || '0', parseInt(parts[3]) || 5);
         return res.latex || res.result;
       } else if (processedExpr.startsWith('laplace(')) {
         const inner = extractFunctionContent(processedExpr, 'laplace');
         const res = await apiService.laplace(inner);
-        return res.result;
+        return res.latex || res.result;
       } else if (processedExpr.startsWith('fourier(')) {
         const inner = extractFunctionContent(processedExpr, 'fourier');
         const res = await apiService.fourier(inner);
-        return res.result;
+        return res.latex || res.result;
+      } else if (processedExpr.startsWith('ilaplace(') || processedExpr.startsWith('inverse_laplace(')) {
+        const funcName = processedExpr.startsWith('ilaplace(') ? 'ilaplace' : 'inverse_laplace';
+        const inner = extractFunctionContent(processedExpr, funcName);
+        const res = await apiService.ilaplace(inner);
+        return res.latex || res.result;
+      } else if (processedExpr.startsWith('ifourier(') || processedExpr.startsWith('inverse_fourier(')) {
+        const funcName = processedExpr.startsWith('ifourier(') ? 'ifourier' : 'inverse_fourier';
+        const inner = extractFunctionContent(processedExpr, funcName);
+        const res = await apiService.ifourier(inner);
+        return res.latex || res.result;
       } else if (processedExpr.startsWith('explain(') || processedExpr.startsWith('explicar(')) {
         // AI Explain Mode
         const funcName = processedExpr.startsWith('explain') ? 'explain' : 'explicar';
@@ -388,8 +435,8 @@ const ConsoleMode: React.FC = () => {
           return `\\text{AI Service Unavailable}`;
         }
       }
-      // Default: simplify
-      const res = await apiService.simplify(processedExpr);
+      // Default: evaluate universal (SymPy with full namespace)
+      const res = await apiService.evaluate(processedExpr);
       return res.latex || res.result;
     } catch (error) {
       console.warn('Backend failed, falling back to Nerdamer:', error);
@@ -399,7 +446,7 @@ const ConsoleMode: React.FC = () => {
   };
 
   // Main evaluation function with preprocessing
-  const evaluateExpression = async (expr: string): Promise<{ latex: string; rawValue: string; approxResult: string; easterEgg?: EasterEggResult }> => {
+  const evaluateExpression = async (expr: string): Promise<{ latex: string; rawValue: string; approxResult: string; easterEgg?: EasterEggResult; plotData?: {x: number, y: number}[] }> => {
     setParseError(null);  // Clear previous errors
 
     // 1. Special Commands Check (PRIORITY)
@@ -425,7 +472,81 @@ const ConsoleMode: React.FC = () => {
         return { latex: '\\text{🎵 Audio Playing...}', rawValue: 'Audio', approxResult: 'Audio' };
       } catch (e) {
         console.error("Sonify Error:", e);
-        return { latex: '\\text{❌ Audio Error}', rawValue: 'Error', approxResult: 'Error' };
+        return { latex: '\\text{Error de Audio. Verifique su expresion.}', rawValue: 'Error', approxResult: 'Error' };
+      }
+    }
+
+    // Graph Generation: plot(...) or graficar(...)
+    const plotMatch = trimmedExpr.match(/^(plot|graficar)\s*\((.+)\)$/i);
+    if (plotMatch) {
+      const inner = plotMatch[2];
+      try {
+        const res = await apiService.plot(inner, 'x', -10, 10, 200);
+        return {
+          latex: `\\text{Gráfica de } ${inner}`,
+          rawValue: `plot(${inner})`,
+          approxResult: '',
+          plotData: res.points
+        };
+      } catch (e) {
+        return { latex: `\\text{Error al graficar } ${inner}`, rawValue: 'Error', approxResult: 'Error' };
+      }
+    }
+
+    const plotsonifyMatch = trimmedExpr.match(/^(plotsonify|graficar_y_sonar|sonificar)\s*\((.+)\)$/i);
+    if (plotsonifyMatch) {
+      const inner = plotsonifyMatch[2];
+      try {
+        const res = await apiService.plot(inner, 'x', -10, 10, 200);
+        
+        // Sonify simultaneously
+        let innerForSonify = inner;
+        const { translateToEnglish } = await import('../services/functionDefs');
+        innerForSonify = translateToEnglish(innerForSonify).replace(/\bx\b/g, 't');
+        MathService.sonify(innerForSonify).catch(e => console.error(e));
+
+        return {
+          latex: `\\text{Gráfica \& Sonido de } ${inner}`,
+          rawValue: `plotsonify(${inner})`,
+          approxResult: '',
+          plotData: res.points,
+          easterEgg: { triggered: true, message: 'Audio Generated', emoji: '🎵', animation: 'glow' }
+        };
+      } catch (e) {
+        return { latex: `\\text{Error al graficar } ${inner}`, rawValue: 'Error', approxResult: 'Error' };
+        }
+    }
+
+    // Advanced CAS Commands: laplace, fourier, ilaplace, ifourier, taylor
+    // Intercepted BEFORE parser to avoid implicit multiplication breaking names
+    const advancedMatch = trimmedExpr.match(/^(laplace|fourier|ilaplace|ifourier|inverse_laplace|inverse_fourier|taylor)\s*\((.+)\)$/i);
+    if (advancedMatch) {
+      const funcName = advancedMatch[1].toLowerCase();
+      const innerRaw = advancedMatch[2];
+      // Translate inner expression (e.g., sen→sin) but preserve the outer function
+      const { translateToEnglish } = await import('../services/functionDefs');
+      const inner = translateToEnglish(innerRaw);
+
+      try {
+        let res;
+        if (funcName === 'taylor') {
+          const parts = inner.split(',').map(s => s.trim());
+          res = await apiService.taylor(parts[0], parts[1] || 'x', parts[2] || '0', parseInt(parts[3]) || 5);
+        } else if (funcName === 'laplace') {
+          res = await apiService.laplace(inner);
+        } else if (funcName === 'fourier') {
+          res = await apiService.fourier(inner);
+        } else if (funcName === 'ilaplace' || funcName === 'inverse_laplace') {
+          res = await apiService.ilaplace(inner);
+        } else if (funcName === 'ifourier' || funcName === 'inverse_fourier') {
+          res = await apiService.ifourier(inner);
+        } else {
+          res = await apiService.simplify(trimmedExpr);
+        }
+        const result = res.latex || res.result;
+        return { latex: result, rawValue: res.result, approxResult: res.result };
+      } catch (e) {
+        return { latex: `\\text{Error en ${funcName}}`, rawValue: 'Error', approxResult: 'Error' };
       }
     }
 
@@ -473,6 +594,9 @@ const ConsoleMode: React.FC = () => {
     // Parse binary/hex/octal literals (0b1010 → 10, 0xFF → 255)
     let processedExpr = parseNumberSystems(expr);
 
+    // Substitute user-defined functions FIRST (before variables)
+    processedExpr = substituteUserFunctions(processedExpr);
+
     // Substitute user variables (including ans)
     const substitutedExpr = substituteVariables(processedExpr);
 
@@ -510,9 +634,8 @@ const ConsoleMode: React.FC = () => {
         approxResult = parseFloat(approxResult).toString();
       }
     } catch (e) {
-      // If evaluation fails, try to extract number from rawValue
-      const num = parseFloat(rawValue.replace(/[^0-9.-]/g, ''));
-      if (!isNaN(num)) approxResult = num.toString();
+      // If symbolic approximation fails, set it to rawValue instead of blindly extracting numbers
+      approxResult = rawValue;
     }
 
     // Check for easter eggs
@@ -530,46 +653,59 @@ const ConsoleMode: React.FC = () => {
       if (!input.trim() || isLoading) return;
       setIsLoading(true);
       try {
-        const assignment = parseAssignment(input);
-        let displayExpr = input;
-        let resultLatex: string;
-        let rawValue: string;
-        let approxResult: string;
-        let easterEggResult: EasterEggResult | undefined;
+        // Split by semicolons or newlines for batch evaluation
+        const expressions = input.split(/[;\n]/).map(s => s.trim()).filter(s => s.length > 0);
+        const newItems: HistoryItem[] = [];
 
-        if (assignment.isAssignment && assignment.varName && assignment.valueExpr) {
-          // Evaluate the value expression
-          const evalResult = await evaluateExpression(assignment.valueExpr);
-          resultLatex = evalResult.latex;
-          rawValue = evalResult.rawValue;
-          approxResult = evalResult.approxResult;
-          easterEggResult = evalResult.easterEgg;
-          displayExpr = `${assignment.varName} = ${assignment.valueExpr}`;
+        for (const singleExpr of expressions) {
+          const assignment = parseAssignment(singleExpr);
+          let displayExpr = singleExpr;
+          let resultLatex: string;
+          let rawValue: string;
+          let approxResult: string;
+          let easterEggResult: EasterEggResult | undefined;
+          let plotData: {x: number, y: number}[] | undefined;
 
-          // Store the variable
-          setVariable(assignment.varName!, rawValue);
-          setAns(rawValue);
-        } else {
-          // Normal calculation
-          const evalResult = await evaluateExpression(input);
-          resultLatex = evalResult.latex;
-          rawValue = evalResult.rawValue;
-          approxResult = evalResult.approxResult;
-          easterEggResult = evalResult.easterEgg;
+          if (assignment.isAssignment && assignment.varName && assignment.valueExpr) {
+            if (assignment.isFunctionDef && assignment.params) {
+              defineFunction(assignment.varName, assignment.params, assignment.valueExpr);
+              resultLatex = `\\text{${assignment.varName}(${assignment.params.join(', ')}) definida}`;
+              rawValue = assignment.valueExpr;
+              approxResult = '';
+              displayExpr = `${assignment.varName}(${assignment.params.join(', ')}) := ${assignment.valueExpr}`;
+            } else {
+              const evalResult = await evaluateExpression(assignment.valueExpr);
+              resultLatex = evalResult.latex;
+              rawValue = evalResult.rawValue;
+              approxResult = evalResult.approxResult;
+              easterEggResult = evalResult.easterEgg;
+              plotData = evalResult.plotData;
+              displayExpr = `${assignment.varName} = ${assignment.valueExpr}`;
+              setVariable(assignment.varName!, rawValue);
+            }
+            setAns(rawValue);
+          } else {
+            const evalResult = await evaluateExpression(singleExpr);
+            resultLatex = evalResult.latex;
+            rawValue = evalResult.rawValue;
+            approxResult = evalResult.approxResult;
+            easterEggResult = evalResult.easterEgg;
+            plotData = evalResult.plotData;
+            setAns(rawValue);
+          }
 
-          // Update ANS
-          setAns(rawValue);
+          newItems.push({
+            id: Date.now().toString() + '_' + newItems.length,
+            expression: displayExpr,
+            result: resultLatex,
+            approxResult: approxResult,
+            timestamp: new Date(),
+            easterEgg: easterEggResult,
+            plotData: plotData
+          });
         }
 
-        const newItem: HistoryItem = {
-          id: Date.now().toString(),
-          expression: displayExpr,
-          result: resultLatex,
-          approxResult: approxResult,
-          timestamp: new Date(),
-          easterEgg: easterEggResult
-        };
-        setHistory([...history, newItem]);
+        setHistory(prev => [...prev, ...newItems]);
         setInput('');
       } finally {
         setIsLoading(false);
@@ -584,65 +720,67 @@ const ConsoleMode: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-full w-full bg-background overflow-hidden">
+    <div className="flex flex-col h-full w-full bg-background overflow-hidden relative">
+      {/* Ambient Glow Background Effect */}
+      <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none -translate-y-1/2 translate-x-1/2" />
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-secondary/5 rounded-full blur-3xl pointer-events-none translate-y-1/2 -translate-x-1/4" />
 
-      {/* Left: Console Output & Input Area */}
-      <div className="flex-1 grid grid-rows-[1fr_auto] h-full min-w-0 overflow-hidden relative border-r border-aurora-border/30">
+      {/* Main: Console Output & Input Area */}
+      <div className="flex-1 grid grid-rows-[1fr_auto] h-full w-full min-w-0 overflow-hidden relative z-10">
 
         {/* History Log */}
         <div className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-4">
-          <div className="flex justify-between items-end mb-4 border-b border-aurora-border pb-2">
+          <div className="flex justify-between items-end mb-4 border-b border-white/5 pb-2">
             <div className="flex items-center gap-2">
-              <h2 className="text-aurora-muted text-sm font-bold uppercase tracking-widest">Historial de Cálculos</h2>
+              <h2 className="text-secondary/70 text-xs font-bold uppercase tracking-[0.2em] flex items-center gap-2">
+                <Sparkles size={12} className="text-primary animate-pulse-slow" />
+                Historial de Cálculos
+              </h2>
               {useBackend ? (
-                <Cloud size={14} className="text-green-500" title="Backend SymPy conectado" />
+                <div title="Backend SymPy conectado">
+                  <Cloud size={14} className="text-aurora-success" />
+                </div>
               ) : (
-                <CloudOff size={14} className="text-aurora-muted" title="Modo local (Nerdamer)" />
+                <div title="Modo local (Nerdamer)">
+                  <CloudOff size={14} className="text-aurora-muted" />
+                </div>
               )}
             </div>
             <div className="flex items-center gap-2">
               {/* EXACTO/APROX Toggle */}
               <button
                 onClick={toggleExact}
-                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-colors ${isExact
-                  ? 'bg-aurora-secondary/20 text-aurora-secondary'
-                  : 'bg-primary/20 text-primary'
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-wider uppercase transition-all border ${isExact
+                  ? 'bg-primary/10 text-primary border-primary/30 shadow-[0_0_15px_rgba(255,90,31,0.15)]'
+                  : 'glass-button text-aurora-secondary'
                   }`}
                 title={isExact ? 'Mostrando resultado exacto' : 'Mostrando aproximación'}
               >
                 {isExact ? (
-                  <><ToggleLeft size={14} /> EXACTO</>
+                  <><ToggleLeft size={16} /> Exacto</>
                 ) : (
-                  <><ToggleRight size={14} /> ≈ APROX</>
+                  <><ToggleRight size={16} /> ≈ Aprox</>
                 )}
               </button>
-              <button
-                onClick={() => setUseProKeyboard(!useProKeyboard)}
-                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-colors ${useProKeyboard
-                  ? 'bg-gradient-to-r from-primary to-orange-500 text-white'
-                  : 'bg-background-light text-aurora-muted hover:text-aurora-text'
-                  }`}
-                title="Alternar teclado PRO"
-              >
-                <Keyboard size={16} />
-                {useProKeyboard ? 'PRO' : 'STD'}
-              </button>
-              <button onClick={() => setHistory([])} className="text-aurora-secondary hover:text-aurora-danger transition-colors p-1" title="Limpiar historial">
+
+              <div className="w-px h-6 bg-white/10 mx-1"></div>
+
+              <button onClick={() => setHistory([])} className="text-aurora-muted hover:text-aurora-danger hover:bg-white/5 transition-all p-2 rounded-lg" title="Limpiar historial">
                 <Eraser size={16} />
               </button>
             </div>
           </div>
 
           {history.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-40 text-aurora-secondary opacity-50">
-              <span className="text-4xl mb-2">∫</span>
-              <p>Start calculating...</p>
+            <div className="flex flex-col items-center justify-center h-40 text-aurora-secondary/30 mt-20">
+              <span className="text-6xl mb-4 font-light drop-shadow-lg">∫</span>
+              <p className="text-sm font-medium tracking-widest uppercase">Start calculating...</p>
             </div>
           )}
 
           {history.map((item) => (
-            <div key={item.id} className="group flex flex-col gap-2 p-4 rounded-xl hover:bg-white/5 transition-colors border border-transparent hover:border-white/5">
-              <div className="text-right text-aurora-secondary text-lg font-mono tracking-wide">
+            <div key={item.id} className="group flex flex-col gap-2 p-5 rounded-2xl glass-panel hover:bg-white/[0.04] transition-all border border-white/5 hover:border-white/10 shadow-lg">
+              <div className="text-right text-aurora-secondary text-lg font-mono tracking-wide opacity-80">
                 <MathDisplay expression={item.expression} />
               </div>
 
@@ -673,13 +811,189 @@ const ConsoleMode: React.FC = () => {
                   )}
                 </span>
               </div>
+
+              {/* Gráfica generada con plot(expr) */}
+              {item.plotData && item.plotData.length > 0 && (
+                <div className="h-64 mt-4 w-full bg-background/50 rounded-xl p-4 border border-aurora-border shadow-inner" style={{ animation: 'fadeIn 0.5s ease-out' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={item.plotData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#2D3748" vertical={false} />
+                      <XAxis 
+                        dataKey="x" 
+                        type="number" 
+                        domain={['dataMin', 'dataMax']} 
+                        stroke="#718096" 
+                        tick={{ fill: '#718096', fontSize: 12 }} 
+                        tickFormatter={(val) => val.toFixed(1)}
+                      />
+                      <YAxis 
+                        type="number" 
+                        domain={['auto', 'auto']} 
+                        stroke="#718096" 
+                        tick={{ fill: '#718096', fontSize: 12 }} 
+                        tickFormatter={(val) => val.toFixed(1)}
+                      />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', borderColor: '#2D3748', color: '#fff', borderRadius: '8px' }}
+                        itemStyle={{ color: '#00EAD3', fontWeight: 'bold' }}
+                        labelFormatter={(label) => `x: ${Number(label).toFixed(2)}`}
+                        formatter={(value: number) => [value.toFixed(4), 'y']}
+                      />
+                      <ReferenceLine y={0} stroke="#4A5568" strokeWidth={1.5} />
+                      <ReferenceLine x={0} stroke="#4A5568" strokeWidth={1.5} />
+                      <Line 
+                        type="monotone" 
+                        dataKey="y" 
+                        stroke="#00EAD3" 
+                        strokeWidth={2.5} 
+                        dot={false} 
+                        isAnimationActive={true} 
+                        animationDuration={1500} 
+                        animationEasing="ease-out"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
           ))}
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Big Input Field with Autocomplete */}
-        <div className="bg-background-dark p-6 border-t border-aurora-border shrink-0 z-20 shadow-[0_-10px_20px_rgba(0,0,0,0.3)]">
+
+
+      {/* ── Quick Action Bar + Collapsible Toolbar ── */}
+      <div className="glass-panel border-t-0 border-r-0 border-l-0 shrink-0 z-20 shadow-[0_-15px_30px_inset_rgba(0,0,0,0.4)]">
+
+        {/* Quick Buttons Row — always visible */}
+        <div className="flex items-center gap-1.5 px-4 pt-3 pb-2 overflow-x-auto scrollbar-none">
+          {/* Toggle toolbar */}
+          <button
+            onClick={() => setShowToolbar(!showToolbar)}
+            className={`shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+              showToolbar
+                ? 'bg-primary/20 text-primary border-primary/40'
+                : 'bg-white/5 text-aurora-muted border-white/10 hover:bg-white/10'
+            }`}
+            title="Panel de funciones"
+          >
+            {showToolbar ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+          </button>
+
+          {/* Math Quick Buttons — GeoGebra style */}
+          {[
+            { label: '∫', val: 'integrar(' },
+            { label: 'd/dx', val: 'derivar(' },
+            { label: 'Σ', val: 'sumatoria(' },
+            { label: 'lim', val: 'limite(' },
+            { label: '√', val: 'raiz(' },
+            { label: 'xⁿ', val: '^' },
+            { label: 'π', val: 'pi' },
+            { label: 'e', val: 'e' },
+            { label: '(', val: '(' },
+            { label: ')', val: ')' },
+            { label: ',', val: ',' },
+            { label: 'sin', val: 'sen(' },
+            { label: 'cos', val: 'cos(' },
+            { label: 'tan', val: 'tan(' },
+            { label: 'ln', val: 'ln(' },
+            { label: 'log', val: 'log(' },
+            { label: '|x|', val: 'abs(' },
+            { label: 'n!', val: 'factorial(' },
+          ].map((btn) => (
+            <button
+              key={btn.label}
+              onClick={() => setInput(input + btn.val)}
+              className="shrink-0 px-3 py-1.5 rounded-lg text-sm font-mono font-semibold
+                bg-white/5 border border-white/10 text-aurora-text hover:bg-primary/15 hover:text-primary hover:border-primary/30
+                transition-all active:scale-95 select-none"
+            >
+              {btn.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Collapsible Toolbar Panel */}
+        {showToolbar && (
+          <div className="border-t border-aurora-border/50">
+            {/* Tabs */}
+            <div className="flex gap-1 px-4 pt-2 pb-1">
+              {(['FUNC', 'ABC', 'GREEK', 'CONST'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setToolbarTab(tab)}
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${
+                    toolbarTab === tab
+                      ? 'bg-primary/20 text-primary'
+                      : 'text-aurora-muted hover:bg-white/5'
+                  }`}
+                >
+                  {tab === 'GREEK' ? 'αβγ' : tab === 'FUNC' ? 'ƒ(x)' : tab === 'ABC' ? 'xyz' : 'π e c'}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab Content */}
+            <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-1.5 px-4 pb-3 max-h-32 overflow-y-auto custom-scrollbar">
+              {toolbarTab === 'FUNC' && [
+                { l: 'sinh', v: 'sinh(' }, { l: 'cosh', v: 'cosh(' }, { l: 'tanh', v: 'tanh(' },
+                { l: 'asin', v: 'asin(' }, { l: 'acos', v: 'acos(' }, { l: 'atan', v: 'atan(' },
+                { l: 'exp', v: 'exp(' }, { l: 'sqrt', v: 'raiz(' }, { l: 'cbrt', v: 'cbrt(' },
+                { l: 'floor', v: 'piso(' }, { l: 'ceil', v: 'techo(' },
+                { l: 'nPr', v: 'permutations(' }, { l: 'nCr', v: 'combinations(' },
+                { l: 'GCD', v: 'gcd(' }, { l: 'LCM', v: 'lcm(' }, { l: 'mod', v: 'mod(' },
+                { l: 'det', v: 'determinant(' }, { l: 'inv', v: 'invert(' }, { l: 'Aᵀ', v: 'transpose(' },
+                { l: 'graficar', v: 'graficar(' }, { l: 'sonificar', v: 'sonificar(' },
+                { l: 'explicar', v: 'explicar(' }, { l: 'resolver', v: 'resolver(' },
+                { l: 'simplificar', v: 'simplificar(' }, { l: 'factorizar', v: 'factorizar(' },
+                { l: 'expandir', v: 'expandir(' },
+                { l: 'taylor', v: 'taylor(' }, { l: 'laplace', v: 'laplace(' }, { l: 'fourier', v: 'fourier(' },
+              ].map(b => (
+                <button key={b.l} onClick={() => setInput(input + b.v)}
+                  className="px-2 py-1.5 rounded-md text-xs font-mono bg-white/5 border border-white/5 text-aurora-text hover:bg-primary/15 hover:text-primary transition-all active:scale-95 truncate">
+                  {b.l}
+                </button>
+              ))}
+
+              {toolbarTab === 'ABC' && 'xyzwabcdefghijk'.split('').map(l => (
+                <button key={l} onClick={() => setInput(input + l)}
+                  className="px-2 py-1.5 rounded-md text-xs font-mono bg-white/5 border border-white/5 text-aurora-text hover:bg-primary/15 hover:text-primary transition-all active:scale-95">
+                  {l}
+                </button>
+              ))}
+
+              {toolbarTab === 'GREEK' && [
+                { l: 'α', v: 'alpha' }, { l: 'β', v: 'beta' }, { l: 'γ', v: 'gamma' }, { l: 'δ', v: 'delta' },
+                { l: 'ε', v: 'epsilon' }, { l: 'ζ', v: 'zeta' }, { l: 'η', v: 'eta' }, { l: 'θ', v: 'theta' },
+                { l: 'λ', v: 'lambda' }, { l: 'μ', v: 'mu' }, { l: 'ν', v: 'nu' }, { l: 'ξ', v: 'xi' },
+                { l: 'ρ', v: 'rho' }, { l: 'σ', v: 'sigma' }, { l: 'τ', v: 'tau' }, { l: 'φ', v: 'phi' },
+                { l: 'ψ', v: 'psi' }, { l: 'ω', v: 'omega' }, { l: '∞', v: 'inf' }, { l: '∂', v: 'd' },
+                { l: 'Δ', v: 'Delta' }, { l: 'Σ', v: 'sum' }, { l: 'Π', v: 'product' }, { l: 'Ω', v: 'Omega' },
+              ].map(b => (
+                <button key={b.l} onClick={() => setInput(input + b.v)}
+                  className="px-2 py-1.5 rounded-md text-sm font-serif bg-white/5 border border-white/5 text-aurora-text hover:bg-primary/15 hover:text-primary transition-all active:scale-95">
+                  {b.l}
+                </button>
+              ))}
+
+              {toolbarTab === 'CONST' && [
+                { l: 'π', v: 'pi', d: 'Pi' }, { l: 'e', v: 'e', d: 'Euler' }, { l: 'i', v: 'i', d: 'Imaginario' },
+                { l: 'c', v: 'c', d: 'Luz' }, { l: 'g', v: 'g', d: 'Gravedad' }, { l: 'G', v: 'G', d: 'Newton' },
+                { l: 'h', v: 'h', d: 'Planck' }, { l: 'k', v: 'k', d: 'Boltzmann' }, { l: 'Nₐ', v: 'Na', d: 'Avogadro' },
+                { l: 'R', v: 'R', d: 'Gas' }, { l: 'mₑ', v: 'me', d: 'Electrón' }, { l: 'mₚ', v: 'mp', d: 'Protón' },
+              ].map(b => (
+                <button key={b.l} onClick={() => setInput(input + b.v)}
+                  className="px-2 py-1.5 rounded-md text-xs font-serif bg-white/5 border border-white/5 text-aurora-text hover:bg-primary/15 hover:text-primary transition-all active:scale-95 flex flex-col items-center">
+                  <span className="text-sm leading-none">{b.l}</span>
+                  <span className="text-[8px] opacity-40 leading-none mt-0.5">{b.d}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Input Field ── */}
+        <div className="px-4 pb-4 pt-1">
           <div className="relative">
             <div className={`absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold font-serif italic ${parseError ? 'text-red-500' : 'text-primary'}`}>ƒ</div>
             <input
@@ -687,11 +1001,9 @@ const ConsoleMode: React.FC = () => {
               onChange={(e) => {
                 const val = e.target.value;
                 setInput(val);
-                // Trigger autocomplete on last word
                 const words = val.split(/[\s()+\-*/=,]+/);
                 const lastWord = words[words.length - 1];
 
-                // Slash command detection
                 if (val.startsWith('/')) {
                   const slashMatches = Object.entries(SLASH_COMMANDS)
                     .filter(([cmd]) => cmd.startsWith(val.toLowerCase()))
@@ -732,14 +1044,10 @@ const ConsoleMode: React.FC = () => {
                     if (showSuggestions && suggestions[selectedSuggestion]) {
                       e.preventDefault();
                       const selected = suggestions[selectedSuggestion];
-
-                      // Check if it's a slash command
                       if (selected.name.startsWith('/')) {
-                        // Expand slash command to template
                         const template = selected.syntax.replace('▯', '');
                         setInput(template);
                       } else {
-                        // Normal function autocomplete
                         const words = input.split(/[\s()+\-*/=,]+/);
                         const lastWord = words[words.length - 1];
                         const fnName = selected.name;
@@ -808,39 +1116,7 @@ const ConsoleMode: React.FC = () => {
           )}
         </div>
       </div>
-
-      {/* Right: Scientific Keypad Panel */}
-      {/* Resizable Keypad Panel */}
-      <div
-        className="relative shrink-0 border-t md:border-t-0 md:border-l border-aurora-border z-10 shadow-xl bg-background flex flex-col"
-        style={{
-          width: window.innerWidth >= 768 ? `${keypadWidth}px` : '100%',
-          height: window.innerWidth >= 768 ? '100%' : '40vh'
-        }}
-      >
-        {/* Resize Handle (Desktop only) */}
-        <div
-          className="hidden md:block absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/50 transition-colors z-50"
-          onMouseDown={startResizing}
-        ></div>
-
-        <div className="flex-1 overflow-y-auto">
-          {useProKeyboard ? (
-            <MathKeyboardPRO
-              onEvaluate={(sympy, latex) => {
-                setInput(sympy);
-                setTimeout(() => {
-                  const fakeEvent = new KeyboardEvent('keydown', { key: 'Enter' });
-                  handleKeyDown({ ...fakeEvent, preventDefault: () => { } } as any);
-                }, 50);
-              }}
-            />
-          ) : (
-            <ScientificKeypad onKeyClick={handleKeyClick} />
-          )}
-        </div>
       </div>
-
     </div>
   );
 };

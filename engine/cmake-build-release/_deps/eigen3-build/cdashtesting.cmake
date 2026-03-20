@@ -2,8 +2,8 @@
 set(CTEST_SOURCE_DIRECTORY  "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine")
 set(CTEST_BINARY_DIRECTORY  "C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release")
 set(CTEST_CMAKE_GENERATOR   "Ninja")
-set(CTEST_BUILD_NAME        "")
-set(CTEST_SITE              "")
+set(CTEST_BUILD_NAME        "unknownwin-g++-13.1.0-sse2-64bit")
+set(CTEST_SITE              "malenxxxh")
 
 set(MODEL Experimental)
 if(${CTEST_SCRIPT_ARG} MATCHES Nightly)

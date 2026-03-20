@@ -21,6 +21,7 @@ export interface HistoryItem {
     emoji?: string;
     animation?: string;
   };
+  plotData?: { x: number; y: number }[];
 }
 
 export interface Transaction {
