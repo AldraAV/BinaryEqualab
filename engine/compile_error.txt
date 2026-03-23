@@ -1,8 +1,0 @@
-Change Dir: 'C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release'
-
-Run Build Command(s): C:/mingw32/bin/ninja.exe -v -j 1
-[1/4] C:\PROGRA~1\JETBRA~1\CLION2~1.1\bin\mingw\bin\G__~1.EXE  -IC:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/include -IC:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src -O3 -DNDEBUG -std=gnu++20 -O2 -funroll-loops -DNDEBUG -ffast-math -MD -MT CMakeFiles/equacore_static.dir/src/ode.cpp.obj -MF CMakeFiles\equacore_static.dir\src\ode.cpp.obj.d -o CMakeFiles/equacore_static.dir/src/ode.cpp.obj -c C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/src/ode.cpp
-FAILED: [code=1] CMakeFiles/equacore_static.dir/src/ode.cpp.obj 
-C:\PROGRA~1\JETBRA~1\CLION2~1.1\bin\mingw\bin\G__~1.EXE  -IC:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/include -IC:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/cmake-build-release/_deps/eigen3-src -O3 -DNDEBUG -std=gnu++20 -O2 -funroll-loops -DNDEBUG -ffast-math -MD -MT CMakeFiles/equacore_static.dir/src/ode.cpp.obj -MF CMakeFiles\equacore_static.dir\src\ode.cpp.obj.d -o CMakeFiles/equacore_static.dir/src/ode.cpp.obj -c C:/Users/carde/Desktop/MUACK/BinaryEquaLab/engine/src/ode.cpp
-ninja: build stopped: subcommand failed.
-
