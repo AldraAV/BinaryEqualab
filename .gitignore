@@ -117,3 +117,13 @@ diff_bindings.txt
 # Project Specific (legacy)
 # ===========================
 🍒 Guadalupe/
+
+# Ignorados por Limpieza de IP
+*.md
+!README.md
+.agent/
+.qodo/
+.idea/
+*.wav
+tests/
+build*/
