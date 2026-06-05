@@ -45,8 +45,8 @@ const Dashboard: React.FC = () => {
     const aiPercent = getUsagePercent(ai_calls_used, ai_calls_limit);
     const worksheetsPercent = getUsagePercent(worksheets_count, worksheets_limit);
 
-    // Dynamic color based on plan
-    const planColor = plan === 'elite' ? 'from-purple-500 to-pink-500' :
+    // Color dinámico según plan (Orange Sunrise para elite)
+    const planColor = plan === 'elite' ? 'from-orange-500 via-amber-500 to-red-500' :
         plan === 'pro' ? 'from-blue-500 to-cyan-500' :
             'from-gray-500 to-gray-700';
 
@@ -76,7 +76,7 @@ const Dashboard: React.FC = () => {
 
                             <div className="relative z-10">
                                 <div className="flex items-center gap-3 mb-6">
-                                    <div className={`p-3 rounded-xl bg-gradient-to-br ${planColor} shadow-lg shadow-purple-500/20`}>
+                                    <div className={`p-3 rounded-xl bg-gradient-to-br ${planColor} shadow-lg shadow-orange-500/20`}>
                                         {plan === 'elite' ? <Crown size={32} className="text-white" /> :
                                             plan === 'pro' ? <Sparkles size={32} className="text-white" /> :
                                                 <Zap size={32} className="text-white" />}

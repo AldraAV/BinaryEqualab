@@ -1,4 +1,5 @@
 export enum AppMode {
+  LANDING = 'landing',
   CONSOLE = 'CONSOLE',
   GRAPHING = 'GRAPHING',
   MATRIX = 'MATRIX',

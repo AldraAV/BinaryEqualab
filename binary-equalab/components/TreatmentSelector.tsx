@@ -42,7 +42,7 @@ const TreatmentSelector: React.FC<TreatmentSelectorProps> = ({ activeTreatment, 
             
             <div className="mt-6 p-4 bg-primary/5 border border-primary/20 rounded-2xl">
                 <p className="text-[10px] text-aurora-secondary italic">
-                    * La eficacia del tratamiento se calcula dinámicamente en el motor EquaCore mediante parámetros farmacodinámicos ($E_{max}$).
+                    {"* La eficacia del tratamiento se calcula dinámicamente en el motor EquaCore mediante parámetros farmacodinámicos ($E_{max}$)"}
                 </p>
             </div>
         </div>

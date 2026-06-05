@@ -1,19 +1,19 @@
 /**
  * Binary EquaLab - Vectors Mode
  * 
- * Vector operations:
- * - 2D and 3D vectors
- * - Arithmetic: add, subtract, scale
- * - Products: dot, cross
- * - Properties: magnitude, normalize, angle
- * - Visualization
+ * Operaciones vectoriales 2D/3D:
+ * - Aritmética: suma, resta, escalar
+ * - Productos: punto, cruz
+ * - Propiedades: magnitud, normalización, ángulo
+ * - Visualización: canvas interactivo
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Calculator, ArrowRight, Eye, Plus, Minus } from 'lucide-react';
+import { Calculator, ArrowRightLeft, Eye, Sparkles } from 'lucide-react';
+import apiService from '../services/apiService';
 
 type Dimension = '2d' | '3d';
-type VectorOp = 'add' | 'subtract' | 'dot' | 'cross' | 'scale';
+type OperacionVectorial = 'sumar' | 'restar' | 'punto' | 'cruz' | 'escalar';
 
 interface Vector2D {
     x: number;
@@ -26,119 +26,248 @@ interface Vector3D {
     z: number;
 }
 
+// ─── Componente de Input Numérico Glassmorphism (mismo patrón que ComplexMode) ───
+interface PropiedadesCampoVectorial {
+    etiquetaAria: string;
+    valor: string;
+    alCambiar: (nuevoValor: string) => void;
+    marcador?: string;
+    etiqueta?: string;
+    color?: string;
+}
+
+const CampoVectorialGlass: React.FC<PropiedadesCampoVectorial> = ({
+    etiquetaAria,
+    valor,
+    alCambiar,
+    marcador = '0',
+    etiqueta,
+    color = 'text-aurora-muted'
+}) => {
+    const manejarIncremento = () => {
+        const valorActual = parseFloat(valor) || 0;
+        alCambiar((valorActual + 1).toString());
+    };
+
+    const manejarDecremento = () => {
+        const valorActual = parseFloat(valor) || 0;
+        alCambiar((valorActual - 1).toString());
+    };
+
+    const manejarCambioManual = (evento: React.ChangeEvent<HTMLInputElement>) => {
+        const entrada = evento.target.value;
+        if (entrada === '' || entrada === '-') {
+            alCambiar(entrada);
+            return;
+        }
+        const numero = parseFloat(entrada);
+        if (!isNaN(numero)) {
+            alCambiar(entrada);
+        }
+    };
+
+    return (
+        <div className="flex items-center gap-1.5">
+            {etiqueta && (
+                <span className={`text-xs font-mono font-bold ${color}`}>{etiqueta}</span>
+            )}
+            <div className="flex items-center bg-white/5 border border-white/10 rounded-xl overflow-hidden glass-card">
+                <button
+                    type="button"
+                    onClick={manejarDecremento}
+                    className="px-3 py-1.5 hover:bg-white/10 text-aurora-muted hover:text-white transition-colors border-r border-white/5 font-bold"
+                    aria-label={`Restar 1 a ${etiquetaAria}`}
+                >
+                    −
+                </button>
+                <input
+                    type="text"
+                    value={valor}
+                    onChange={manejarCambioManual}
+                    placeholder={marcador}
+                    className="w-16 bg-transparent text-center text-white font-mono focus:outline-none py-1 text-sm"
+                    aria-label={etiquetaAria}
+                />
+                <button
+                    type="button"
+                    onClick={manejarIncremento}
+                    className="px-3 py-1.5 hover:bg-white/10 text-aurora-muted hover:text-white transition-colors border-l border-white/5 font-bold"
+                    aria-label={`Sumar 1 a ${etiquetaAria}`}
+                >
+                    +
+                </button>
+            </div>
+        </div>
+    );
+};
+
 const VectorsMode: React.FC = () => {
     const [dimension, setDimension] = useState<Dimension>('2d');
-    const [operation, setOperation] = useState<VectorOp>('add');
+    const [operacion, setOperacion] = useState<OperacionVectorial>('sumar');
 
-    // 2D Vectors
-    const [v1, setV1] = useState<Vector2D>({ x: 3, y: 4 });
-    const [v2, setV2] = useState<Vector2D>({ x: 1, y: 2 });
-    const [scalar, setScalar] = useState(2);
+    // Vectores 2D como strings para el input glass
+    const [v1x, setV1x] = useState('3');
+    const [v1y, setV1y] = useState('4');
+    const [v2x, setV2x] = useState('1');
+    const [v2y, setV2y] = useState('2');
 
-    // 3D Vectors
-    const [v1_3d, setV1_3d] = useState<Vector3D>({ x: 1, y: 2, z: 3 });
-    const [v2_3d, setV2_3d] = useState<Vector3D>({ x: 4, y: 5, z: 6 });
+    // Vectores 3D
+    const [v1x3, setV1x3] = useState('1');
+    const [v1y3, setV1y3] = useState('2');
+    const [v1z3, setV1z3] = useState('3');
+    const [v2x3, setV2x3] = useState('4');
+    const [v2y3, setV2y3] = useState('5');
+    const [v2z3, setV2z3] = useState('6');
 
-    // Results
-    const [result2D, setResult2D] = useState<Vector2D | null>(null);
-    const [result3D, setResult3D] = useState<Vector3D | null>(null);
-    const [scalarResult, setScalarResult] = useState<number | null>(null);
-    const [properties, setProperties] = useState<string[]>([]);
+    const [escalar, setEscalar] = useState('2');
+
+    // Resultados
+    const [resultadoVectorial, setResultadoVectorial] = useState<string | null>(null);
+    const [resultadoEscalar, setResultadoEscalar] = useState<number | null>(null);
+    const [propiedades, setPropiedades] = useState<string[]>([]);
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
-    // Vector operations
-    const add2D = (a: Vector2D, b: Vector2D): Vector2D => ({ x: a.x + b.x, y: a.y + b.y });
-    const sub2D = (a: Vector2D, b: Vector2D): Vector2D => ({ x: a.x - b.x, y: a.y - b.y });
-    const dot2D = (a: Vector2D, b: Vector2D): number => a.x * b.x + a.y * b.y;
-    const scale2D = (v: Vector2D, s: number): Vector2D => ({ x: v.x * s, y: v.y * s });
+    // ─── Operaciones 2D ───
+    const obtenerV1 = (): Vector2D => ({ x: parseFloat(v1x) || 0, y: parseFloat(v1y) || 0 });
+    const obtenerV2 = (): Vector2D => ({ x: parseFloat(v2x) || 0, y: parseFloat(v2y) || 0 });
+    const obtenerV1_3D = (): Vector3D => ({ x: parseFloat(v1x3) || 0, y: parseFloat(v1y3) || 0, z: parseFloat(v1z3) || 0 });
+    const obtenerV2_3D = (): Vector3D => ({ x: parseFloat(v2x3) || 0, y: parseFloat(v2y3) || 0, z: parseFloat(v2z3) || 0 });
+
     const mag2D = (v: Vector2D): number => Math.sqrt(v.x * v.x + v.y * v.y);
-    const angle2D = (a: Vector2D, b: Vector2D): number => {
+    const mag3D = (v: Vector3D): number => Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+    const dot2D = (a: Vector2D, b: Vector2D): number => a.x * b.x + a.y * b.y;
+    const dot3D = (a: Vector3D, b: Vector3D): number => a.x * b.x + a.y * b.y + a.z * b.z;
+
+    const angulo2D = (a: Vector2D, b: Vector2D): number => {
         const d = dot2D(a, b);
         const m = mag2D(a) * mag2D(b);
-        return Math.acos(d / m) * 180 / Math.PI;
+        if (m === 0) return 0;
+        return Math.acos(Math.min(1, Math.max(-1, d / m))) * 180 / Math.PI;
     };
 
-    const add3D = (a: Vector3D, b: Vector3D): Vector3D => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z });
-    const sub3D = (a: Vector3D, b: Vector3D): Vector3D => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
-    const dot3D = (a: Vector3D, b: Vector3D): number => a.x * b.x + a.y * b.y + a.z * b.z;
-    const cross3D = (a: Vector3D, b: Vector3D): Vector3D => ({
-        x: a.y * b.z - a.z * b.y,
-        y: a.z * b.x - a.x * b.z,
-        z: a.x * b.y - a.y * b.x
-    });
-    const scale3D = (v: Vector3D, s: number): Vector3D => ({ x: v.x * s, y: v.y * s, z: v.z * s });
-    const mag3D = (v: Vector3D): number => Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+    const [resultadoVector2D, setResultadoVector2D] = useState<Vector2D | null>(null);
 
-    const calculate = () => {
+    const realizarCalculoLocal = () => {
         const props: string[] = [];
-        setScalarResult(null);
+        const k = parseFloat(escalar) || 0;
 
         if (dimension === '2d') {
+            const a = obtenerV1();
+            const b = obtenerV2();
             let res: Vector2D | null = null;
 
-            switch (operation) {
-                case 'add':
-                    res = add2D(v1, v2);
+            switch (operacion) {
+                case 'sumar':
+                    res = { x: a.x + b.x, y: a.y + b.y };
+                    setResultadoVectorial(`(${res.x.toFixed(4)}, ${res.y.toFixed(4)})`);
                     break;
-                case 'subtract':
-                    res = sub2D(v1, v2);
+                case 'restar':
+                    res = { x: a.x - b.x, y: a.y - b.y };
+                    setResultadoVectorial(`(${res.x.toFixed(4)}, ${res.y.toFixed(4)})`);
                     break;
-                case 'dot':
-                    setScalarResult(dot2D(v1, v2));
+                case 'punto':
+                    const dotRes = dot2D(a, b);
+                    setResultadoEscalar(dotRes);
+                    setResultadoVectorial(dotRes.toFixed(4));
                     break;
-                case 'scale':
-                    res = scale2D(v1, scalar);
+                case 'escalar':
+                    res = { x: a.x * k, y: a.y * k };
+                    setResultadoVectorial(`(${res.x.toFixed(4)}, ${res.y.toFixed(4)})`);
                     break;
             }
 
-            setResult2D(res);
-
-            // Properties
-            props.push(`|v₁| = ${mag2D(v1).toFixed(4)}`);
-            props.push(`|v₂| = ${mag2D(v2).toFixed(4)}`);
-            if (res) props.push(`|resultado| = ${mag2D(res).toFixed(4)}`);
-            props.push(`Ángulo entre v₁ y v₂ = ${angle2D(v1, v2).toFixed(2)}°`);
+            setResultadoVector2D(res);
+            props.push(`|v₁| = ${mag2D(a).toFixed(4)}`);
+            props.push(`|v₂| = ${mag2D(b).toFixed(4)}`);
+            if (res) props.push(`|R| = ${mag2D(res).toFixed(4)}`);
+            const ang = angulo2D(a, b);
+            if (!isNaN(ang)) props.push(`∠(v₁, v₂) = ${ang.toFixed(2)}°`);
 
         } else {
+            const a = obtenerV1_3D();
+            const b = obtenerV2_3D();
             let res: Vector3D | null = null;
 
-            switch (operation) {
-                case 'add':
-                    res = add3D(v1_3d, v2_3d);
+            switch (operacion) {
+                case 'sumar':
+                    res = { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z };
+                    setResultadoVectorial(`(${res.x.toFixed(4)}, ${res.y.toFixed(4)}, ${res.z.toFixed(4)})`);
                     break;
-                case 'subtract':
-                    res = sub3D(v1_3d, v2_3d);
+                case 'restar':
+                    res = { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
+                    setResultadoVectorial(`(${res.x.toFixed(4)}, ${res.y.toFixed(4)}, ${res.z.toFixed(4)})`);
                     break;
-                case 'dot':
-                    setScalarResult(dot3D(v1_3d, v2_3d));
+                case 'punto':
+                    const dotRes = dot3D(a, b);
+                    setResultadoEscalar(dotRes);
+                    setResultadoVectorial(dotRes.toFixed(4));
                     break;
-                case 'cross':
-                    res = cross3D(v1_3d, v2_3d);
+                case 'cruz':
+                    res = {
+                        x: a.y * b.z - a.z * b.y,
+                        y: a.z * b.x - a.x * b.z,
+                        z: a.x * b.y - a.y * b.x
+                    };
+                    setResultadoVectorial(`(${res.x.toFixed(4)}, ${res.y.toFixed(4)}, ${res.z.toFixed(4)})`);
                     break;
-                case 'scale':
-                    res = scale3D(v1_3d, scalar);
+                case 'escalar':
+                    res = { x: a.x * k, y: a.y * k, z: a.z * k };
+                    setResultadoVectorial(`(${res.x.toFixed(4)}, ${res.y.toFixed(4)}, ${res.z.toFixed(4)})`);
                     break;
             }
 
-            setResult3D(res);
-
-            // Properties
-            props.push(`|v₁| = ${mag3D(v1_3d).toFixed(4)}`);
-            props.push(`|v₂| = ${mag3D(v2_3d).toFixed(4)}`);
-            if (res) props.push(`|resultado| = ${mag3D(res).toFixed(4)}`);
+            props.push(`|v₁| = ${mag3D(a).toFixed(4)}`);
+            props.push(`|v₂| = ${mag3D(b).toFixed(4)}`);
+            if (res) props.push(`|R| = ${mag3D(res).toFixed(4)}`);
         }
 
-        setProperties(props);
+        setPropiedades(props);
     };
 
-    // Draw 2D vectors
+    const calcular = async () => {
+        setResultadoEscalar(null);
+        setResultadoVectorial(null);
+        setResultadoVector2D(null);
+
+        const kVal = parseFloat(escalar) || 0;
+        const v1 = dimension === '2d' 
+            ? [parseFloat(v1x) || 0, parseFloat(v1y) || 0]
+            : [parseFloat(v1x3) || 0, parseFloat(v1y3) || 0, parseFloat(v1z3) || 0];
+        const v2 = dimension === '2d'
+            ? [parseFloat(v2x) || 0, parseFloat(v2y) || 0]
+            : [parseFloat(v2x3) || 0, parseFloat(v2y3) || 0, parseFloat(v2z3) || 0];
+
+        try {
+            const respuesta = await apiService.calculateVectors(operacion, v1, v2, kVal);
+            
+            if (respuesta.success) {
+                setPropiedades(respuesta.properties || []);
+                
+                if (respuesta.result_scalar !== undefined) {
+                    setResultadoEscalar(respuesta.result_scalar);
+                    setResultadoVectorial(respuesta.text);
+                } else if (respuesta.result) {
+                    setResultadoVectorial(respuesta.text);
+                    if (dimension === '2d') {
+                        setResultadoVector2D({ x: respuesta.result[0], y: respuesta.result[1] });
+                    }
+                }
+            } else {
+                setPropiedades(['Error al realizar el cálculo']);
+            }
+        } catch (error) {
+            console.warn('Error calculando vectores en backend, usando fallback local:', error);
+            realizarCalculoLocal();
+        }
+    };
+
+    // ─── Canvas 2D ───
     useEffect(() => {
         if (dimension !== '2d') return;
 
         const canvas = canvasRef.current;
         if (!canvas) return;
-
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
@@ -147,27 +276,70 @@ const VectorsMode: React.FC = () => {
         const cx = w / 2;
         const cy = h / 2;
 
-        // Clear
-        ctx.fillStyle = '#0a0a0f';
+        // Fondo del plano
+        ctx.fillStyle = '#0b0e14';
         ctx.fillRect(0, 0, w, h);
 
-        // Grid
-        ctx.strokeStyle = '#ffffff10';
-        ctx.lineWidth = 1;
-        for (let i = 0; i <= 10; i++) {
-            ctx.beginPath();
-            ctx.moveTo(i * w / 10, 0);
-            ctx.lineTo(i * w / 10, h);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(0, i * h / 10);
-            ctx.lineTo(w, i * h / 10);
-            ctx.stroke();
+        const a = obtenerV1();
+        const b = obtenerV2();
+
+        // Calcular la escala de forma robusta e inteligente basada en los vectores
+        const valorAbsolutoSeguro = (n: number | undefined | null) => 
+            (typeof n === 'number' && isFinite(n) && !isNaN(n) ? Math.abs(n) : 0);
+
+        const maximoValorReal = Math.max(
+            5, // Rango de visualización mínimo por defecto
+            valorAbsolutoSeguro(a.x),
+            valorAbsolutoSeguro(a.y),
+            valorAbsolutoSeguro(b.x),
+            valorAbsolutoSeguro(b.y),
+            valorAbsolutoSeguro(resultadoVector2D?.x),
+            valorAbsolutoSeguro(resultadoVector2D?.y)
+        );
+
+        const limiteMaximo = maximoValorReal * 1.35; // Mantener un margen del 35%
+        const escala = Math.min(w, h) / (2 * limiteMaximo);
+
+        // Calcular el paso de la cuadrícula dinámicamente
+        let pasoGrid = 1;
+        if (limiteMaximo > 0 && isFinite(limiteMaximo)) {
+            const pasoBruto = limiteMaximo / 5;
+            const magnitud = Math.pow(10, Math.floor(Math.log10(pasoBruto)));
+            const normalizado = pasoBruto / magnitud;
+            if (normalizado > 5) pasoGrid = 10 * magnitud;
+            else if (normalizado > 2) pasoGrid = 5 * magnitud;
+            else pasoGrid = 2 * magnitud;
         }
 
-        // Axes
-        ctx.strokeStyle = '#ffffff40';
-        ctx.lineWidth = 2;
+        if (!isFinite(limiteMaximo)) return;
+
+        // Dibujar las líneas dinámicas de cuadrícula (verticales)
+        ctx.strokeStyle = '#ffffff08';
+        ctx.lineWidth = 1;
+        for (let xUnidad = 0; xUnidad <= limiteMaximo; xUnidad += pasoGrid) {
+            const posPx = cx + xUnidad * escala;
+            const negPx = cx - xUnidad * escala;
+            
+            ctx.beginPath(); ctx.moveTo(posPx, 0); ctx.lineTo(posPx, h); ctx.stroke();
+            if (xUnidad !== 0) {
+                ctx.beginPath(); ctx.moveTo(negPx, 0); ctx.lineTo(negPx, h); ctx.stroke();
+            }
+        }
+
+        // Dibujar las líneas dinámicas de cuadrícula (horizontales)
+        for (let yUnidad = 0; yUnidad <= limiteMaximo; yUnidad += pasoGrid) {
+            const posPx = cy - yUnidad * escala;
+            const negPx = cy + yUnidad * escala;
+            
+            ctx.beginPath(); ctx.moveTo(0, posPx); ctx.lineTo(w, posPx); ctx.stroke();
+            if (yUnidad !== 0) {
+                ctx.beginPath(); ctx.moveTo(0, negPx); ctx.lineTo(w, negPx); ctx.stroke();
+            }
+        }
+
+        // Dibujar ejes principales graduados
+        ctx.strokeStyle = '#ffffff30';
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.moveTo(0, cy);
         ctx.lineTo(w, cy);
@@ -175,138 +347,118 @@ const VectorsMode: React.FC = () => {
         ctx.lineTo(cx, h);
         ctx.stroke();
 
-        // Scale
-        const maxVal = Math.max(
-            Math.abs(v1.x), Math.abs(v1.y),
-            Math.abs(v2.x), Math.abs(v2.y),
-            Math.abs(result2D?.x || 0), Math.abs(result2D?.y || 0)
-        ) * 1.5 || 5;
+        // Etiquetas básicas de ejes
+        ctx.fillStyle = '#ffffff60';
+        ctx.font = '12px "JetBrains Mono", monospace';
+        ctx.fillText('x', w - 15, cy - 8);
+        ctx.fillText('y', cx + 8, 15);
 
-        const scale = Math.min(w, h) / (2 * maxVal);
+        // Dibujar la numeración de los ejes según el paso del grid
+        ctx.fillStyle = '#ffffff30';
+        ctx.font = '10px "JetBrains Mono", monospace';
+        for (let xUnidad = pasoGrid; xUnidad <= limiteMaximo; xUnidad += pasoGrid) {
+            ctx.fillText(xUnidad.toString(), cx + xUnidad * escala + 2, cy + 12);
+            ctx.fillText((-xUnidad).toString(), cx - xUnidad * escala + 2, cy + 12);
+        }
+        for (let yUnidad = pasoGrid; yUnidad <= limiteMaximo; yUnidad += pasoGrid) {
+            ctx.fillText(yUnidad.toString(), cx + 5, cy - yUnidad * escala + 3);
+            ctx.fillText((-yUnidad).toString(), cx + 5, cy + yUnidad * escala + 3);
+        }
 
-        const drawVector = (v: Vector2D, color: string, label: string, offset = { x: 0, y: 0 }) => {
-            const startX = cx + offset.x * scale;
-            const startY = cy - offset.y * scale;
-            const endX = cx + (offset.x + v.x) * scale;
-            const endY = cy - (offset.y + v.y) * scale;
+        // Función para dibujar un vector con flecha y etiqueta
+        const dibujarVector = (v: Vector2D, color: string, label: string, desde = { x: 0, y: 0 }) => {
+            const inicioX = cx + desde.x * escala;
+            const inicioY = cy - desde.y * escala;
+            const finX = cx + (desde.x + v.x) * escala;
+            const finY = cy - (desde.y + v.y) * escala;
 
-            // Line
+            // Línea del vector con resplandor (glow)
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 8;
             ctx.strokeStyle = color;
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 2.5;
             ctx.beginPath();
-            ctx.moveTo(startX, startY);
-            ctx.lineTo(endX, endY);
+            ctx.moveTo(inicioX, inicioY);
+            ctx.lineTo(finX, finY);
             ctx.stroke();
+            ctx.shadowBlur = 0;
 
-            // Arrowhead
-            const angle = Math.atan2(startY - endY, startX - endX);
-            const headLen = 12;
+            // Cabeza de la flecha
+            const angulo = Math.atan2(inicioY - finY, inicioX - finX);
+            const largoCabeza = 12;
             ctx.fillStyle = color;
             ctx.beginPath();
-            ctx.moveTo(endX, endY);
-            ctx.lineTo(endX + headLen * Math.cos(angle - Math.PI / 6), endY + headLen * Math.sin(angle - Math.PI / 6));
-            ctx.lineTo(endX + headLen * Math.cos(angle + Math.PI / 6), endY + headLen * Math.sin(angle + Math.PI / 6));
+            ctx.moveTo(finX, finY);
+            ctx.lineTo(finX + largoCabeza * Math.cos(angulo - Math.PI / 6), finY + largoCabeza * Math.sin(angulo - Math.PI / 6));
+            ctx.lineTo(finX + largoCabeza * Math.cos(angulo + Math.PI / 6), finY + largoCabeza * Math.sin(angulo + Math.PI / 6));
             ctx.closePath();
             ctx.fill();
 
-            // Label
+            // Etiqueta del vector
             ctx.fillStyle = color;
-            ctx.font = 'bold 12px sans-serif';
-            ctx.fillText(label, endX + 10, endY - 10);
+            ctx.font = 'bold 13px "JetBrains Mono", monospace';
+            ctx.fillText(label, finX + 10, finY - 10);
         };
 
-        // Draw vectors
-        drawVector(v1, '#4ade80', 'v₁');
-        drawVector(v2, '#60a5fa', 'v₂');
+        // Renderizar los vectores
+        dibujarVector(a, '#4ade80', 'v₁');
+        dibujarVector(b, '#60a5fa', 'v₂');
 
-        if (result2D && (operation === 'add' || operation === 'subtract' || operation === 'scale')) {
-            drawVector(result2D, '#f472b6', 'R');
+        if (resultadoVector2D && (operacion === 'sumar' || operacion === 'restar' || operacion === 'escalar')) {
+            dibujarVector(resultadoVector2D, '#ff5a1f', 'R');
         }
 
-        // Show parallelogram for addition
-        if (operation === 'add') {
-            ctx.strokeStyle = '#ffffff20';
+        // Trazar paralelogramo de la suma de vectores si corresponde
+        if (operacion === 'sumar') {
+            ctx.strokeStyle = '#ffffff15';
             ctx.lineWidth = 1;
-            ctx.setLineDash([5, 5]);
+            ctx.setLineDash([4, 4]);
             ctx.beginPath();
-            ctx.moveTo(cx + v1.x * scale, cy - v1.y * scale);
-            ctx.lineTo(cx + (v1.x + v2.x) * scale, cy - (v1.y + v2.y) * scale);
-            ctx.moveTo(cx + v2.x * scale, cy - v2.y * scale);
-            ctx.lineTo(cx + (v1.x + v2.x) * scale, cy - (v1.y + v2.y) * scale);
+            ctx.moveTo(cx + a.x * escala, cy - a.y * escala);
+            ctx.lineTo(cx + (a.x + b.x) * escala, cy - (a.y + b.y) * escala);
+            ctx.moveTo(cx + b.x * escala, cy - b.y * escala);
+            ctx.lineTo(cx + (a.x + b.x) * escala, cy - (a.y + b.y) * escala);
             ctx.stroke();
             ctx.setLineDash([]);
         }
 
-    }, [v1, v2, result2D, dimension, operation]);
+    }, [v1x, v1y, v2x, v2y, resultadoVector2D, dimension, operacion]);
 
-    const VectorInput = ({ label, vector, onChange, color }: {
-        label: string;
-        vector: Vector2D | Vector3D;
-        onChange: (v: any) => void;
-        color: string;
-    }) => (
-        <div className="mb-4">
-            <label className="text-xs uppercase font-bold block mb-2" style={{ color }}>
-                {label}
-            </label>
-            <div className="flex items-center gap-2">
-                <span className="text-aurora-muted text-xs">x:</span>
-                <input
-                    type="number"
-                    value={vector.x}
-                    onChange={(e) => onChange({ ...vector, x: parseFloat(e.target.value) || 0 })}
-                    className="w-16 bg-white/5 border border-white/10 rounded px-2 py-1 text-white font-mono"
-                />
-                <span className="text-aurora-muted text-xs">y:</span>
-                <input
-                    type="number"
-                    value={vector.y}
-                    onChange={(e) => onChange({ ...vector, y: parseFloat(e.target.value) || 0 })}
-                    className="w-16 bg-white/5 border border-white/10 rounded px-2 py-1 text-white font-mono"
-                />
-                {dimension === '3d' && 'z' in vector && (
-                    <>
-                        <span className="text-aurora-muted text-xs">z:</span>
-                        <input
-                            type="number"
-                            value={(vector as Vector3D).z}
-                            onChange={(e) => onChange({ ...vector, z: parseFloat(e.target.value) || 0 })}
-                            className="w-16 bg-white/5 border border-white/10 rounded px-2 py-1 text-white font-mono"
-                        />
-                    </>
-                )}
-            </div>
-        </div>
-    );
-
-    const operations = dimension === '2d'
+    const operaciones = dimension === '2d'
         ? [
-            { id: 'add' as VectorOp, label: 'v₁ + v₂', icon: Plus },
-            { id: 'subtract' as VectorOp, label: 'v₁ - v₂', icon: Minus },
-            { id: 'dot' as VectorOp, label: 'v₁ · v₂', icon: Calculator },
-            { id: 'scale' as VectorOp, label: 'k × v₁', icon: ArrowRight },
+            { id: 'sumar' as OperacionVectorial, label: 'v₁ + v₂', desc: 'Suma' },
+            { id: 'restar' as OperacionVectorial, label: 'v₁ − v₂', desc: 'Resta' },
+            { id: 'punto' as OperacionVectorial, label: 'v₁ · v₂', desc: 'Punto' },
+            { id: 'escalar' as OperacionVectorial, label: 'k × v₁', desc: 'Escalar' },
         ]
         : [
-            { id: 'add' as VectorOp, label: 'v₁ + v₂', icon: Plus },
-            { id: 'subtract' as VectorOp, label: 'v₁ - v₂', icon: Minus },
-            { id: 'dot' as VectorOp, label: 'v₁ · v₂', icon: Calculator },
-            { id: 'cross' as VectorOp, label: 'v₁ × v₂', icon: ArrowRight },
-            { id: 'scale' as VectorOp, label: 'k × v₁', icon: ArrowRight },
+            { id: 'sumar' as OperacionVectorial, label: 'v₁ + v₂', desc: 'Suma' },
+            { id: 'restar' as OperacionVectorial, label: 'v₁ − v₂', desc: 'Resta' },
+            { id: 'punto' as OperacionVectorial, label: 'v₁ · v₂', desc: 'Punto' },
+            { id: 'cruz' as OperacionVectorial, label: 'v₁ × v₂', desc: 'Cruz' },
+            { id: 'escalar' as OperacionVectorial, label: 'k × v₁', desc: 'Escalar' },
         ];
 
     return (
-        <div className="flex flex-col h-full bg-aurora-bg">
-            {/* Header */}
-            <div className="flex items-center gap-2 p-3 bg-background-light border-b border-aurora-border">
-                <span className="text-xs text-aurora-muted uppercase tracking-wider mr-2">Dimensión:</span>
+        <div className="flex flex-col h-full">
+            {/* Header con selector de dimensión */}
+            <div className="flex items-center gap-3 p-3 bg-background-light border-b border-aurora-border">
+                <span className="text-xs text-aurora-muted uppercase tracking-wider font-display font-semibold mr-2">Dimensión:</span>
                 {(['2d', '3d'] as const).map(dim => (
                     <button
                         key={dim}
-                        onClick={() => setDimension(dim)}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${dimension === dim
-                            ? 'bg-primary text-white shadow-lg'
-                            : 'bg-background hover:bg-background-light text-aurora-text border border-aurora-border'
-                            }`}
+                        onClick={() => {
+                            setDimension(dim);
+                            if (dim === '2d' && operacion === 'cruz') setOperacion('sumar');
+                            setResultadoVectorial(null);
+                            setResultadoEscalar(null);
+                            setResultadoVector2D(null);
+                            setPropiedades([]);
+                        }}
+                        className={`px-5 py-2 rounded-xl text-sm font-display font-semibold transition-all duration-300 ${dimension === dim
+                            ? 'bg-primary text-white shadow-[0_0_20px_rgba(255,90,31,0.3)]'
+                            : 'bg-white/5 hover:bg-white/10 text-aurora-secondary border border-white/10'
+                        }`}
                     >
                         {dim.toUpperCase()}
                     </button>
@@ -314,100 +466,162 @@ const VectorsMode: React.FC = () => {
             </div>
 
             <div className="flex-1 flex overflow-hidden">
-                {/* Input Panel */}
-                <div className="w-full lg:w-1/2 p-6 overflow-y-auto border-r border-aurora-border">
-                    <h2 className="text-xl font-bold text-white mb-4">🎯 Vectores {dimension.toUpperCase()}</h2>
+                {/* Panel de Entrada */}
+                <div className="w-full lg:w-1/2 p-6 overflow-y-auto border-r border-aurora-border custom-scrollbar">
+                    <h2 className="text-xl font-display font-bold text-white mb-6 flex items-center gap-2">
+                        <ArrowRightLeft size={20} className="text-primary" />
+                        Vectores {dimension.toUpperCase()}
+                    </h2>
 
-                    {/* Vector Inputs */}
-                    {dimension === '2d' ? (
-                        <>
-                            <VectorInput label="v₁" vector={v1} onChange={setV1} color="#4ade80" />
-                            <VectorInput label="v₂" vector={v2} onChange={setV2} color="#60a5fa" />
-                        </>
-                    ) : (
-                        <>
-                            <VectorInput label="v₁" vector={v1_3d} onChange={setV1_3d} color="#4ade80" />
-                            <VectorInput label="v₂" vector={v2_3d} onChange={setV2_3d} color="#60a5fa" />
-                        </>
-                    )}
-
-                    {/* Operation Selector */}
-                    <div className="mb-4">
-                        <label className="text-xs text-aurora-muted uppercase font-bold block mb-2">Operación</label>
-                        <div className="flex flex-wrap gap-2">
-                            {operations.map(op => (
-                                <button
-                                    key={op.id}
-                                    onClick={() => setOperation(op.id)}
-                                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${operation === op.id
-                                        ? 'bg-aurora-primary text-white'
-                                        : 'bg-white/5 text-aurora-muted border border-white/10'
-                                        }`}
-                                >
-                                    {op.label}
-                                </button>
-                            ))}
-                        </div>
+                    {/* Inputs de v₁ */}
+                    <div className="mb-5">
+                        <label className="text-xs text-emerald-400 uppercase font-display font-bold block mb-2">
+                            v₁
+                        </label>
+                        {dimension === '2d' ? (
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <CampoVectorialGlass
+                                    etiquetaAria="Componente X del vector v1"
+                                    valor={v1x}
+                                    alCambiar={setV1x}
+                                    marcador="x"
+                                    etiqueta="x"
+                                    color="text-emerald-400"
+                                />
+                                <CampoVectorialGlass
+                                    etiquetaAria="Componente Y del vector v1"
+                                    valor={v1y}
+                                    alCambiar={setV1y}
+                                    marcador="y"
+                                    etiqueta="y"
+                                    color="text-emerald-400"
+                                />
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <CampoVectorialGlass etiquetaAria="X de v1 3D" valor={v1x3} alCambiar={setV1x3} marcador="x" etiqueta="x" color="text-emerald-400" />
+                                <CampoVectorialGlass etiquetaAria="Y de v1 3D" valor={v1y3} alCambiar={setV1y3} marcador="y" etiqueta="y" color="text-emerald-400" />
+                                <CampoVectorialGlass etiquetaAria="Z de v1 3D" valor={v1z3} alCambiar={setV1z3} marcador="z" etiqueta="z" color="text-emerald-400" />
+                            </div>
+                        )}
                     </div>
 
-                    {/* Scalar Input */}
-                    {operation === 'scale' && (
-                        <div className="mb-4">
-                            <label className="text-xs text-aurora-muted uppercase font-bold block mb-2">Escalar (k)</label>
-                            <input
-                                type="number"
-                                value={scalar}
-                                onChange={(e) => setScalar(parseFloat(e.target.value) || 0)}
-                                className="w-24 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white font-mono"
+                    {/* Selector de Operación */}
+                    <div className="flex items-center gap-2 mb-5">
+                        {operaciones.map(op => (
+                            <button
+                                key={op.id}
+                                onClick={() => setOperacion(op.id)}
+                                className={`px-3 py-2.5 rounded-xl text-sm font-mono font-bold transition-all duration-300 ${operacion === op.id
+                                    ? 'bg-primary text-white shadow-[0_0_15px_rgba(255,90,31,0.3)]'
+                                    : 'bg-white/5 text-aurora-muted border border-white/10 hover:bg-white/10 hover:text-white'
+                                }`}
+                                title={op.desc}
+                            >
+                                {op.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Inputs de v₂ */}
+                    <div className="mb-5">
+                        <label className="text-xs text-blue-400 uppercase font-display font-bold block mb-2">
+                            v₂
+                        </label>
+                        {dimension === '2d' ? (
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <CampoVectorialGlass
+                                    etiquetaAria="Componente X del vector v2"
+                                    valor={v2x}
+                                    alCambiar={setV2x}
+                                    marcador="x"
+                                    etiqueta="x"
+                                    color="text-blue-400"
+                                />
+                                <CampoVectorialGlass
+                                    etiquetaAria="Componente Y del vector v2"
+                                    valor={v2y}
+                                    alCambiar={setV2y}
+                                    marcador="y"
+                                    etiqueta="y"
+                                    color="text-blue-400"
+                                />
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <CampoVectorialGlass etiquetaAria="X de v2 3D" valor={v2x3} alCambiar={setV2x3} marcador="x" etiqueta="x" color="text-blue-400" />
+                                <CampoVectorialGlass etiquetaAria="Y de v2 3D" valor={v2y3} alCambiar={setV2y3} marcador="y" etiqueta="y" color="text-blue-400" />
+                                <CampoVectorialGlass etiquetaAria="Z de v2 3D" valor={v2z3} alCambiar={setV2z3} marcador="z" etiqueta="z" color="text-blue-400" />
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Input de Escalar */}
+                    {operacion === 'escalar' && (
+                        <div className="mb-5">
+                            <label className="text-xs text-orange-400 uppercase font-display font-bold block mb-2">
+                                Escalar (k)
+                            </label>
+                            <CampoVectorialGlass
+                                etiquetaAria="Escalar k"
+                                valor={escalar}
+                                alCambiar={setEscalar}
+                                marcador="k"
+                                color="text-orange-400"
                             />
                         </div>
                     )}
 
                     <button
-                        onClick={calculate}
-                        className="w-full py-3 bg-aurora-primary text-white font-bold rounded-lg hover:bg-aurora-primaryHover transition-colors shadow-lg flex items-center justify-center gap-2"
+                        onClick={calcular}
+                        className="w-full py-3 bg-primary text-white font-brand font-bold rounded-xl hover:bg-primary-hover transition-all duration-300 shadow-[0_0_20px_rgba(255,90,31,0.2)] hover:shadow-[0_0_30px_rgba(255,90,31,0.4)] flex items-center justify-center gap-2 active:scale-[0.98]"
                     >
                         <Calculator size={18} />
                         Calcular
                     </button>
                 </div>
 
-                {/* Results Panel */}
+                {/* Panel de Resultados */}
                 <div className="hidden lg:flex w-1/2 p-6 flex-col gap-4">
-                    {/* Result */}
-                    {(result2D || result3D || scalarResult !== null) && (
-                        <div className="p-4 bg-aurora-surface border border-aurora-primary/30 rounded-xl">
-                            <div className="text-xs text-aurora-muted uppercase mb-1">Resultado</div>
-                            <div className="text-2xl font-bold text-aurora-primary font-mono">
-                                {scalarResult !== null ? (
-                                    scalarResult.toFixed(4)
-                                ) : result2D ? (
-                                    `(${result2D.x.toFixed(4)}, ${result2D.y.toFixed(4)})`
-                                ) : result3D ? (
-                                    `(${result3D.x.toFixed(4)}, ${result3D.y.toFixed(4)}, ${result3D.z.toFixed(4)})`
-                                ) : null}
+                    {/* Resultado Principal */}
+                    {resultadoVectorial && (
+                        <>
+                            <div className="glass-panel rounded-2xl p-5 border-primary/30">
+                                <div className="text-xs text-aurora-muted uppercase font-display font-semibold mb-1 flex items-center gap-1.5">
+                                    <Sparkles size={12} className="text-primary" />
+                                    Resultado
+                                </div>
+                                <div className="text-2xl font-bold text-primary font-mono">
+                                    {resultadoVectorial}
+                                </div>
+                                {resultadoEscalar !== null && (
+                                    <div className="text-sm text-aurora-muted mt-2 font-mono">
+                                        Producto escalar (resultado numérico)
+                                    </div>
+                                )}
                             </div>
-                        </div>
+
+                            {/* Propiedades */}
+                            {propiedades.length > 0 && (
+                                <div className="grid grid-cols-2 gap-3">
+                                    {propiedades.map((prop, i) => (
+                                        <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-3">
+                                            <div className="text-sm font-mono text-aurora-text">
+                                                {prop}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </>
                     )}
 
-                    {/* Properties */}
-                    {properties.length > 0 && (
-                        <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                            <h4 className="text-sm font-bold text-aurora-muted uppercase mb-2">Propiedades</h4>
-                            <ul className="space-y-1 text-sm font-mono text-aurora-text">
-                                {properties.map((prop, i) => (
-                                    <li key={i}>› {prop}</li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
-
-                    {/* Visualization */}
+                    {/* Visualización */}
                     {dimension === '2d' && (
-                        <div className="flex-1 bg-white/5 border border-white/10 rounded-xl overflow-hidden">
-                            <div className="p-2 border-b border-white/10 flex items-center gap-2">
-                                <Eye size={14} className="text-aurora-muted" />
-                                <span className="text-xs text-aurora-muted uppercase font-bold">Visualización</span>
+                        <div className="flex-1 glass-panel rounded-2xl overflow-hidden">
+                            <div className="p-3 border-b border-white/10 flex items-center gap-2">
+                                <Eye size={14} className="text-primary" />
+                                <span className="text-xs text-aurora-muted uppercase font-display font-bold">Plano Vectorial</span>
                             </div>
                             <canvas
                                 ref={canvasRef}
@@ -415,6 +629,18 @@ const VectorsMode: React.FC = () => {
                                 height={300}
                                 className="w-full h-full"
                             />
+                        </div>
+                    )}
+
+                    {/* Placeholder cuando no hay resultado */}
+                    {!resultadoVectorial && (
+                        <div className="flex-1 flex items-center justify-center">
+                            <div className="text-center">
+                                <ArrowRightLeft size={48} className="text-aurora-muted/30 mx-auto mb-4" />
+                                <p className="text-aurora-muted/50 font-display text-sm">
+                                    Ingresa vectores y presiona <span className="text-primary font-semibold">Calcular</span>
+                                </p>
+                            </div>
                         </div>
                     )}
                 </div>

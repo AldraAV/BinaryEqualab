@@ -113,19 +113,19 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, currentPla
                 </div>
 
                 {/* Elite Plan */}
-                <div className="flex-1 p-8 pt-16 md:pt-8 flex flex-col border-b md:border-b-0 md:border-r border-aurora-border/50 bg-gradient-to-b from-purple-900/20 to-transparent">
-                    <h3 className="text-xl font-bold text-purple-400 mb-2">Elite</h3>
+                <div className="flex-1 p-8 pt-16 md:pt-8 flex flex-col border-b md:border-b-0 md:border-r border-aurora-border/50 bg-gradient-to-b from-orange-950/20 to-transparent">
+                    <h3 className="text-xl font-bold text-orange-400 mb-2">Elite</h3>
                     <div className="text-3xl font-bold text-white mb-6">${getPrice(14.99)}<span className="text-sm font-normal text-aurora-muted">/mo</span></div>
                     <ul className="space-y-3 mb-8 flex-1">
-                        <li className="flex gap-2 text-sm text-aurora-text"><Check size={16} className="text-purple-500" /> Everything in Pro</li>
-                        <li className="flex gap-2 text-sm text-aurora-text font-bold"><Check size={16} className="text-purple-500" /> Unlimited AI</li>
-                        <li className="flex gap-2 text-sm text-aurora-text"><Check size={16} className="text-purple-500" /> Unlimited Worksheets</li>
-                        <li className="flex gap-2 text-sm text-aurora-text"><Check size={16} className="text-purple-500" /> Teacher Mode (Docs)</li>
+                        <li className="flex gap-2 text-sm text-aurora-text"><Check size={16} className="text-orange-500" /> Everything in Pro</li>
+                        <li className="flex gap-2 text-sm text-aurora-text font-bold"><Check size={16} className="text-orange-500" /> Unlimited AI</li>
+                        <li className="flex gap-2 text-sm text-aurora-text"><Check size={16} className="text-orange-500" /> Unlimited Worksheets</li>
+                        <li className="flex gap-2 text-sm text-aurora-text"><Check size={16} className="text-orange-500" /> Teacher Mode (Docs)</li>
                     </ul>
                     <button
                         onClick={() => handleUpgrade('elite')}
                         disabled={currentPlan === 'elite' || loading}
-                        className={`w-full py-2 rounded-lg text-white text-sm font-bold transition-all shadow-lg ${currentPlan === 'elite' ? 'bg-white/10 cursor-not-allowed' : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 shadow-purple-900/20'}`}
+                        className={`w-full py-2 rounded-lg text-white text-sm font-bold transition-all shadow-lg ${currentPlan === 'elite' ? 'bg-white/10 cursor-not-allowed' : 'bg-gradient-to-r from-orange-600 via-amber-500 to-red-500 hover:opacity-90 shadow-orange-950/20'}`}
                     >
                         {loading ? 'Processing...' : currentPlan === 'elite' ? 'Current Plan' : 'Get Elite'}
                     </button>

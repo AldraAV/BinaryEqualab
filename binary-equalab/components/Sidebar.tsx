@@ -18,6 +18,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentMode, setMode }) => {
     {
       title: 'Núcleo',
       items: [
+        { mode: AppMode.DASHBOARD, icon: LayoutGrid, label: 'Dashboard' },
         { mode: AppMode.CONSOLE, icon: Calculator, label: 'Consola CAS' },
       ]
     },

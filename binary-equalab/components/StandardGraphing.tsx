@@ -1,5 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Plus, Trash2, ZoomIn, ZoomOut, RefreshCw, TrendingUp, Calculator } from 'lucide-react';
+import apiService from '../services/apiService';
+import MathDisplay from './MathDisplay';
+import { translateToEnglish } from '../services/functionDefs';
 
 interface FunctionEntry {
     id: string;
@@ -9,24 +12,21 @@ interface FunctionEntry {
     showDerivative: boolean;
 }
 
-const COLORS = ['#EA580C', '#10B981', '#3B82F6', '#A855F7', '#EF4444', '#F59E0B', '#EC4899', '#06B6D4'];
+const COLORS = ['#EA580C', '#10B981', '#3B82F6', '#14B8A6', '#EF4444', '#F59E0B', '#EC4899', '#06B6D4'];
 
 const StandardGraphing: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Functions list
-    const [functions, setFunctions] = useState<FunctionEntry[]>([
-        { id: '1', expression: 'sin(x)', color: COLORS[0], visible: true, showDerivative: false },
-        { id: '2', expression: 'cos(x)', color: COLORS[1], visible: true, showDerivative: false },
-    ]);
+    const [functions, setFunctions] = useState<FunctionEntry[]>([]);
     const [newExpression, setNewExpression] = useState('');
 
     // Integral state
     const [integralA, setIntegralA] = useState<string>('0');
     const [integralB, setIntegralB] = useState<string>('');
     const [integralFnId, setIntegralFnId] = useState<string>('');
-    const [integralResult, setIntegralResult] = useState<number | null>(null);
+    //const [integralResult, setIntegralResult] = useState<number | null>(null);
 
     // Trace mode
     const [tracePos, setTracePos] = useState<{ x: number; y: number; mathX: number; mathY: number } | null>(null);
@@ -38,11 +38,31 @@ const StandardGraphing: React.FC = () => {
     const lastMousePosRef = useRef({ x: 0, y: 0 });
     const [, setTick] = useState(0);
 
+    // Modes & states
+    const [graphMode, setGraphMode] = useState<'standard' | 'convolution'>('standard');
+    const [convF, setConvF] = useState<string>('abs(x) < 1 ? 1 : 0');
+    const [convG, setConvG] = useState<string>('exp(-x*x)');
+    const [convT, setConvT] = useState<number>(0);
+    const [convResultCurve, setConvResultCurve] = useState<{ x: number; y: number }[]>([]);
+    const [isIntegrating, setIsIntegrating] = useState(false);
+    
+    // Exact/Approx integral state
+    const [integralResult, setIntegralResult] = useState<{
+        exact?: string;
+        latex?: string;
+        approx?: number;
+    } | null>(null);
+
     // Parse and evaluate mathematical expression
     const evaluateExpression = useCallback((expr: string, x: number): number | null => {
         try {
+            // Translate Spanish definitions to English standard for Math functions
+            let englishExpr = translateToEnglish(expr);
+            // Handle specific case for "seno"
+            englishExpr = englishExpr.replace(/seno/gi, 'sin');
+
             // Replace common math functions
-            let parsed = expr
+            let parsed = englishExpr
                 .replace(/sin/g, 'Math.sin')
                 .replace(/cos/g, 'Math.cos')
                 .replace(/tan/g, 'Math.tan')
@@ -63,6 +83,83 @@ const StandardGraphing: React.FC = () => {
             return null;
         }
     }, []);
+
+    // Parse limits like -pi, pi, 2*e, etc.
+    const parseLimit = useCallback((val: string): number => {
+        if (!val.trim()) return NaN;
+        try {
+            const parsed = val.replace(/pi/gi, 'Math.PI').replace(/e/gi, 'Math.E').replace(/\^/g, '**');
+            const fn = new Function(`return ${parsed}`);
+            const result = fn();
+            return isFinite(result) ? result : NaN;
+        } catch {
+            return parseFloat(val);
+        }
+    }, []);
+
+    // Simpson's rule over [-10, 10] for current convT
+    const getConvolutionValueAtT = useCallback((): number => {
+        const n = 100;
+        const h = (10 - (-10)) / n;
+        let sum = 0;
+        for (let j = 0; j <= n; j++) {
+            const tau = -10 + j * h;
+            const fVal = evaluateExpression(convF, tau) ?? 0;
+            const gVal = evaluateExpression(convG, convT - tau) ?? 0;
+            const product = fVal * gVal;
+            if (j === 0 || j === n) {
+                sum += product;
+            } else if (j % 2 === 1) {
+                sum += 4 * product;
+            } else {
+                sum += 2 * product;
+            }
+        }
+        return (h / 3) * sum;
+    }, [convF, convG, convT, evaluateExpression]);
+
+    // Precompute the entire convolution curve (f * g)(x)
+    const calculateConvolutionCurve = useCallback(() => {
+        const points: { x: number; y: number }[] = [];
+        const minX = -10;
+        const maxX = 10;
+        const steps = 100;
+        const stepSize = (maxX - minX) / steps;
+
+        for (let i = 0; i <= steps; i++) {
+            const t = minX + i * stepSize;
+            
+            const n = 60;
+            const h = (10 - (-10)) / n;
+            let sum = 0;
+
+            for (let j = 0; j <= n; j++) {
+                const tau = -10 + j * h;
+                const fVal = evaluateExpression(convF, tau) ?? 0;
+                const gVal = evaluateExpression(convG, t - tau) ?? 0;
+                const product = fVal * gVal;
+
+                if (j === 0 || j === n) {
+                    sum += product;
+                } else if (j % 2 === 1) {
+                    sum += 4 * product;
+                } else {
+                    sum += 2 * product;
+                }
+            }
+            const convVal = (h / 3) * sum;
+            if (isFinite(convVal)) {
+                points.push({ x: t, y: convVal });
+            }
+        }
+        setConvResultCurve(points);
+    }, [convF, convG, evaluateExpression]);
+
+    useEffect(() => {
+        if (graphMode === 'convolution') {
+            calculateConvolutionCurve();
+        }
+    }, [graphMode, convF, convG, calculateConvolutionCurve]);
 
     // Draw everything
     const draw = useCallback(() => {
@@ -151,8 +248,8 @@ const StandardGraphing: React.FC = () => {
         if (integralFnId && integralA && integralB) {
             const fn = functions.find(f => f.id === integralFnId);
             if (fn && fn.visible) {
-                const a = parseFloat(integralA);
-                const b = parseFloat(integralB);
+                const a = parseLimit(integralA);
+                const b = parseLimit(integralB);
                 if (!isNaN(a) && !isNaN(b) && a < b) {
                     ctx.beginPath();
                     const startScreenX = cx + a * zoom;
@@ -181,103 +278,189 @@ const StandardGraphing: React.FC = () => {
         }
 
         // Draw functions
-        functions.forEach(fn => {
-            if (!fn.visible) return;
+        if (graphMode === 'standard') {
+            functions.forEach(fn => {
+                if (!fn.visible) return;
 
-            // Main function curve
-            ctx.strokeStyle = fn.color;
-            ctx.lineWidth = 2;
-            ctx.setLineDash([]);
-            ctx.beginPath();
-
-            let started = false;
-
-            for (let screenX = 0; screenX < w; screenX += 2) {
-                const mathX = (screenX - cx) / zoom;
-                const mathY = evaluateExpression(fn.expression, mathX);
-
-                if (mathY !== null && isFinite(mathY)) {
-                    const screenY = cy - mathY * zoom;
-                    if (!started) {
-                        ctx.moveTo(screenX, screenY);
-                        started = true;
-                    } else {
-                        ctx.lineTo(screenX, screenY);
-                    }
-                } else {
-                    started = false;
-                }
-            }
-            ctx.stroke();
-
-            // Glow effect
-            ctx.shadowBlur = 8;
-            ctx.shadowColor = fn.color;
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-
-            // Draw derivative if enabled
-            if (fn.showDerivative) {
-                ctx.strokeStyle = fn.color + 'AA'; // Slightly transparent
-                ctx.lineWidth = 1.5;
-                ctx.setLineDash([6, 4]); // Dashed line
+                // Main function curve
+                ctx.strokeStyle = fn.color;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([]);
                 ctx.beginPath();
 
-                let derivStarted = false;
-                const h = 0.0001; // Step for numerical derivative
+                let started = false;
 
                 for (let screenX = 0; screenX < w; screenX += 2) {
                     const mathX = (screenX - cx) / zoom;
-                    const yPlus = evaluateExpression(fn.expression, mathX + h);
-                    const yMinus = evaluateExpression(fn.expression, mathX - h);
+                    const mathY = evaluateExpression(fn.expression, mathX);
 
-                    if (yPlus !== null && yMinus !== null) {
-                        const derivative = (yPlus - yMinus) / (2 * h);
-                        if (isFinite(derivative)) {
-                            const screenY = cy - derivative * zoom;
-                            if (!derivStarted) {
-                                ctx.moveTo(screenX, screenY);
-                                derivStarted = true;
+                    if (mathY !== null && isFinite(mathY)) {
+                        const screenY = cy - mathY * zoom;
+                        if (!started) {
+                            ctx.moveTo(screenX, screenY);
+                            started = true;
+                        } else {
+                            ctx.lineTo(screenX, screenY);
+                        }
+                    } else {
+                        started = false;
+                    }
+                }
+                ctx.stroke();
+
+                // Glow effect
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = fn.color;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                // Draw derivative if enabled
+                if (fn.showDerivative) {
+                    ctx.strokeStyle = fn.color + 'AA'; // Slightly transparent
+                    ctx.lineWidth = 1.5;
+                    ctx.setLineDash([6, 4]); // Dashed line
+                    ctx.beginPath();
+
+                    let derivStarted = false;
+                    const h = 0.0001; // Step for numerical derivative
+
+                    for (let screenX = 0; screenX < w; screenX += 2) {
+                        const mathX = (screenX - cx) / zoom;
+                        const yPlus = evaluateExpression(fn.expression, mathX + h);
+                        const yMinus = evaluateExpression(fn.expression, mathX - h);
+
+                        if (yPlus !== null && yMinus !== null) {
+                            const derivative = (yPlus - yMinus) / (2 * h);
+                            if (isFinite(derivative)) {
+                                const screenY = cy - derivative * zoom;
+                                if (!derivStarted) {
+                                    ctx.moveTo(screenX, screenY);
+                                    derivStarted = true;
+                                } else {
+                                    ctx.lineTo(screenX, screenY);
+                                }
                             } else {
-                                ctx.lineTo(screenX, screenY);
+                                derivStarted = false;
                             }
                         } else {
                             derivStarted = false;
                         }
+                    }
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+            });
+        } else {
+            // CONVOLUTION MODE DRAWING
+            // 1. Draw static f(tau) in green (#10B981)
+            ctx.strokeStyle = '#10B981';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            let startedF = false;
+            for (let screenX = 0; screenX < w; screenX += 2) {
+                const mathX = (screenX - cx) / zoom;
+                const mathY = evaluateExpression(convF, mathX);
+                if (mathY !== null && isFinite(mathY)) {
+                    const screenY = cy - mathY * zoom;
+                    if (!startedF) {
+                        ctx.moveTo(screenX, screenY);
+                        startedF = true;
                     } else {
-                        derivStarted = false;
+                        ctx.lineTo(screenX, screenY);
+                    }
+                } else {
+                    startedF = false;
+                }
+            }
+            ctx.stroke();
+            
+            // 2. Draw moving g(t - tau) in blue (#3B82F6)
+            ctx.strokeStyle = '#3B82F6';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            let startedG = false;
+            for (let screenX = 0; screenX < w; screenX += 2) {
+                const mathX = (screenX - cx) / zoom;
+                const mathY = evaluateExpression(convG, convT - mathX);
+                if (mathY !== null && isFinite(mathY)) {
+                    const screenY = cy - mathY * zoom;
+                    if (!startedG) {
+                        ctx.moveTo(screenX, screenY);
+                        startedG = true;
+                    } else {
+                        ctx.lineTo(screenX, screenY);
+                    }
+                } else {
+                    startedG = false;
+                }
+            }
+            ctx.stroke();
+
+            // 3. Draw shaded area of f(tau) * g(t - tau) (orange #F59E0B)
+            ctx.fillStyle = 'rgba(245, 158, 11, 0.2)';
+            ctx.beginPath();
+            let startedShade = false;
+            for (let screenX = 0; screenX < w; screenX += 2) {
+                const mathX = (screenX - cx) / zoom;
+                const fVal = evaluateExpression(convF, mathX) ?? 0;
+                const gVal = evaluateExpression(convG, convT - mathX) ?? 0;
+                const mathY = fVal * gVal;
+                
+                const screenY = cy - mathY * zoom;
+                if (Math.abs(mathY) > 0.001) {
+                    if (!startedShade) {
+                        ctx.moveTo(screenX, cy);
+                        ctx.lineTo(screenX, screenY);
+                        startedShade = true;
+                    } else {
+                        ctx.lineTo(screenX, screenY);
+                    }
+                } else {
+                    if (startedShade) {
+                        ctx.lineTo(screenX, cy);
+                        startedShade = false;
                     }
                 }
-                ctx.stroke();
-                ctx.setLineDash([]);
             }
-        });
+            if (startedShade) {
+                ctx.lineTo(w, cy);
+            }
+            ctx.fill();
 
-        // Draw trace cursor if active
-        if (tracePos) {
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 1;
-            ctx.setLineDash([4, 4]);
-            // Vertical line
+            // 4. Draw the convolution result curve (orange #EA580C)
+            ctx.strokeStyle = '#EA580C';
+            ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.moveTo(tracePos.x, 0);
-            ctx.lineTo(tracePos.x, h);
+            let startedC = false;
+            convResultCurve.forEach(pt => {
+                const screenX = cx + pt.x * zoom;
+                const screenY = cy - pt.y * zoom;
+                if (screenX >= 0 && screenX <= w) {
+                    if (!startedC) {
+                        ctx.moveTo(screenX, screenY);
+                        startedC = true;
+                    } else {
+                        ctx.lineTo(screenX, screenY);
+                    }
+                }
+            });
             ctx.stroke();
-            // Horizontal line
-            ctx.beginPath();
-            ctx.moveTo(0, tracePos.y);
-            ctx.lineTo(w, tracePos.y);
-            ctx.stroke();
-            ctx.setLineDash([]);
 
-            // Coordinate label
-            ctx.fillStyle = '#EA580C';
-            ctx.font = 'bold 12px "JetBrains Mono", monospace';
-            ctx.textAlign = 'left';
-            ctx.fillText(`(${tracePos.mathX.toFixed(2)}, ${tracePos.mathY.toFixed(2)})`, tracePos.x + 10, tracePos.y - 10);
+            // 5. Draw highlighted dot at current t
+            const dotScreenX = cx + convT * zoom;
+            const currentConvVal = getConvolutionValueAtT();
+            const dotScreenY = cy - currentConvVal * zoom;
+            if (dotScreenX >= 0 && dotScreenX <= w && isFinite(dotScreenY)) {
+                ctx.fillStyle = '#EA580C';
+                ctx.beginPath();
+                ctx.arc(dotScreenX, dotScreenY, 6, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
         }
-
-    }, [functions, evaluateExpression, integralFnId, integralA, integralB, tracePos]);
+    }, [functions, evaluateExpression, integralFnId, integralA, integralB, tracePos, graphMode, convF, convG, convT, convResultCurve, getConvolutionValueAtT]);
 
     // Setup canvas and animation loop
     useEffect(() => {
@@ -328,7 +511,9 @@ const StandardGraphing: React.FC = () => {
             return;
         }
 
-        // Trace Cursor Logic
+        // Trace Cursor Logic - Only active in Standard mode
+        if (graphMode !== 'standard') return;
+
         const canvas = canvasRef.current;
         if (!canvas) return;
 
@@ -418,41 +603,67 @@ const StandardGraphing: React.FC = () => {
         setFunctions(functions.map(f => f.id === id ? { ...f, showDerivative: !f.showDerivative } : f));
     };
 
-    // Numerical integration using Simpson's rule
-    const calculateIntegral = useCallback(() => {
+    // Definite integration via backend (fallback to Simpson's rule if offline/error)
+    const calculateIntegral = useCallback(async () => {
         const fn = functions.find(f => f.id === integralFnId);
         if (!fn) return;
 
-        const a = parseFloat(integralA);
-        const b = parseFloat(integralB);
+        const a = parseLimit(integralA);
+        const b = parseLimit(integralB);
         if (isNaN(a) || isNaN(b) || a >= b) {
             setIntegralResult(null);
             return;
         }
 
-        const n = 1000; // Number of intervals
-        const h = (b - a) / n;
-        let sum = 0;
+        setIsIntegrating(true);
+        try {
+            // Translate the expression to English math syntax for the backend
+            let translatedExpr = translateToEnglish(fn.expression);
+            translatedExpr = translatedExpr.replace(/seno\b/gi, 'sin');
 
-        for (let i = 0; i <= n; i++) {
-            const x = a + i * h;
-            const y = evaluateExpression(fn.expression, x);
-            if (y === null) {
-                setIntegralResult(null);
-                return;
-            }
-
-            if (i === 0 || i === n) {
-                sum += y;
-            } else if (i % 2 === 1) {
-                sum += 4 * y;
+            const response = await apiService.integral(translatedExpr, 'x', a, b);
+            if (response.success && response.result) {
+                if (response.result.includes('Error') || response.result.includes('failed')) {
+                    throw new Error("Backend math error");
+                }
+                const approxVal = response.approx ? parseFloat(response.approx) : null;
+                setIntegralResult({
+                    exact: response.result,
+                    latex: response.latex,
+                    approx: approxVal !== null && !isNaN(approxVal) ? approxVal : undefined
+                });
             } else {
-                sum += 2 * y;
+                throw new Error("API failed");
             }
+        } catch (e) {
+            console.warn("Definite integration via backend failed, using numerical fallback:", e);
+            const n = 1000;
+            const h = (b - a) / n;
+            let sum = 0;
+            for (let i = 0; i <= n; i++) {
+                const x = a + i * h;
+                const y = evaluateExpression(fn.expression, x);
+                if (y === null) {
+                    setIntegralResult(null);
+                    setIsIntegrating(false);
+                    return;
+                }
+                if (i === 0 || i === n) {
+                    sum += y;
+                } else if (i % 2 === 1) {
+                    sum += 4 * y;
+                } else {
+                    sum += 2 * y;
+                }
+            }
+            const numRes = (h / 3) * sum;
+            setIntegralResult({
+                approx: numRes
+            });
+        } finally {
+            setIsIntegrating(false);
         }
-
-        setIntegralResult((h / 3) * sum);
-    }, [integralFnId, integralA, integralB, functions, evaluateExpression]);
+    }, [integralFnId, integralA, integralB, functions, evaluateExpression, parseLimit]);
 
     // Calculate integral when parameters change
     useEffect(() => {
@@ -471,128 +682,200 @@ const StandardGraphing: React.FC = () => {
     return (
         <div className="flex flex-col lg:flex-row h-full bg-background text-aurora-text overflow-hidden">
 
-            {/* Sidebar - Function List */}
-            <div className="w-full lg:w-80 bg-background-light border-r border-aurora-border flex flex-col shrink-0">
-                <div className="p-4 border-b border-aurora-border">
-                    <h2 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-                        <span className="text-primary">f(x)</span> Functions
-                    </h2>
-                </div>
+            {/* Sidebar - Conditional Panel */}
+            {graphMode === 'standard' ? (
+                <div className="w-full lg:w-80 bg-background-light border-r border-aurora-border flex flex-col shrink-0">
+                    <div className="p-4 border-b border-aurora-border">
+                        <h2 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                            <span className="text-primary">f(x)</span> Funciones
+                        </h2>
+                    </div>
 
-                {/* Function List */}
-                <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                    {functions.map(fn => (
-                        <div
-                            key={fn.id}
-                            className={`p-3 rounded-lg border transition-all ${fn.visible ? 'bg-background border-aurora-border' : 'bg-background/50 border-transparent opacity-50'
-                                }`}
-                        >
-                            <div className="flex items-center gap-3">
-                                <button
-                                    onClick={() => toggleVisibility(fn.id)}
-                                    className="size-4 rounded-full shrink-0 border-2"
-                                    style={{
-                                        backgroundColor: fn.visible ? fn.color : 'transparent',
-                                        borderColor: fn.color
-                                    }}
-                                    title="Toggle visibility"
-                                />
-                                <span className="flex-1 font-mono text-sm truncate">
-                                    y = {fn.expression}
-                                </span>
-                                <button
-                                    onClick={() => toggleDerivative(fn.id)}
-                                    className={`p-1 transition-colors rounded ${fn.showDerivative ? 'text-primary bg-primary/20' : 'text-aurora-muted hover:text-primary'}`}
-                                    title="Show f'(x)"
-                                >
-                                    <TrendingUp size={16} />
-                                </button>
-                                <button
-                                    onClick={() => removeFunction(fn.id)}
-                                    className="p-1 text-aurora-muted hover:text-aurora-danger transition-colors"
-                                    title="Delete"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
-                            </div>
-                            {fn.showDerivative && (
-                                <div className="mt-2 pl-7 text-xs text-aurora-muted font-mono flex items-center gap-1">
-                                    <span style={{ color: fn.color + 'AA' }}>---</span> f'(x)
+                    {/* Function List */}
+                    <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                        {functions.map(fn => (
+                            <div
+                                key={fn.id}
+                                className={`p-3 rounded-lg border transition-all ${fn.visible ? 'bg-background border-aurora-border' : 'bg-background/50 border-transparent opacity-50'
+                                    }`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={() => toggleVisibility(fn.id)}
+                                        className="size-4 rounded-full shrink-0 border-2"
+                                        style={{
+                                            backgroundColor: fn.visible ? fn.color : 'transparent',
+                                            borderColor: fn.color
+                                        }}
+                                        title="Toggle visibility"
+                                    />
+                                    <span className="flex-1 font-mono text-sm truncate">
+                                        y = {fn.expression}
+                                    </span>
+                                    <button
+                                        onClick={() => toggleDerivative(fn.id)}
+                                        className={`p-1 transition-colors rounded ${fn.showDerivative ? 'text-primary bg-primary/20' : 'text-aurora-muted hover:text-primary'}`}
+                                        title="Show f'(x)"
+                                    >
+                                        <TrendingUp size={16} />
+                                    </button>
+                                    <button
+                                        onClick={() => removeFunction(fn.id)}
+                                        className="p-1 text-aurora-muted hover:text-aurora-danger transition-colors"
+                                        title="Delete"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
                                 </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
-
-                {/* Add Function */}
-                <div className="p-3 border-t border-aurora-border">
-                    <div className="flex gap-2">
-                        <input
-                            type="text"
-                            value={newExpression}
-                            onChange={e => setNewExpression(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && addFunction()}
-                            placeholder="e.g., x^2 + 2*x"
-                            className="flex-1 px-3 py-2 bg-background-dark border border-aurora-border rounded-lg text-sm font-mono focus:border-primary focus:outline-none"
-                        />
-                        <button
-                            onClick={addFunction}
-                            className="px-3 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors"
-                        >
-                            <Plus size={20} />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Integral Calculator */}
-                <div className="p-3 border-t border-aurora-border bg-background/50">
-                    <div className="flex items-center gap-2 mb-3">
-                        <Calculator size={16} className="text-primary" />
-                        <span className="text-xs font-bold uppercase tracking-wider">Definite Integral</span>
-                    </div>
-
-                    <select
-                        value={integralFnId}
-                        onChange={e => setIntegralFnId(e.target.value)}
-                        className="w-full px-3 py-2 bg-background-dark border border-aurora-border rounded-lg text-sm mb-2 focus:border-primary focus:outline-none"
-                    >
-                        <option value="">Select function...</option>
-                        {functions.filter(f => f.visible).map(fn => (
-                            <option key={fn.id} value={fn.id}>y = {fn.expression}</option>
+                                {fn.showDerivative && (
+                                    <div className="mt-2 pl-7 text-xs text-aurora-muted font-mono flex items-center gap-1">
+                                        <span style={{ color: fn.color + 'AA' }}>---</span> f'(x)
+                                    </div>
+                                )}
+                            </div>
                         ))}
-                    </select>
+                    </div>
 
-                    <div className="flex gap-2 mb-2">
-                        <div className="flex-1">
-                            <label className="text-[10px] text-aurora-muted uppercase">From (a)</label>
+                    {/* Add Function */}
+                    <div className="p-3 border-t border-aurora-border">
+                        <div className="flex gap-2">
                             <input
                                 type="text"
-                                value={integralA}
-                                onChange={e => setIntegralA(e.target.value)}
-                                placeholder="0"
-                                className="w-full px-2 py-1.5 bg-background-dark border border-aurora-border rounded text-sm font-mono focus:border-primary focus:outline-none"
+                                value={newExpression}
+                                onChange={e => setNewExpression(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && addFunction()}
+                                placeholder="ej. x^2 + 2*x"
+                                className="flex-1 px-3 py-2 bg-background-dark border border-aurora-border rounded-lg text-sm font-mono focus:border-primary focus:outline-none"
                             />
-                        </div>
-                        <div className="flex-1">
-                            <label className="text-[10px] text-aurora-muted uppercase">To (b)</label>
-                            <input
-                                type="text"
-                                value={integralB}
-                                onChange={e => setIntegralB(e.target.value)}
-                                placeholder="π"
-                                className="w-full px-2 py-1.5 bg-background-dark border border-aurora-border rounded text-sm font-mono focus:border-primary focus:outline-none"
-                            />
+                            <button
+                                onClick={addFunction}
+                                className="px-3 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors"
+                            >
+                                <Plus size={20} />
+                            </button>
                         </div>
                     </div>
 
-                    {integralResult !== null && (
-                        <div className="p-2 bg-primary/10 border border-primary/30 rounded-lg">
-                            <span className="text-xs text-aurora-muted">∫ f(x) dx =</span>
-                            <span className="ml-2 font-mono font-bold text-primary">{integralResult.toFixed(6)}</span>
+                    {/* Integral Calculator */}
+                    <div className="p-3 border-t border-aurora-border bg-background/50">
+                        <div className="flex items-center gap-2 mb-3">
+                            <Calculator size={16} className="text-primary" />
+                            <span className="text-xs font-bold uppercase tracking-wider">Integral Definida</span>
                         </div>
-                    )}
+
+                        <select
+                            value={integralFnId}
+                            onChange={e => setIntegralFnId(e.target.value)}
+                            className="w-full px-3 py-2 bg-background-dark border border-aurora-border rounded-lg text-sm mb-2 focus:border-primary focus:outline-none"
+                        >
+                            <option value="">Selecciona función...</option>
+                            {functions.filter(f => f.visible).map(fn => (
+                                <option key={fn.id} value={fn.id}>y = {fn.expression}</option>
+                            ))}
+                        </select>
+
+                        <div className="flex gap-2 mb-2">
+                            <div className="flex-1">
+                                <label className="text-[10px] text-aurora-muted uppercase">Desde (a)</label>
+                                <input
+                                    type="text"
+                                    value={integralA}
+                                    onChange={e => setIntegralA(e.target.value)}
+                                    placeholder="0"
+                                    className="w-full px-2 py-1.5 bg-background-dark border border-aurora-border rounded text-sm font-mono focus:border-primary focus:outline-none"
+                                />
+                            </div>
+                            <div className="flex-1">
+                                <label className="text-[10px] text-aurora-muted uppercase">Hasta (b)</label>
+                                <input
+                                    type="text"
+                                    value={integralB}
+                                    onChange={e => setIntegralB(e.target.value)}
+                                    placeholder="pi"
+                                    className="w-full px-2 py-1.5 bg-background-dark border border-aurora-border rounded text-sm font-mono focus:border-primary focus:outline-none"
+                                />
+                            </div>
+                        </div>
+
+                        {isIntegrating && (
+                            <div className="text-xs text-aurora-muted py-1 flex items-center gap-1.5">
+                                <span className="animate-spin text-primary font-bold">↻</span> Calculando área exacta...
+                            </div>
+                        )}
+
+                        {integralResult && !isIntegrating && (
+                            <div className="p-3 bg-primary/10 border border-primary/30 rounded-lg space-y-1.5">
+                                <div className="text-[10px] text-aurora-muted uppercase tracking-wider">Área bajo la curva:</div>
+                                {integralResult.latex && (
+                                    <div className="font-mono text-sm flex items-center gap-1 overflow-x-auto scrollbar-none py-1">
+                                        <span className="text-primary font-bold">Exacto:</span>
+                                        <span className="text-white flex items-center">
+                                            <MathDisplay expression={integralResult.latex} isResult inline />
+                                        </span>
+                                    </div>
+                                )}
+                                {integralResult.approx !== undefined && (
+                                    <div className="font-mono text-xs flex items-center gap-1">
+                                        <span className="text-aurora-secondary">≈ Decimal:</span>
+                                        <span className="text-[#ffaa00] font-bold">
+                                            {integralResult.approx.toFixed(6)}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
+            ) : (
+                <div className="w-full lg:w-80 bg-background-light border-r border-aurora-border flex flex-col shrink-0">
+                    <div className="p-4 border-b border-aurora-border">
+                        <h2 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                            <span className="text-[#EA580C]">Convolución</span> Real
+                        </h2>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                        <div className="space-y-1">
+                            <label className="text-[10px] text-aurora-muted uppercase font-bold tracking-wider block">Función f(x) (Estática - Verde)</label>
+                            <input
+                                type="text"
+                                value={convF}
+                                onChange={e => setConvF(e.target.value)}
+                                placeholder="ej. abs(x) < 1 ? 1 : 0"
+                                className="w-full px-3 py-2 bg-background-dark border border-aurora-border rounded-lg text-sm font-mono focus:border-primary focus:outline-none"
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-[10px] text-aurora-muted uppercase font-bold tracking-wider block">Función g(x) (Desplazable - Azul)</label>
+                            <input
+                                type="text"
+                                value={convG}
+                                onChange={e => setConvG(e.target.value)}
+                                placeholder="ej. exp(-x*x)"
+                                className="w-full px-3 py-2 bg-background-dark border border-aurora-border rounded-lg text-sm font-mono focus:border-primary focus:outline-none"
+                            />
+                        </div>
+
+                        <div className="p-3 bg-primary/5 border border-primary/20 rounded-xl space-y-2 mt-4">
+                            <h4 className="text-xs font-bold uppercase text-primary">Información Matemática</h4>
+                            <p className="text-[11px] text-aurora-secondary leading-relaxed">
+                                La convolución <MathDisplay expression="(f * g)(t)" inline /> representa el área solapada entre <MathDisplay expression="f(\tau)" inline /> y la señal reflejada/desplazada <MathDisplay expression="g(t - \tau)" inline /> a lo largo del dominio.
+                            </p>
+                            <div className="pt-2 border-t border-white/5 space-y-1 text-xs">
+                                <div className="flex justify-between font-mono">
+                                    <span className="text-aurora-muted">Desplazamiento t:</span>
+                                    <span className="text-white font-bold">{convT.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between font-mono">
+                                    <span className="text-aurora-muted">Resultado (f * g)(t):</span>
+                                    <span className="text-[#EA580C] font-bold">{getConvolutionValueAtT().toFixed(6)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Canvas Area */}
             <div
@@ -642,45 +925,22 @@ const StandardGraphing: React.FC = () => {
                 </div>
 
                 {/* Convolution Control Panel */}
-                {functions.some(f => f.id === 'conv_result') && (
-                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-96 p-4 rounded-xl bg-background-light/95 backdrop-blur-md border border-aurora-border shadow-2xl flex flex-col gap-2">
+                {graphMode === 'convolution' && (
+                    <div className="absolute bottom-24 left-1/2 -translate-x-1/2 w-96 p-4 rounded-xl bg-background-light/95 backdrop-blur-md border border-aurora-border shadow-2xl flex flex-col gap-2 z-10">
                         <div className="flex justify-between items-center text-xs font-bold uppercase tracking-wider">
-                            <span>Convolución (t)</span>
-                            <span className="font-mono text-primary">{tracePos?.mathX?.toFixed(2) || "0.00"}</span>
+                            <span>Desplazamiento (t)</span>
+                            <span className="font-mono text-primary">{convT.toFixed(2)}</span>
                         </div>
                         <input
                             type="range"
                             min="-10" max="10" step="0.05"
-                            defaultValue="0"
-                            onInput={(e) => {
-                                const t = parseFloat((e.target as HTMLInputElement).value);
-                                // Update functions to simulate sliding
-                                // We can't easily update 'expression' string for g(t-x) efficiently here without parsing overhead
-                                // Instead, we'll use a special global ref for 't' or update a state that the draw loop reads
-                                // For this MVP, we will rely on the tracePos or just force a re-render
-
-                                // Actually, let's update the 'g' function expression to be g(t - x) visually? No, that's g(x-t).
-                                // Convolution is Integral f(tau)g(t-tau).
-                                // We are plotting against 'tau' (x-axis).
-                                // So f(x) stays static. g(t-x) moves.
-
-                                // Let's update the expression of the second function directly
-                                setFunctions(prev => prev.map(f => {
-                                    if (f.id === 'g') {
-                                        // g(x) was exp(-x*x), we want g(t-x) -> exp(-(t-x)*(t-x))
-                                        // We need to inject the value of t
-                                        return { ...f, expression: `Math.exp(-(${t}-x)*(${t}-x))` };
-                                        // Note: Users passed "x", we need to replace x with (t-x) in their raw string?
-                                        // Too complex for generic raw string.
-                                        // For the Demo, we hardcode the known "g" generic form or just update the variable.
-                                    }
-                                    return f;
-                                }));
-                            }}
+                            value={convT}
+                            onChange={(e) => setConvT(parseFloat(e.target.value))}
                             className="w-full h-1.5 bg-background-dark rounded-lg appearance-none cursor-pointer accent-primary"
                         />
-                        <div className="text-[10px] text-aurora-muted text-center mt-1">
-                            Desliza para mover la función azul (g) sobre la verde (f)
+                        <div className="flex justify-between items-center text-xs font-mono text-aurora-secondary mt-1">
+                            <span>(f * g)({convT.toFixed(2)}) =</span>
+                            <span className="text-[#EA580C] font-bold">{getConvolutionValueAtT().toFixed(6)}</span>
                         </div>
                     </div>
                 )}
@@ -688,27 +948,24 @@ const StandardGraphing: React.FC = () => {
                 {/* Mode Toggles */}
                 <div className="absolute top-4 left-4 flex gap-2">
                     <button
-                        onClick={() => {
-                            setFunctions([
-                                { id: '1', expression: 'sin(x)', color: COLORS[0], visible: true, showDerivative: false },
-                                { id: '2', expression: 'cos(x)', color: COLORS[1], visible: true, showDerivative: false },
-                            ]);
-                        }}
-                        className="px-3 py-1.5 bg-background-light/80 backdrop-blur border border-aurora-border rounded-lg text-xs font-bold hover:bg-white/5"
+                        onClick={() => setGraphMode('standard')}
+                        className={`px-3 py-1.5 border rounded-lg text-xs font-bold transition-all ${
+                            graphMode === 'standard'
+                            ? 'bg-primary text-white border-primary shadow-md'
+                            : 'bg-background-light/80 backdrop-blur border-aurora-border text-aurora-text hover:bg-white/5'
+                        }`}
                     >
-                        Standard
+                        Estándar
                     </button>
                     <button
-                        onClick={() => {
-                            setFunctions([
-                                { id: 'f', expression: 'Math.abs(x) < 1 ? 1 : 0', color: '#10B981', visible: true, showDerivative: false },
-                                { id: 'g', expression: 'Math.exp(-(0-x)*(0-x))', color: '#3B82F6', visible: true, showDerivative: false },
-                                { id: 'conv_result', expression: '0', color: '#F59E0B', visible: false, showDerivative: false } // Hidden placeholder to trigger UI
-                            ]);
-                        }}
-                        className="px-3 py-1.5 bg-background-light/80 backdrop-blur border border-aurora-border rounded-lg text-xs font-bold hover:bg-white/5 text-aurora-primary"
+                        onClick={() => setGraphMode('convolution')}
+                        className={`px-3 py-1.5 border rounded-lg text-xs font-bold transition-all ${
+                            graphMode === 'convolution'
+                            ? 'bg-primary text-white border-primary shadow-md'
+                            : 'bg-background-light/80 backdrop-blur border-aurora-border text-aurora-text hover:bg-white/5'
+                        }`}
                     >
-                        Convolución Demo
+                        Convolución Real
                     </button>
                 </div>
             </div>

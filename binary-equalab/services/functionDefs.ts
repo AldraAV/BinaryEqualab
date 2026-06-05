@@ -574,7 +574,7 @@ export const FUNCTION_DEFINITIONS: FunctionDef[] = [
             es: 'Media aritmética',
             en: 'Arithmetic mean'
         },
-        category: 'statistics'
+        category: 'stats'
     },
     {
         name: 'mediana',
@@ -584,7 +584,7 @@ export const FUNCTION_DEFINITIONS: FunctionDef[] = [
             es: 'Mediana',
             en: 'Median'
         },
-        category: 'statistics'
+        category: 'stats'
     },
     {
         name: 'varianza',
@@ -594,7 +594,7 @@ export const FUNCTION_DEFINITIONS: FunctionDef[] = [
             es: 'Varianza de una muestra',
             en: 'Sample variance'
         },
-        category: 'statistics'
+        category: 'stats'
     },
     {
         name: 'desviacion',
@@ -604,7 +604,7 @@ export const FUNCTION_DEFINITIONS: FunctionDef[] = [
             es: 'Desviación estándar',
             en: 'Standard deviation'
         },
-        category: 'statistics'
+        category: 'stats'
     },
 
     // ==================== INDUSTRIAL / AI ====================

@@ -2,7 +2,7 @@
  * Binary EquaLab - API Service
  * 
  * Connects to the FastAPI backend for symbolic math operations.
- * Falls back to client-side Nerdamer if backend is unavailable.
+ * Todos los cálculos se delegan de forma estricta al backend.
  */
 
 // @ts-ignore - Vite provides import.meta.env
@@ -11,6 +11,7 @@ const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost
 interface MathResponse {
     result: string;
     latex?: string;
+    approx?: string; // Agregado para aproximación numérica del backend
     success: boolean;
     error?: string;
 }
@@ -112,7 +113,19 @@ class ApiService {
         });
     }
 
-    async solve(expression: string, variable: string = 'x'): Promise<MathResponse> {
+    async solveEquation(expression: string, variable: string = 'x'): Promise<MathResponse> {
+        return this.post('/api/cas/solve-equation', { expression, variable });
+    }
+
+    async solveSystem(equations: string[], variables: string[]): Promise<MathResponse> {
+        return this.post('/api/cas/solve-system', { equations, variables });
+    }
+
+    async solveInequality(expression: string, variable: string = 'x'): Promise<MathResponse> {
+        return this.post('/api/cas/solve-inequality', { expression, variable });
+    }
+
+    async solveODE(expression: string, variable: string = 'x'): Promise<MathResponse> {
         return this.post('/api/cas/solve-ode', { expression, variable });
     }
 
@@ -156,6 +169,25 @@ class ApiService {
 
     async plot(expression: string, variable: string = 'x', xMin: number = -10, xMax: number = 10, points: number = 200): Promise<{expression: string, points: {x: number, y: number}[], success: boolean}> {
         return this.post('/api/cas/plot', { expression, var: variable, x_min: xMin, x_max: xMax, points });
+    }
+
+    async calculateComplex(op: string, z1: { re: number, im: number }, z2: { re: number, im: number }, n: number = 2): Promise<{
+        result: { re: number, im: number };
+        polar: { r: number, theta: number, theta_deg: number };
+        latex: string;
+        success: boolean;
+    }> {
+        return this.post('/api/cas/complex/calculate', { op, z1, z2, n });
+    }
+
+    async calculateVectors(op: string, v1: number[], v2: number[], k: number = 1.0): Promise<{
+        result?: number[];
+        result_scalar?: number;
+        text: string;
+        properties: string[];
+        success: boolean;
+    }> {
+        return this.post('/api/cas/vectors/calculate', { op, v1, v2, k });
     }
 
     // Utility

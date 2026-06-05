@@ -9,9 +9,7 @@
 
 import React, { useState } from 'react';
 import { Plus, Trash2, Play, X, ArrowRight } from 'lucide-react';
-// @ts-ignore
-import nerdamer from 'nerdamer';
-import 'nerdamer/Solve';
+import apiService from '../services/apiService';
 import MathDisplay from './MathDisplay';
 
 type EquationType = 'single' | 'system' | 'inequality';
@@ -49,35 +47,18 @@ const EquationsMode: React.FC = () => {
         ));
     };
 
-    const solveSingle = () => {
+    const solveSingle = async () => {
         try {
             const eq = equations[0];
-            const fullEq = `${eq.lhs}-(${eq.rhs})`;
-
-            // Solve using Nerdamer
-            const solutions = nerdamer.solve(fullEq, variable);
-            const solutionStr = solutions.toString();
-
-            // Parse solutions
-            const solArray = solutionStr
-                .replace('[', '')
-                .replace(']', '')
-                .split(',')
-                .filter((s: string) => s.trim());
+            const fullEq = `${eq.lhs}=${eq.rhs}`;
 
             setSteps([
                 `Ecuación: ${eq.lhs} = ${eq.rhs}`,
-                `Forma estándar: ${fullEq} = 0`,
-                `Resolviendo para ${variable}...`
+                `Resolviendo para ${variable} en Backend...`
             ]);
 
-            if (solArray.length === 0) {
-                setResult('\\text{Sin solución}');
-            } else if (solArray.length === 1) {
-                setResult(`${variable} = ${solArray[0]}`);
-            } else {
-                setResult(`${variable} = ${solArray.join(', ')}`);
-            }
+            const res = await apiService.solveEquation(fullEq, variable);
+            setResult(res.latex || res.result);
             setError(null);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Error solving equation');
@@ -85,24 +66,20 @@ const EquationsMode: React.FC = () => {
         }
     };
 
-    const solveSystem = () => {
+    const solveSystem = async () => {
         try {
-            // Build system for Nerdamer
-            const eqs = equations.map(eq => `${eq.lhs}-(${eq.rhs})`);
+            const eqs = equations.map(eq => `${eq.lhs}=${eq.rhs}`);
             const vars = variable.split(',').map(v => v.trim());
-
-            // Nerdamer solve system
-            const solution = nerdamer.solveEquations(eqs, vars);
 
             setSteps([
                 'Sistema de ecuaciones:',
                 ...equations.map(eq => `  ${eq.lhs} = ${eq.rhs}`),
-                `Incógnitas: ${vars.join(', ')}`
+                `Incógnitas: ${vars.join(', ')}`,
+                'Resolviendo en Backend...'
             ]);
 
-            // Format solution
-            const solParts = vars.map((v, i) => `${v} = ${solution[i]}`);
-            setResult(solParts.join(', \\quad '));
+            const res = await apiService.solveSystem(eqs, vars);
+            setResult(res.latex || res.result);
             setError(null);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Error solving system');
@@ -110,31 +87,18 @@ const EquationsMode: React.FC = () => {
         }
     };
 
-    const solveInequality = () => {
+    const solveInequality = async () => {
         try {
             const eq = equations[0];
-            // Basic inequality solving (limited in Nerdamer)
-            const fullExpr = `${eq.lhs}-(${eq.rhs})`;
+            const fullExpr = `${eq.lhs}>${eq.rhs}`;
 
             setSteps([
                 `Desigualdad: ${eq.lhs} > ${eq.rhs}`,
-                `Analizando: ${fullExpr} > 0`
+                `Analizando intervalos en Backend...`
             ]);
 
-            // Find critical points (where expression = 0)
-            const solutions = nerdamer.solve(fullExpr, variable);
-            const criticalPoints = solutions.toString()
-                .replace('[', '')
-                .replace(']', '')
-                .split(',')
-                .filter((s: string) => s.trim());
-
-            if (criticalPoints.length > 0) {
-                setResult(`\\text{Puntos críticos: } ${variable} = ${criticalPoints.join(', ')}`);
-                setSteps([...steps, `Evaluar signos en intervalos: (-∞, ${criticalPoints[0]}), ...`]);
-            } else {
-                setResult('\\text{Verificar signo en todo } \\mathbb{R}');
-            }
+            const res = await apiService.solveInequality(fullExpr, variable);
+            setResult(res.latex || res.result);
             setError(null);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Error analyzing inequality');
@@ -142,20 +106,20 @@ const EquationsMode: React.FC = () => {
         }
     };
 
-    const solve = () => {
+    const solve = async () => {
         setResult(null);
         setSteps([]);
         setError(null);
 
         switch (eqType) {
             case 'single':
-                solveSingle();
+                await solveSingle();
                 break;
             case 'system':
-                solveSystem();
+                await solveSystem();
                 break;
             case 'inequality':
-                solveInequality();
+                await solveInequality();
                 break;
         }
     };
@@ -221,6 +185,7 @@ const EquationsMode: React.FC = () => {
                                         onChange={(e) => updateEquation(eq.id, 'lhs', e.target.value)}
                                         placeholder="x^2 + 2x"
                                         className="flex-1 bg-transparent text-white font-mono focus:outline-none"
+                                        aria-label={`Parte izquierda de la ecuación ${idx + 1}`}
                                     />
                                     <span className="text-aurora-primary font-bold">
                                         {eqType === 'inequality' ? '>' : '='}
@@ -231,6 +196,7 @@ const EquationsMode: React.FC = () => {
                                         onChange={(e) => updateEquation(eq.id, 'rhs', e.target.value)}
                                         placeholder="0"
                                         className="w-24 bg-transparent text-white font-mono focus:outline-none text-right"
+                                        aria-label={`Parte derecha de la ecuación ${idx + 1}`}
                                     />
                                 </div>
                                 {equations.length > 1 && (
@@ -256,11 +222,12 @@ const EquationsMode: React.FC = () => {
 
                     {/* Variable Input */}
                     <div className="mb-6">
-                        <label className="text-xs text-aurora-muted uppercase font-bold block mb-1">
+                        <label htmlFor="entrada-variable" className="text-xs text-aurora-muted uppercase font-bold block mb-1">
                             {eqType === 'system' ? 'Variables (separadas por coma)' : 'Variable'}
                         </label>
                         <input
                             type="text"
+                            id="entrada-variable"
                             value={variable}
                             onChange={(e) => setVariable(e.target.value)}
                             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-aurora-primary"

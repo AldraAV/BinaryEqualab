@@ -1,6 +1,5 @@
 
-import nerdamer from 'nerdamer';
-
+// Import eliminado: nerdamer
 /**
  * Binary EquaLab - Math Service (Web)
  * Handles Sound Generation and Advanced Math Utilities
@@ -34,9 +33,13 @@ export class MathService {
             // Force variables to 't' for nerdamer compatibility if x or other is used
             expressionJS = expressionJS.replace(/\b(x|y|z)\b/gi, 't');
 
-            // Build function directly using nerdamer if possible, or fallback
-            // nerdamer.buildFunction(['t']) returns a compiled function
-            const func = nerdamer(expressionJS).buildFunction(['t']);
+            // Reemplazar funciones trigonométricas comunes
+            expressionJS = expressionJS.replace(/\b(sin|cos|tan|exp|log|sqrt|abs)\b/g, 'Math.$1');
+            expressionJS = expressionJS.replace(/\b(pi)\b/gi, 'Math.PI');
+            expressionJS = expressionJS.replace(/\b(e)\b/gi, 'Math.E');
+
+            // Build function directly using native Function constructor
+            const func = new Function('t', `return ${expressionJS};`);
 
             for (let i = 0; i < length; i++) {
                 const t = i / sampleRate;

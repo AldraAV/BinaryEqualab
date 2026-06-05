@@ -13,7 +13,7 @@ const PlanBadge: React.FC<PlanBadgeProps> = ({ status, onClick }) => {
 
     const getPlanColor = (plan: string) => {
         switch (plan) {
-            case 'elite': return 'bg-gradient-to-r from-purple-500 to-pink-500 text-white border-none';
+            case 'elite': return 'bg-gradient-to-r from-orange-500 via-amber-500 to-red-500 text-white border-none shadow-lg shadow-orange-500/10';
             case 'pro': return 'bg-blue-600 text-white border-blue-500';
             case 'free': default: return 'bg-white/5 text-aurora-muted border-aurora-border';
         }

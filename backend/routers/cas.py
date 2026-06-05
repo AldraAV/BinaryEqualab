@@ -46,12 +46,31 @@ def translate_latex_es(latex_str: str) -> str:
         latex_str = latex_str.replace(eng, esp)
     return latex_str
 
+# =============================================================================
+# Helper: SymPy Parse Expr Seguro
+# =============================================================================
+from sympy.parsing.sympy_parser import parse_expr, standard_transformations, implicit_multiplication_application
+
+def safe_sympify(expr_str, locals_ns=None):
+    """Parsea una cadena usando parse_expr con transformaciones estándar + multiplicación implícita.
+       Si falla, intenta el sympify básico."""
+    transformations = standard_transformations + (implicit_multiplication_application,)
+    try:
+        return parse_expr(expr_str, local_dict=locals_ns, transformations=transformations)
+    except Exception as e:
+        # Fallback al sympify normal si parse_expr falla
+        return sp.sympify(expr_str, locals=locals_ns)
+
 router = APIRouter(prefix="/api/cas", tags=["CAS"])
 
 class CASRequest(BaseModel):
     expression: str
     var: str = "x"
+    variable: str = "x"  # Compatibilidad con el frontend que manda 'variable'
     param: str = ""
+    order: int = 1       # Orden de derivada
+    lower_bound: float = None
+    upper_bound: float = None
 
 class StatsRequest(BaseModel):
     data: list[float]
@@ -114,24 +133,36 @@ def sympy_to_equacore(expr):
 @router.post("/derivative")
 def derivative(request: CASRequest):
     """Derivada de orden n acelerada vía C++."""
-    # Obtenemos `order` (el frontend React lo manda, pero CASRequest no lo modeló, usamos kwargs o body)
-    order = 1
+    order = request.order
+    nombre_var = request.variable if request.variable != "x" else request.var
     
     try:
         if HAS_SYMENGINE:
             try:
                 parsed = _sym.sympify(request.expression)
-                var = _sym.Symbol(request.var)
+                var = _sym.Symbol(nombre_var)
                 # Aplicamos la n-esima derivada
                 res = parsed
                 for _ in range(order):
                     res = _sym.diff(res, var)
-                result_str = str(res)
+                
+                # Convertir a sympy para simplificar
+                sp_res = sp.sympify(str(res))
+                simplified_res = sp.simplify(sp_res)
+                result_str = str(simplified_res)
+                
+                # Intentar aproximación numérica
+                approx_val = None
                 try:
-                    latex_str = translate_latex_es(sp.latex(sp.sympify(result_str)))
+                    approx_val = str(simplified_res.evalf())
+                except:
+                    pass
+
+                try:
+                    latex_str = translate_latex_es(sp.latex(simplified_res))
                 except:
                     latex_str = result_str
-                return {"result": result_str, "latex": latex_str, "engine": "equacore-symengine"}
+                return {"result": result_str, "latex": latex_str, "approx": approx_val, "engine": "equacore-symengine"}
             except Exception:
                 pass
             
@@ -139,10 +170,19 @@ def derivative(request: CASRequest):
         # Fallback a SymPy con Timeout
         def _sympy_deriv():
             sp_expr = sp.sympify(request.expression)
-            var = sp.Symbol(request.var)
+            var = sp.Symbol(nombre_var)
             res = sp.diff(sp_expr, var, order)
-            latex_str = translate_latex_es(sp.latex(sp.simplify(res)))
-            return {"result": str(res), "latex": latex_str, "engine": "sympy"}
+            simplified_res = sp.simplify(res)
+            latex_str = translate_latex_es(sp.latex(simplified_res))
+            
+            # Intentar aproximación numérica
+            approx_val = None
+            try:
+                approx_val = str(simplified_res.evalf())
+            except:
+                pass
+
+            return {"result": str(simplified_res), "latex": latex_str, "approx": approx_val, "engine": "sympy"}
         try:
             return with_timeout(_sympy_deriv, timeout=TIMEOUT_SECONDS)
         except concurrent.futures.TimeoutError:
@@ -159,7 +199,16 @@ def limit(request: CASRequest):
         var = sp.Symbol(request.var)
         res = sp.limit(sp_expr, var, point)
         latex_str = translate_latex_es(sp.latex(res))
-        return {"result": str(res), "latex": latex_str, "engine": "sympy"}
+        
+        # Intentar aproximación numérica
+        approx_val = None
+        try:
+            if res.is_number:
+                approx_val = str(float(res.evalf()))
+        except:
+            pass
+
+        return {"result": str(res), "latex": latex_str, "approx": approx_val, "engine": "sympy"}
     try:
         return with_timeout(_sympy_limit, timeout=TIMEOUT_SECONDS)
     except concurrent.futures.TimeoutError:
@@ -177,7 +226,16 @@ def taylor(request: CASRequest):
         var = sp.Symbol(request.var)
         res = sp.series(sp_expr, var, point, order).removeO()
         latex_str = translate_latex_es(sp.latex(res))
-        return {"result": str(res), "latex": latex_str, "engine": "sympy"}
+        
+        # Intentar aproximación numérica
+        approx_val = None
+        try:
+            if res.is_number:
+                approx_val = str(float(res.evalf()))
+        except:
+            pass
+
+        return {"result": str(res), "latex": latex_str, "approx": approx_val, "engine": "sympy"}
     try:
         return with_timeout(_sympy_taylor, timeout=TIMEOUT_SECONDS)
     except concurrent.futures.TimeoutError:
@@ -256,13 +314,27 @@ def laplace_transform(request: CASRequest):
 
 @router.post("/integrate")
 def integrate(request: CASRequest):
-    """Integración simbólica (SymPy)."""
+    """Integración simbólica o definida (SymPy)."""
+    nombre_var = request.variable if request.variable != "x" else request.var
     def _sympy_integrate():
         sp_expr = sp.sympify(request.expression)
-        var = sp.Symbol(request.var)
-        res = sp.integrate(sp_expr, var)
-        latex_str = translate_latex_es(sp.latex(res))
-        return {"result": str(res), "latex": latex_str, "engine": "sympy"}
+        var = sp.Symbol(nombre_var)
+        if request.lower_bound is not None and request.upper_bound is not None:
+            res = sp.integrate(sp_expr, (var, request.lower_bound, request.upper_bound))
+        else:
+            res = sp.integrate(sp_expr, var)
+            
+        simplified_res = sp.simplify(res)
+        latex_str = translate_latex_es(sp.latex(simplified_res))
+        
+        # Intentar aproximación numérica
+        approx_val = None
+        try:
+            approx_val = str(simplified_res.evalf())
+        except:
+            pass
+
+        return {"result": str(simplified_res), "latex": latex_str, "approx": approx_val, "engine": "sympy"}
     try:
         return with_timeout(_sympy_integrate, timeout=TIMEOUT_SECONDS)
     except concurrent.futures.TimeoutError:
@@ -285,12 +357,21 @@ def evaluate_universal(request: CASRequest):
             # En SymEngine la expansión y simplificación básica ocurren en background (o explicitamente expand)
             simplified = _sym.expand(parsed)
             result_str = str(simplified)
+            
+            # Intentar aproximación numérica
+            approx_val = None
+            try:
+                sp_temp = sp.sympify(result_str)
+                approx_val = str(sp_temp.evalf())
+            except:
+                pass
+
             # Intentar generar LaTeX usando sympy si es posible sin evaluar
             try:
                 latex_str = translate_latex_es(sp.latex(sp.sympify(result_str)))
             except:
                 latex_str = result_str
-            return {"result": result_str, "latex": latex_str, "engine": "equacore-symengine"}
+            return {"result": result_str, "latex": latex_str, "approx": approx_val, "engine": "equacore-symengine"}
         except Exception:
             pass  # C++ no pudo, caemos a SymPy
     
@@ -385,7 +466,15 @@ def evaluate_universal(request: CASRequest):
             
         simplified = sp.simplify(parsed)
         latex_str = translate_latex_es(sp.latex(simplified))
-        return {"result": str(simplified), "latex": latex_str, "engine": "sympy"}
+        
+        # Intentar aproximación numérica
+        approx_val = None
+        try:
+            approx_val = str(simplified.evalf())
+        except:
+            pass
+
+        return {"result": str(simplified), "latex": latex_str, "approx": approx_val, "engine": "sympy"}
     
     try:
         result = with_timeout(_sympy_evaluate, expr_str, timeout=TIMEOUT_SECONDS)
@@ -404,11 +493,20 @@ def simplify(request: CASRequest):
             parsed = _sym.sympify(request.expression)
             simplified = _sym.expand(parsed)
             result_str = str(simplified)
+            
+            # Intentar aproximación numérica
+            approx_val = None
+            try:
+                sp_temp = sp.sympify(result_str)
+                approx_val = str(sp_temp.evalf())
+            except:
+                pass
+
             try:
                 latex_str = translate_latex_es(sp.latex(sp.sympify(result_str)))
             except:
                 latex_str = result_str
-            return {"result": result_str, "latex": latex_str, "engine": "equacore-symengine"}
+            return {"result": result_str, "latex": latex_str, "approx": approx_val, "engine": "equacore-symengine"}
         except Exception:
             pass
     
@@ -461,7 +559,15 @@ def simplify(request: CASRequest):
             parsed = sp.Matrix(parsed)
         simplified = sp.simplify(parsed)
         latex_str = translate_latex_es(sp.latex(simplified))
-        return {"result": str(simplified), "latex": latex_str, "engine": "sympy"}
+        
+        # Intentar aproximación numérica
+        approx_val = None
+        try:
+            approx_val = str(simplified.evalf())
+        except:
+            pass
+
+        return {"result": str(simplified), "latex": latex_str, "approx": approx_val, "engine": "sympy"}
     
     try:
         return with_timeout(_sympy_simplify, timeout=TIMEOUT_SECONDS)
@@ -522,3 +628,316 @@ async def plot_function(request: PlotRequest):
         
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error al evaluar la gráfica: {str(e)}")
+
+
+# =============================================================================
+# Endpoints de Resolución de Ecuaciones y Desigualdades
+# =============================================================================
+
+class SystemRequest(BaseModel):
+    equations: list[str]
+    variables: list[str]
+
+@router.post("/solve-equation")
+def solve_equation(request: CASRequest):
+    """Resuelve una ecuación de forma simbólica en base a la variable solicitada."""
+    var_name = request.variable if request.variable != "x" else request.var
+    
+    def _sympy_solve():
+        expresion = request.expression
+        # Si tiene signo de igualdad, transformarlo en ecuación de SymPy
+        if "=" in expresion:
+            partes = expresion.split("=", 1)
+            lhs = safe_sympify(partes[0].strip())
+            rhs = safe_sympify(partes[1].strip())
+            eq = sp.Eq(lhs, rhs)
+        else:
+            eq = safe_sympify(expresion)
+            
+        variable = sp.Symbol(var_name)
+        soluciones = sp.solve(eq, variable)
+        
+        result_str = str(soluciones)
+        latex_str = translate_latex_es(sp.latex(soluciones))
+        
+        approx_val = None
+        try:
+            # Calcular aproximaciones si hay valores numéricos
+            approx_list = []
+            for sol in soluciones:
+                if hasattr(sol, 'evalf'):
+                    approx_list.append(str(sol.evalf()))
+                else:
+                    approx_list.append(str(sol))
+            approx_val = "[" + ", ".join(approx_list) + "]"
+        except:
+            pass
+            
+        return {"result": result_str, "latex": latex_str, "approx": approx_val, "success": True}
+        
+    try:
+        return with_timeout(_sympy_solve, timeout=TIMEOUT_SECONDS)
+    except concurrent.futures.TimeoutError:
+        raise HTTPException(status_code=408, detail=f"Resolución de ecuación excedió el tiempo límite ({TIMEOUT_SECONDS}s)")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error resolviendo ecuación: {str(e)}")
+
+@router.post("/solve-system")
+def solve_system(request: SystemRequest):
+    """Resuelve un sistema de ecuaciones lineales o no lineales con múltiples incógnitas."""
+    def _sympy_solve_system():
+        ecuaciones_sympy = []
+        for eq_str in request.equations:
+            if "=" in eq_str:
+                partes = eq_str.split("=", 1)
+                lhs = safe_sympify(partes[0].strip())
+                rhs = safe_sympify(partes[1].strip())
+                ecuaciones_sympy.append(sp.Eq(lhs, rhs))
+            else:
+                ecuaciones_sympy.append(safe_sympify(eq_str))
+                
+        variables_sympy = [sp.Symbol(v.strip()) for v in request.variables]
+        soluciones = sp.solve(ecuaciones_sympy, variables_sympy)
+        
+        result_str = str(soluciones)
+        latex_str = translate_latex_es(sp.latex(soluciones))
+        return {"result": result_str, "latex": latex_str, "success": True}
+        
+    try:
+        return with_timeout(_sympy_solve_system, timeout=TIMEOUT_SECONDS)
+    except concurrent.futures.TimeoutError:
+        raise HTTPException(status_code=408, detail=f"Resolución de sistema excedió el tiempo límite ({TIMEOUT_SECONDS}s)")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error resolviendo sistema: {str(e)}")
+
+@router.post("/solve-inequality")
+def solve_inequality(request: CASRequest):
+    """Resuelve desigualdades de una variable de forma simbólica."""
+    var_name = request.variable if request.variable != "x" else request.var
+    
+    def _sympy_solve_ineq():
+        eq = safe_sympify(request.expression)
+        variable = sp.Symbol(var_name)
+        soluciones = sp.solve(eq, variable)
+        
+        result_str = str(soluciones)
+        latex_str = translate_latex_es(sp.latex(soluciones))
+        return {"result": result_str, "latex": latex_str, "success": True}
+        
+    try:
+        return with_timeout(_sympy_solve_ineq, timeout=TIMEOUT_SECONDS)
+    except concurrent.futures.TimeoutError:
+        raise HTTPException(status_code=408, detail=f"Resolución de desigualdad excedió el tiempo límite ({TIMEOUT_SECONDS}s)")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error resolviendo desigualdad: {str(e)}")
+
+
+# =============================================================================
+# Endpoints de Transformadas e Inversas
+# =============================================================================
+
+@router.post("/fourier")
+def fourier_transform(request: CASRequest):
+    """Calcula la transformada de Fourier simbólica F(w) de una función f(t)."""
+    var_t_str = request.variable if request.variable != "x" else request.var
+    var_w_str = request.param if request.param else "w"
+    
+    def _sympy_fourier():
+        t = sp.Symbol(var_t_str)
+        w = sp.Symbol(var_w_str)
+        f = sp.sympify(request.expression)
+        resultado = sp.fourier_transform(f, t, w)
+        latex_str = translate_latex_es(sp.latex(resultado))
+        return {"result": str(resultado), "latex": latex_str, "success": True}
+        
+    try:
+        return with_timeout(_sympy_fourier, timeout=TIMEOUT_SECONDS)
+    except concurrent.futures.TimeoutError:
+        raise HTTPException(status_code=408, detail="Cálculo de Fourier excedió el tiempo límite")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/ifourier")
+def inverse_fourier_transform(request: CASRequest):
+    """Calcula la transformada inversa de Fourier f(t) de una función F(w)."""
+    var_w_str = request.variable if request.variable != "x" else request.var
+    var_t_str = request.param if request.param else "t"
+    
+    def _sympy_ifourier():
+        w = sp.Symbol(var_w_str)
+        t = sp.Symbol(var_t_str)
+        F = sp.sympify(request.expression)
+        resultado = sp.inverse_fourier_transform(F, w, t)
+        latex_str = translate_latex_es(sp.latex(resultado))
+        return {"result": str(resultado), "latex": latex_str, "success": True}
+        
+    try:
+        return with_timeout(_sympy_ifourier, timeout=TIMEOUT_SECONDS)
+    except concurrent.futures.TimeoutError:
+        raise HTTPException(status_code=408, detail="Cálculo de Fourier inverso excedió el tiempo límite")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/ilaplace")
+def inverse_laplace_transform(request: CASRequest):
+    """Calcula la transformada inversa de Laplace f(t) de una función F(s)."""
+    var_s_str = request.variable if request.variable != "x" else request.var
+    var_t_str = request.param if request.param else "t"
+    
+    def _sympy_ilaplace():
+        s = sp.Symbol(var_s_str)
+        t = sp.Symbol(var_t_str)
+        F = sp.sympify(request.expression)
+        resultado = sp.inverse_laplace_transform(F, s, t, noconds=True)
+        latex_str = translate_latex_es(sp.latex(resultado))
+        return {"result": str(resultado), "latex": latex_str, "success": True}
+        
+    try:
+        return with_timeout(_sympy_ilaplace, timeout=TIMEOUT_SECONDS)
+    except concurrent.futures.TimeoutError:
+        raise HTTPException(status_code=408, detail="Cálculo de Laplace inverso excedió el tiempo límite")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# =============================================================================
+# Endpoints Aritmética Compleja y Vectorial
+# =============================================================================
+
+class ComplexNumberModel(BaseModel):
+    re: float
+    im: float
+
+class ComplexRequest(BaseModel):
+    op: str  # '+', '-', '*', '/', 'potencia', 'raiz'
+    z1: ComplexNumberModel
+    z2: ComplexNumberModel
+    n: int = 2  # Para potencia o raíz
+
+class VectorRequest(BaseModel):
+    op: str  # 'sumar', 'restar', 'punto', 'cruz', 'escalar'
+    v1: list[float]
+    v2: list[float]
+    k: float = 1.0  # Escalar k
+
+@router.post("/complex/calculate")
+def complex_calculate(request: ComplexRequest):
+    """Realiza aritmética de números complejos en el backend, devolviendo resultados y su forma polar."""
+    try:
+        w1 = complex(request.z1.re, request.z1.im)
+        w2 = complex(request.z2.re, request.z2.im)
+        res = 0j
+        
+        operacion = request.op
+        if operacion == '+':
+            res = w1 + w2
+        elif operacion == '-':
+            res = w1 - w2
+        elif operacion == '*':
+            res = w1 * w2
+        elif operacion == '/':
+            if w2 == 0j:
+                raise ValueError("División por cero en números complejos")
+            res = w1 / w2
+        elif operacion == 'potencia':
+            res = w1 ** request.n
+        elif operacion == 'raiz':
+            res = w1 ** (1.0 / request.n)
+        else:
+            raise ValueError(f"Operación compleja desconocida: {operacion}")
+            
+        modulo = float(np.abs(res))
+        fase = float(np.angle(res))
+        fase_grados = fase * 180.0 / np.pi
+        
+        part_re = res.real
+        part_im = res.imag
+        
+        if abs(part_im) < 1e-9:
+            latex_str = f"{part_re:.4f}"
+        elif abs(part_re) < 1e-9:
+            latex_str = f"{part_im:.4f}i"
+        elif part_im >= 0:
+            latex_str = f"{part_re:.4f} + {part_im:.4f}i"
+        else:
+            latex_str = f"{part_re:.4f} - {abs(part_im):.4f}i"
+            
+        latex_str = latex_str.replace(".0000", "")
+        
+        return {
+            "result": {
+                "re": float(part_re),
+                "im": float(part_im)
+            },
+            "polar": {
+                "r": modulo,
+                "theta": fase,
+                "theta_deg": fase_grados
+            },
+            "latex": latex_str,
+            "success": True
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/vectors/calculate")
+def vectors_calculate(request: VectorRequest):
+    """Calcula operaciones con vectores (2D/3D), devolviendo el vector resultante, magnitud, ángulo, etc."""
+    try:
+        v1 = np.array(request.v1)
+        v2 = np.array(request.v2)
+        operacion = request.op
+        
+        resultado = None
+        resultado_escalar = None
+        propiedades = []
+        
+        mag_v1 = float(np.linalg.norm(v1))
+        mag_v2 = float(np.linalg.norm(v2))
+        propiedades.append(f"|v₁| = {mag_v1:.4f}")
+        propiedades.append(f"|v₂| = {mag_v2:.4f}")
+        
+        if mag_v1 > 0 and mag_v2 > 0:
+            dot_val = np.dot(v1, v2)
+            cos_theta = dot_val / (mag_v1 * mag_v2)
+            cos_theta = np.clip(cos_theta, -1.0, 1.0)
+            ang = float(np.arccos(cos_theta) * 180.0 / np.pi)
+            propiedades.append(f"∠(v₁, v₂) = {ang:.2f}°")
+            
+        if operacion == 'sumar':
+            resultado = v1 + v2
+        elif operacion == 'restar':
+            resultado = v1 - v2
+        elif operacion == 'escalar':
+            resultado = v1 * request.k
+        elif operacion == 'punto':
+            resultado_escalar = float(np.dot(v1, v2))
+        elif operacion == 'cruz':
+            if len(v1) == 3 and len(v2) == 3:
+                resultado = np.cross(v1, v2)
+            else:
+                raise ValueError("Producto cruz requiere vectores de 3 dimensiones")
+        else:
+            raise ValueError(f"Operación vectorial no soportada: {operacion}")
+            
+        if resultado is not None:
+            mag_res = float(np.linalg.norm(resultado))
+            propiedades.append(f"|R| = {mag_res:.4f}")
+            lista_res = resultado.tolist()
+            txt_res = f"({', '.join(f'{x:.4f}' for x in lista_res)})".replace(".0000", "")
+            return {
+                "result": lista_res,
+                "text": txt_res,
+                "properties": propiedades,
+                "success": True
+            }
+        else:
+            return {
+                "result_scalar": resultado_escalar,
+                "text": f"{resultado_escalar:.4f}".replace(".0000", ""),
+                "properties": propiedades,
+                "success": True
+            }
+            
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

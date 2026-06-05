@@ -157,8 +157,9 @@ function parseParametricFunction(funcStr: string, samples: number = 200): Point[
     }
 }
 
-// Discrete Fourier Transform
-function computeDFT(points: Point[]): FourierCoeff[] {
+// Discrete Fourier Transform (LOCAL FALLBACK — O(N²), used only when backend is offline)
+// IMPORTANT: Returns ALL N coefficients (no filtering) to match Desktop behavior
+function computeDFTLocal(points: Point[]): FourierCoeff[] {
     const N = points.length;
     if (N === 0) return [];
 
@@ -183,9 +184,33 @@ function computeDFT(points: Point[]): FourierCoeff[] {
         coefficients.push({ freq: k, amplitude, phase });
     }
 
-    return coefficients
-        .filter(c => c.amplitude > 0.1) // Filtering noise like Desktop
-        .sort((a, b) => b.amplitude - a.amplitude);
+    // Sort by amplitude (biggest circles first) — same as Desktop line 161
+    return coefficients.sort((a, b) => b.amplitude - a.amplitude);
+}
+
+// Desktop-grade FFT via Backend (NumPy) — O(N log N), numerically precise
+// @ts-ignore - Vite provides import.meta.env
+const EPICYCLES_API = ((import.meta as any).env?.VITE_API_URL || 'http://localhost:8000') + '/api/epicycles/fft';
+
+async function computeFFTViaBackend(points: Point[]): Promise<FourierCoeff[]> {
+    try {
+        const res = await fetch(EPICYCLES_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ points }),
+            signal: AbortSignal.timeout(5000)
+        });
+        if (!res.ok) throw new Error(`API ${res.status}`);
+        const data = await res.json();
+        return (data.coefficients || []).map((c: any) => ({
+            freq: c.freq,
+            amplitude: c.amp,
+            phase: c.phase
+        }));
+    } catch (err) {
+        console.warn('FFT backend offline, using local DFT fallback:', err);
+        return computeDFTLocal(points);
+    }
 }
 
 const EpicyclesPRO: React.FC = () => {
@@ -198,6 +223,7 @@ const EpicyclesPRO: React.FC = () => {
     // Drawing state
     const [isDrawing, setIsDrawing] = useState(false);
     const [drawnPoints, setDrawnPoints] = useState<Point[]>([]);
+    const drawnPointsRef = useRef<Point[]>([]);  // Ref mirror for render loop access
     const [fourierCoeffs, setFourierCoeffs] = useState<FourierCoeff[]>([]);
 
     // Function mode
@@ -236,11 +262,11 @@ const EpicyclesPRO: React.FC = () => {
         }
     }, [waveType]);
 
-    // Apply template
-    const applyTemplate = (template: TemplateType) => {
+    // Apply template (async — delegates to Backend FFT)
+    const applyTemplate = async (template: TemplateType) => {
         const points = templateGenerators[template](100);
         const smoothed = laplacianSmooth(points, 3);
-        const coeffs = computeDFT(smoothed);
+        const coeffs = await computeFFTViaBackend(smoothed);
         setFourierCoeffs(coeffs);
         setWaveType('custom');
         setInputMode('animation');
@@ -249,12 +275,12 @@ const EpicyclesPRO: React.FC = () => {
         setNumCircles(Math.min(100, coeffs.length));
     };
 
-    // Apply function
-    const applyFunction = () => {
+    // Apply function (async — delegates to Backend FFT)
+    const applyFunction = async () => {
         const points = parseParametricFunction(funcExpression);
         if (points) {
             const smoothed = laplacianSmooth(points, 3);
-            const coeffs = computeDFT(smoothed);
+            const coeffs = await computeFFTViaBackend(smoothed);
             setFourierCoeffs(coeffs);
             setWaveType('custom');
             setInputMode('animation');
@@ -273,11 +299,13 @@ const EpicyclesPRO: React.FC = () => {
         const rect = canvasRef.current?.getBoundingClientRect();
         if (!rect) return;
 
-        setIsDrawing(true);
-        setDrawnPoints([{
+        const pt = {
             x: e.clientX - rect.left - rect.width / 2,
             y: e.clientY - rect.top - rect.height / 2
-        }]);
+        };
+        setIsDrawing(true);
+        setDrawnPoints([pt]);
+        drawnPointsRef.current = [pt];
     }, [inputMode]);
 
     const handleDrawMove = useCallback((e: React.MouseEvent) => {
@@ -285,13 +313,15 @@ const EpicyclesPRO: React.FC = () => {
         const rect = canvasRef.current?.getBoundingClientRect();
         if (!rect) return;
 
-        setDrawnPoints(prev => [...prev, {
+        const pt = {
             x: e.clientX - rect.left - rect.width / 2,
             y: e.clientY - rect.top - rect.height / 2
-        }]);
+        };
+        setDrawnPoints(prev => [...prev, pt]);
+        drawnPointsRef.current = [...drawnPointsRef.current, pt];
     }, [isDrawing, inputMode]);
 
-    const handleDrawEnd = useCallback(() => {
+    const handleDrawEnd = useCallback(async () => {
         if (!isDrawing) return;
         setIsDrawing(false);
 
@@ -299,8 +329,8 @@ const EpicyclesPRO: React.FC = () => {
             // Apply Laplacian smoothing (Desktop Engine)
             const smoothed = laplacianSmooth(drawnPoints, 5);
 
-            // Compute Fourier coefficients
-            const coeffs = computeDFT(smoothed);
+            // Compute Fourier coefficients via Backend FFT
+            const coeffs = await computeFFTViaBackend(smoothed);
             setFourierCoeffs(coeffs);
             setWaveType('custom');
             setInputMode('animation');
@@ -312,6 +342,7 @@ const EpicyclesPRO: React.FC = () => {
 
     const clearDrawing = () => {
         setDrawnPoints([]);
+        drawnPointsRef.current = [];
         setFourierCoeffs([]);
         pathRef.current = [];
         timeRef.current.t = 0;
@@ -376,11 +407,19 @@ const EpicyclesPRO: React.FC = () => {
         let lastTime = performance.now();
 
         const render = (now: number) => {
-            const dt = (now - lastTime) * speedRef.current;
             lastTime = now;
 
-            if (isPlaying && inputMode === 'animation') {
-                timeRef.current.t += dt * 0.001;
+            if (isPlaying && inputMode === 'animation' && fourierCoeffs.length > 0) {
+                // Desktop-exact: dt = 2π / N, advance fixed step per frame
+                // (Desktop line 165: dt = 2 * math.pi / len(self.fourier_coeffs))
+                const dt = (2 * Math.PI / fourierCoeffs.length) * speedRef.current;
+                timeRef.current.t += dt;
+
+                // Desktop line 167-169: reset at 2π to close the loop cleanly
+                if (timeRef.current.t > 2 * Math.PI) {
+                    timeRef.current.t -= 2 * Math.PI;
+                    // Don't clear trail — let it accumulate for visual continuity
+                }
             }
 
             draw(ctx, container.clientWidth, container.clientHeight, timeRef.current.t);
@@ -409,15 +448,16 @@ const EpicyclesPRO: React.FC = () => {
         drawGrid(ctx, width, height, zoom);
 
         if (inputMode === 'drawing') {
-            // Draw current path with smoothing preview
-            if (drawnPoints.length > 1) {
+            // Draw current path from ref (visible during drawing in real-time)
+            const pts = drawnPointsRef.current;
+            if (pts.length > 1) {
                 ctx.beginPath();
                 ctx.strokeStyle = '#ff6b35';
                 ctx.lineWidth = 3 / zoom;
                 ctx.lineCap = 'round';
                 ctx.lineJoin = 'round';
-                ctx.moveTo(drawnPoints[0].x, drawnPoints[0].y);
-                for (const pt of drawnPoints) {
+                ctx.moveTo(pts[0].x, pts[0].y);
+                for (const pt of pts) {
                     ctx.lineTo(pt.x, pt.y);
                 }
                 ctx.stroke();
@@ -427,30 +467,37 @@ const EpicyclesPRO: React.FC = () => {
             let x = 0, y = 0;
 
             if (waveType === 'custom' && fourierCoeffs.length > 0) {
+                // ALL coefficients contribute to position (mathematical correctness)
+                // Only first maxCircles draw visual circles (performance)
                 const maxCircles = Math.min(numCirclesRef.current, fourierCoeffs.length);
 
-                for (let i = 0; i < maxCircles; i++) {
+                for (let i = 0; i < fourierCoeffs.length; i++) {
                     const coeff = fourierCoeffs[i];
                     const prevX = x, prevY = y;
 
-                    const angle = coeff.freq * time * 2 * Math.PI + coeff.phase;
+                    // Desktop-exact: angle = freq * time + phase (line 210)
+                    // time accumulates in [0, 2π], no extra multiplication
+                    const angle = coeff.freq * time + coeff.phase;
                     x += coeff.amplitude * Math.cos(angle);
                     y += coeff.amplitude * Math.sin(angle);
 
-                    // Draw circle with glow
-                    ctx.beginPath();
-                    ctx.strokeStyle = `rgba(255, 255, 255, ${0.05 + (1 - i / maxCircles) * 0.1})`;
-                    ctx.lineWidth = 1 / zoom;
-                    ctx.arc(prevX, prevY, coeff.amplitude, 0, Math.PI * 2);
-                    ctx.stroke();
+                    // Only draw visual circles for top-N harmonics (Desktop: if radius > 1)
+                    if (i < maxCircles && coeff.amplitude > 0.5) {
+                        // Draw circle
+                        ctx.beginPath();
+                        ctx.strokeStyle = `rgba(255, 255, 255, ${0.05 + (1 - i / maxCircles) * 0.1})`;
+                        ctx.lineWidth = 1 / zoom;
+                        ctx.arc(prevX, prevY, coeff.amplitude, 0, Math.PI * 2);
+                        ctx.stroke();
 
-                    // Draw connecting line
-                    ctx.beginPath();
-                    ctx.strokeStyle = `rgba(255, 255, 255, ${0.2 + (1 - i / maxCircles) * 0.3})`;
-                    ctx.lineWidth = 1.5 / zoom;
-                    ctx.moveTo(prevX, prevY);
-                    ctx.lineTo(x, y);
-                    ctx.stroke();
+                        // Draw connecting line
+                        ctx.beginPath();
+                        ctx.strokeStyle = `rgba(255, 255, 255, ${0.2 + (1 - i / maxCircles) * 0.3})`;
+                        ctx.lineWidth = 1.5 / zoom;
+                        ctx.moveTo(prevX, prevY);
+                        ctx.lineTo(x, y);
+                        ctx.stroke();
+                    }
                 }
             } else {
                 // Preset waves

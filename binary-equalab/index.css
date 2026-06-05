@@ -1,17 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Poppins:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  /* Altar Digital Premium Palette */
+  /* Paleta digital premium del Altar */
   --color-background: #0b0e14; /* Deep Space Black */
   --color-background-light: #151a22; /* Midnight Slate */
   --color-background-dark: #05070a; /* Void */
 
-  /* Glowing Accents */
+  /* Acentos brillantes */
   --color-primary: #ff5a1f; /* Aurora Orange */
   --color-primary-hover: #ff7b4c;
   --color-secondary: #00ead3; /* Neon Teal */
 
-  /* Text & Borders */
+  /* Textos y Bordes */
   --color-aurora-text: #f8fafc;
   --color-aurora-secondary: #94a3b8;
   --color-aurora-muted: #475569;
@@ -19,8 +20,11 @@
   --color-aurora-success: #10b981;
   --color-aurora-danger: #ef4444;
 
+  /* Santísima Trinidad Tipográfica del Aldraverse + Poppins */
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-brand: "Poppins", "Inter", sans-serif;
 
   --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
@@ -77,5 +81,22 @@ body,
   .glass-button:hover {
     background: rgba(255, 255, 255, 0.08);
     border-color: rgba(255, 255, 255, 0.15);
+  }
+
+  /* Utilidades personalizadas de cristal líquido */
+  .liquid-glass {
+    background: linear-gradient(135deg, rgba(255, 90, 31, 0.03) 0%, rgba(255, 255, 255, 0.01) 50%, rgba(0, 234, 211, 0.02) 100%);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  }
+
+  .glass-card {
+    background: rgba(21, 26, 34, 0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
   }
 }

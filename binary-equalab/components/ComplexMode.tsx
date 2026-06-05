@@ -11,6 +11,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Calculator, Repeat, Eye } from 'lucide-react';
 import MathDisplay from './MathDisplay';
+import apiService from '../services/apiService';
 
 interface Complex {
     re: number;
@@ -23,6 +24,82 @@ interface PolarForm {
     thetaDeg: number;
 }
 
+interface PropiedadesCampoNumerico {
+    etiquetaAria: string;
+    valor: string;
+    alCambiar: (nuevoValor: string) => void;
+    marcador?: string;
+    min?: number;
+    max?: number;
+}
+
+// Componente de input numérico estilizado con Glassmorphism y control de límites
+const CampoNumericoGlass: React.FC<PropiedadesCampoNumerico> = ({
+    etiquetaAria,
+    valor,
+    alCambiar,
+    marcador = '0',
+    min = -100,
+    max = 100
+}) => {
+    const manejarIncremento = () => {
+        const valorActual = parseFloat(valor) || 0;
+        if (valorActual < max) {
+            alCambiar((valorActual + 1).toString());
+        }
+    };
+
+    const manejarDecremento = () => {
+        const valorActual = parseFloat(valor) || 0;
+        if (valorActual > min) {
+            alCambiar((valorActual - 1).toString());
+        }
+    };
+
+    const manejarCambioManual = (evento: React.ChangeEvent<HTMLInputElement>) => {
+        const entrada = evento.target.value;
+        if (entrada === '' || entrada === '-') {
+            alCambiar(entrada);
+            return;
+        }
+        const numero = parseFloat(entrada);
+        if (!isNaN(numero)) {
+            if (numero > max) alCambiar(max.toString());
+            else if (numero < min) alCambiar(min.toString());
+            else alCambiar(entrada);
+        }
+    };
+
+    return (
+        <div className="flex items-center bg-white/5 border border-white/10 rounded-xl overflow-hidden glass-card">
+            <button
+                type="button"
+                onClick={manejarDecremento}
+                className="px-3 py-1.5 hover:bg-white/10 text-aurora-muted hover:text-white transition-colors border-r border-white/5 font-bold"
+                aria-label={`Restar 1 a ${etiquetaAria}`}
+            >
+                -
+            </button>
+            <input
+                type="text"
+                value={valor}
+                onChange={manejarCambioManual}
+                placeholder={marcador}
+                className="w-16 bg-transparent text-center text-white font-mono focus:outline-none py-1 text-sm"
+                aria-label={etiquetaAria}
+            />
+            <button
+                type="button"
+                onClick={manejarIncremento}
+                className="px-3 py-1.5 hover:bg-white/10 text-aurora-muted hover:text-white transition-colors border-l border-white/5 font-bold"
+                aria-label={`Sumar 1 a ${etiquetaAria}`}
+            >
+                +
+            </button>
+        </div>
+    );
+};
+
 const ComplexMode: React.FC = () => {
     // Input mode
     const [inputMode, setInputMode] = useState<'rectangular' | 'polar'>('rectangular');
@@ -33,9 +110,11 @@ const ComplexMode: React.FC = () => {
     const [z2Re, setZ2Re] = useState('1');
     const [z2Im, setZ2Im] = useState('2');
 
-    // Polar input
+    // Polar input (estados nuevos en español)
     const [z1R, setZ1R] = useState('5');
     const [z1Theta, setZ1Theta] = useState('53.13');
+    const [z2Modulo, setZ2Modulo] = useState('2.24');
+    const [z2Angulo, setZ2Angulo] = useState('63.43');
 
     // Operation
     const [operation, setOperation] = useState<'+' | '-' | '*' | '/'>('*');
@@ -75,29 +154,61 @@ const ComplexMode: React.FC = () => {
         return { re: r * Math.cos(theta), im: r * Math.sin(theta) };
     };
 
-    const calculate = () => {
-        let z1: Complex, z2: Complex;
+    const calcularLocal = () => {
+        let numeroComplejo1: Complex, numeroComplejo2: Complex;
 
         if (inputMode === 'rectangular') {
-            z1 = { re: parseFloat(z1Re) || 0, im: parseFloat(z1Im) || 0 };
-            z2 = { re: parseFloat(z2Re) || 0, im: parseFloat(z2Im) || 0 };
+            numeroComplejo1 = { re: parseFloat(z1Re) || 0, im: parseFloat(z1Im) || 0 };
+            numeroComplejo2 = { re: parseFloat(z2Re) || 0, im: parseFloat(z2Im) || 0 };
         } else {
-            z1 = toRectangular(parseFloat(z1R) || 0, parseFloat(z1Theta) || 0);
-            z2 = { re: 1, im: 0 }; // Default for single number operations
+            numeroComplejo1 = toRectangular(parseFloat(z1R) || 0, parseFloat(z1Theta) || 0);
+            numeroComplejo2 = toRectangular(parseFloat(z2Modulo) || 0, parseFloat(z2Angulo) || 0);
         }
 
-        let res: Complex;
+        let resultadoComplejo: Complex;
         switch (operation) {
-            case '+': res = add(z1, z2); break;
-            case '-': res = subtract(z1, z2); break;
-            case '*': res = multiply(z1, z2); break;
-            case '/': res = divide(z1, z2); break;
+            case '+': resultadoComplejo = add(numeroComplejo1, numeroComplejo2); break;
+            case '-': resultadoComplejo = subtract(numeroComplejo1, numeroComplejo2); break;
+            case '*': resultadoComplejo = multiply(numeroComplejo1, numeroComplejo2); break;
+            case '/': resultadoComplejo = divide(numeroComplejo1, numeroComplejo2); break;
         }
 
-        setResult(res);
-        setZ1Polar(toPolar(z1));
-        setZ2Polar(toPolar(z2));
-        setResultPolar(toPolar(res));
+        setResult(resultadoComplejo);
+        setZ1Polar(toPolar(numeroComplejo1));
+        setZ2Polar(toPolar(numeroComplejo2));
+        setResultPolar(toPolar(resultadoComplejo));
+    };
+
+    const calcularOperacionCompleja = async () => {
+        let numeroComplejo1: Complex, numeroComplejo2: Complex;
+
+        if (inputMode === 'rectangular') {
+            numeroComplejo1 = { re: parseFloat(z1Re) || 0, im: parseFloat(z1Im) || 0 };
+            numeroComplejo2 = { re: parseFloat(z2Re) || 0, im: parseFloat(z2Im) || 0 };
+        } else {
+            numeroComplejo1 = toRectangular(parseFloat(z1R) || 0, parseFloat(z1Theta) || 0);
+            numeroComplejo2 = toRectangular(parseFloat(z2Modulo) || 0, parseFloat(z2Angulo) || 0);
+        }
+
+        try {
+            const respuesta = await apiService.calculateComplex(operation, numeroComplejo1, numeroComplejo2);
+            if (respuesta.success) {
+                setResult({ re: respuesta.result.re, im: respuesta.result.im });
+                setZ1Polar(toPolar(numeroComplejo1));
+                setZ2Polar(toPolar(numeroComplejo2));
+                setResultPolar({
+                    r: respuesta.polar.r,
+                    theta: respuesta.polar.theta,
+                    thetaDeg: respuesta.polar.theta_deg
+                });
+            } else {
+                console.warn('Backend falló al realizar cálculo de complejos, usando local.');
+                calcularLocal();
+            }
+        } catch (error) {
+            console.warn('Error en backend para números complejos, usando fallback local:', error);
+            calcularLocal();
+        }
     };
 
     // Draw Argand diagram
@@ -117,18 +228,67 @@ const ComplexMode: React.FC = () => {
         ctx.fillStyle = '#0a0a0f';
         ctx.fillRect(0, 0, w, h);
 
-        // Grid
+        // Dibujar z1 y z2 según el modo de entrada activo
+        const vectorZ1 = inputMode === 'rectangular'
+            ? { re: parseFloat(z1Re) || 0, im: parseFloat(z1Im) || 0 }
+            : toRectangular(parseFloat(z1R) || 0, parseFloat(z1Theta) || 0);
+
+        const vectorZ2 = inputMode === 'rectangular'
+            ? { re: parseFloat(z2Re) || 0, im: parseFloat(z2Im) || 0 }
+            : toRectangular(parseFloat(z2Modulo) || 0, parseFloat(z2Angulo) || 0);
+
+        // Función auxiliar segura para el valor absoluto
+        const safeAbs = (n: number | undefined | null) => (typeof n === 'number' && isFinite(n) && !isNaN(n) ? Math.abs(n) : 0);
+
+        // Calcular la escala de forma robusta utilizando los vectores finales convertidos
+        const valMaxReales = Math.max(
+            5, // Rango mínimo visible para que no se deforme con números pequeños o colapse
+            safeAbs(result?.re),
+            safeAbs(result?.im),
+            safeAbs(vectorZ1.re),
+            safeAbs(vectorZ1.im),
+            safeAbs(vectorZ2.re),
+            safeAbs(vectorZ2.im)
+        );
+
+        const maxVal = valMaxReales * 1.35; // 35% de margen
+        const scale = Math.min(w, h) / (2 * maxVal);
+
+        // Grid dinámico basado en la escala: máximo ~10 líneas por eje, resistente a números gigantes
+        let step = 1;
+        if (maxVal > 0 && isFinite(maxVal)) {
+            const rawStep = maxVal / 5;
+            const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
+            const norm = rawStep / mag;
+            if (norm > 5) step = 10 * mag;
+            else if (norm > 2) step = 5 * mag;
+            else step = 2 * mag;
+        }
+        if (!isFinite(maxVal)) return; // Prevención total de crashes
+
         ctx.strokeStyle = '#ffffff10';
         ctx.lineWidth = 1;
-        for (let i = 0; i <= 10; i++) {
-            ctx.beginPath();
-            ctx.moveTo(i * w / 10, 0);
-            ctx.lineTo(i * w / 10, h);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(0, i * h / 10);
-            ctx.lineTo(w, i * h / 10);
-            ctx.stroke();
+        
+        // Dibujar líneas verticales
+        for (let xUnit = 0; xUnit <= maxVal; xUnit += step) {
+            const pxPos = cx + xUnit * scale;
+            const pxNeg = cx - xUnit * scale;
+            
+            ctx.beginPath(); ctx.moveTo(pxPos, 0); ctx.lineTo(pxPos, h); ctx.stroke();
+            if (xUnit !== 0) {
+                ctx.beginPath(); ctx.moveTo(pxNeg, 0); ctx.lineTo(pxNeg, h); ctx.stroke();
+            }
+        }
+        
+        // Dibujar líneas horizontales
+        for (let yUnit = 0; yUnit <= maxVal; yUnit += step) {
+            const pyPos = cy - yUnit * scale;
+            const pyNeg = cy + yUnit * scale;
+            
+            ctx.beginPath(); ctx.moveTo(0, pyPos); ctx.lineTo(w, pyPos); ctx.stroke();
+            if (yUnit !== 0) {
+                ctx.beginPath(); ctx.moveTo(0, pyNeg); ctx.lineTo(w, pyNeg); ctx.stroke();
+            }
         }
 
         // Axes
@@ -141,25 +301,26 @@ const ComplexMode: React.FC = () => {
         ctx.lineTo(cx, h);
         ctx.stroke();
 
-        // Labels
+        // Etiquetas de ejes base
         ctx.fillStyle = '#ffffff60';
         ctx.font = '12px monospace';
-        ctx.fillText('Re', w - 25, cy - 5);
-        ctx.fillText('Im', cx + 5, 15);
+        ctx.fillText('Re', w - 25, cy - 10);
+        ctx.fillText('Im', cx + 10, 15);
 
-        // Scale
-        const maxVal = Math.max(
-            Math.abs(result?.re || 5),
-            Math.abs(result?.im || 5),
-            Math.abs(parseFloat(z1Re) || 5),
-            Math.abs(parseFloat(z1Im) || 5),
-            Math.abs(parseFloat(z2Re) || 5),
-            Math.abs(parseFloat(z2Im) || 5)
-        ) * 1.5;
-
-        const scale = Math.min(w, h) / (2 * maxVal);
+        // Dibujar números en los ejes para clarificar la escala
+        ctx.fillStyle = '#ffffff40';
+        ctx.font = '10px monospace';
+        for (let xUnit = step; xUnit <= maxVal; xUnit += step) {
+            ctx.fillText(xUnit.toString(), cx + xUnit * scale + 2, cy + 12);
+            ctx.fillText((-xUnit).toString(), cx - xUnit * scale + 2, cy + 12);
+        }
+        for (let yUnit = step; yUnit <= maxVal; yUnit += step) {
+            ctx.fillText(yUnit.toString(), cx + 5, cy - yUnit * scale + 3);
+            ctx.fillText((-yUnit).toString(), cx + 5, cy + yUnit * scale + 3);
+        }
 
         const drawPoint = (z: Complex, color: string, label: string) => {
+            if (!isFinite(z.re) || !isFinite(z.im)) return; // Evitar fallos del canvas con NaN o Infinity
             const x = cx + z.re * scale;
             const y = cy - z.im * scale;
 
@@ -183,20 +344,16 @@ const ComplexMode: React.FC = () => {
             ctx.fillText(label, x + 10, y - 10);
         };
 
-        // Draw z1
-        const z1 = { re: parseFloat(z1Re) || 0, im: parseFloat(z1Im) || 0 };
-        drawPoint(z1, '#4ade80', 'z₁');
-
-        // Draw z2
-        const z2 = { re: parseFloat(z2Re) || 0, im: parseFloat(z2Im) || 0 };
-        drawPoint(z2, '#60a5fa', 'z₂');
+        // Trazar los puntos de z1 y z2
+        drawPoint(vectorZ1, '#4ade80', 'z₁');
+        drawPoint(vectorZ2, '#60a5fa', 'z₂');
 
         // Draw result
         if (result) {
             drawPoint(result, '#f472b6', 'z₁' + operation + 'z₂');
         }
 
-    }, [result, z1Re, z1Im, z2Re, z2Im, operation]);
+    }, [result, z1Re, z1Im, z2Re, z2Im, z1R, z1Theta, z2Modulo, z2Angulo, inputMode, operation]);
 
     const formatComplex = (z: Complex): string => {
         const sign = z.im >= 0 ? '+' : '';
@@ -240,39 +397,38 @@ const ComplexMode: React.FC = () => {
                         </label>
                         {inputMode === 'rectangular' ? (
                             <div className="flex items-center gap-2">
-                                <input
-                                    type="number"
-                                    value={z1Re}
-                                    onChange={(e) => setZ1Re(e.target.value)}
-                                    className="w-24 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white font-mono"
-                                    placeholder="Re"
+                                <CampoNumericoGlass
+                                    etiquetaAria="Parte real del número complejo z1"
+                                    valor={z1Re}
+                                    alCambiar={setZ1Re}
+                                    marcador="Re"
                                 />
                                 <span className="text-aurora-muted">+</span>
-                                <input
-                                    type="number"
-                                    value={z1Im}
-                                    onChange={(e) => setZ1Im(e.target.value)}
-                                    className="w-24 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white font-mono"
-                                    placeholder="Im"
+                                <CampoNumericoGlass
+                                    etiquetaAria="Parte imaginaria del número complejo z1"
+                                    valor={z1Im}
+                                    alCambiar={setZ1Im}
+                                    marcador="Im"
                                 />
                                 <span className="text-aurora-primary font-bold">i</span>
                             </div>
                         ) : (
                             <div className="flex items-center gap-2">
-                                <input
-                                    type="number"
-                                    value={z1R}
-                                    onChange={(e) => setZ1R(e.target.value)}
-                                    className="w-24 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white font-mono"
-                                    placeholder="r"
+                                <CampoNumericoGlass
+                                    etiquetaAria="Módulo del número complejo z1"
+                                    valor={z1R}
+                                    alCambiar={setZ1R}
+                                    marcador="r"
+                                    min={0}
                                 />
                                 <span className="text-aurora-primary font-bold">∠</span>
-                                <input
-                                    type="number"
-                                    value={z1Theta}
-                                    onChange={(e) => setZ1Theta(e.target.value)}
-                                    className="w-24 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white font-mono"
-                                    placeholder="θ"
+                                <CampoNumericoGlass
+                                    etiquetaAria="Ángulo en grados del número complejo z1"
+                                    valor={z1Theta}
+                                    alCambiar={setZ1Theta}
+                                    marcador="θ"
+                                    min={-360}
+                                    max={360}
                                 />
                                 <span className="text-aurora-muted">°</span>
                             </div>
@@ -300,28 +456,48 @@ const ComplexMode: React.FC = () => {
                         <label className="text-xs text-aurora-muted uppercase font-bold block mb-2">
                             z₂
                         </label>
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="number"
-                                value={z2Re}
-                                onChange={(e) => setZ2Re(e.target.value)}
-                                className="w-24 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white font-mono"
-                                placeholder="Re"
-                            />
-                            <span className="text-aurora-muted">+</span>
-                            <input
-                                type="number"
-                                value={z2Im}
-                                onChange={(e) => setZ2Im(e.target.value)}
-                                className="w-24 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white font-mono"
-                                placeholder="Im"
-                            />
-                            <span className="text-aurora-primary font-bold">i</span>
-                        </div>
+                        {inputMode === 'rectangular' ? (
+                            <div className="flex items-center gap-2">
+                                <CampoNumericoGlass
+                                    etiquetaAria="Parte real del número complejo z2"
+                                    valor={z2Re}
+                                    alCambiar={setZ2Re}
+                                    marcador="Re"
+                                />
+                                <span className="text-aurora-muted">+</span>
+                                <CampoNumericoGlass
+                                    etiquetaAria="Parte imaginaria del número complejo z2"
+                                    valor={z2Im}
+                                    alCambiar={setZ2Im}
+                                    marcador="Im"
+                                />
+                                <span className="text-aurora-primary font-bold">i</span>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2">
+                                <CampoNumericoGlass
+                                    etiquetaAria="Módulo del número complejo z2"
+                                    valor={z2Modulo}
+                                    alCambiar={setZ2Modulo}
+                                    marcador="r"
+                                    min={0}
+                                />
+                                <span className="text-aurora-primary font-bold">∠</span>
+                                <CampoNumericoGlass
+                                    etiquetaAria="Ángulo en grados del número complejo z2"
+                                    valor={z2Angulo}
+                                    alCambiar={setZ2Angulo}
+                                    marcador="θ"
+                                    min={-360}
+                                    max={360}
+                                />
+                                <span className="text-aurora-muted">°</span>
+                            </div>
+                        )}
                     </div>
 
                     <button
-                        onClick={calculate}
+                        onClick={calcularOperacionCompleja}
                         className="w-full py-3 bg-aurora-primary text-white font-bold rounded-lg hover:bg-aurora-primaryHover transition-colors shadow-lg flex items-center justify-center gap-2"
                     >
                         <Calculator size={18} />

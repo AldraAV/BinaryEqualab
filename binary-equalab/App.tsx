@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 import ConsoleMode from './components/ConsoleMode';
@@ -10,20 +10,44 @@ import StatisticsMode from './components/StatisticsMode';
 import ComplexMode from './components/ComplexMode';
 import VectorsMode from './components/VectorsMode';
 import Dashboard from './components/Dashboard';
+import LandingPage from './components/LandingPage';
 import { AppMode } from './types';
 import { Menu } from 'lucide-react';
 import { CalculatorProvider } from './CalculatorContext';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
-import { useEffect } from 'react';
 
 const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000';
 
-const App: React.FC = () => {
-  const [currentMode, setMode] = useState<AppMode>(AppMode.CONSOLE);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+const ContenidoApp: React.FC = () => {
+  const [modoActual, setModoActual] = useState<AppMode>(() => {
+    const skipped = localStorage.getItem('skipLanding');
+    return skipped === 'true' ? AppMode.DASHBOARD : AppMode.LANDING;
+  });
+  const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
+  const { user, loading } = useAuth();
 
-  // Keep-Alive for Render (Ghost requests)
+  // Redirección automática de sesión
+  useEffect(() => {
+    if (!loading) {
+      if (user && modoActual === AppMode.LANDING) {
+        setModoActual(AppMode.DASHBOARD);
+      }
+      // Quitamos la redirección forzada a LANDING cuando no hay usuario, 
+      // permitiendo explorar los módulos de forma libre.
+    }
+  }, [user, loading]);
+
+  const handleNav = (m: AppMode) => {
+    setModoActual(m);
+    if (m !== AppMode.LANDING) {
+      localStorage.setItem('skipLanding', 'true');
+    } else {
+      localStorage.removeItem('skipLanding');
+    }
+  };
+
+  // Keep-Alive para Render (Ghost requests)
   useEffect(() => {
     if ((import.meta as any).env.PROD) {
       const pingId = setInterval(async () => {
@@ -31,16 +55,16 @@ const App: React.FC = () => {
           console.log('--- Ghost Ping: keeping Render awake ---');
           await fetch(`${API_URL}/health`);
         } catch (e) {
-          // Ignore network errors to prevent console spam or crashes
+          // Ignorar errores de red para evitar spam o crashes en la consola
         }
-      }, 5 * 60 * 1000); // Every 5 minutes
+      }, 5 * 60 * 1000); // Cada 5 minutos
       
       return () => clearInterval(pingId);
     }
   }, []);
 
-  const renderContent = () => {
-    switch (currentMode) {
+  const obtenerContenidoActivo = () => {
+    switch (modoActual) {
       case AppMode.CONSOLE:
         return <ConsoleMode />;
       case AppMode.GRAPHING:
@@ -64,39 +88,54 @@ const App: React.FC = () => {
     }
   };
 
+  // ─── LANDING PAGE: pantalla completa independiente, sin Sidebar ni TopBar ───
+  if (modoActual === AppMode.LANDING) {
+    return <LandingPage alNavegar={handleNav} />;
+  }
+
+  // ─── WORKSPACE: layout con Sidebar + TopBar + contenido del modo activo ───
+  return (
+    <div className="flex h-screen overflow-hidden bg-background text-aurora-text font-sans selection:bg-primary selection:text-white">
+
+      {/* Mobile Sidebar Overlay */}
+      <div 
+        className={`fixed inset-0 bg-black/50 z-50 lg:hidden transition-opacity ${menuMovilAbierto ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} 
+        onClick={() => setMenuMovilAbierto(false)} 
+      />
+
+      {/* Sidebar — siempre visible en desktop (lg:translate-x-0 para Tailwind v4) */}
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 transition-transform duration-300 lg:static lg:translate-x-0 ${menuMovilAbierto ? 'translate-x-0' : '-translate-x-full'}`}>
+        <Sidebar currentMode={modoActual} setMode={(m) => { handleNav(m); setMenuMovilAbierto(false); }} />
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 h-full relative">
+
+        {/* Mobile Header Trigger */}
+        <div className="lg:hidden absolute top-4 left-4 z-40">
+          <button onClick={() => setMenuMovilAbierto(true)} className="p-2 bg-background-light border border-aurora-border rounded-lg text-white shadow-lg">
+            <Menu size={24} />
+          </button>
+        </div>
+
+        {/* Global Top Bar */}
+        <TopBar onNavigate={(modo) => handleNav(modo)} />
+
+        {/* Content View */}
+        <main className="flex-1 overflow-hidden relative">
+          {obtenerContenidoActivo()}
+        </main>
+      </div>
+    </div>
+  );
+};
+
+const App: React.FC = () => {
   return (
     <AuthProvider>
       <NotificationProvider>
         <CalculatorProvider>
-          <div className="flex h-screen overflow-hidden bg-background text-aurora-text font-sans selection:bg-primary selection:text-white">
-
-            {/* Mobile Sidebar Overlay */}
-            <div className={`fixed inset-0 bg-black/50 z-50 lg:hidden transition-opacity ${mobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setMobileMenuOpen(false)} />
-
-            {/* Sidebar (Fixed Left) */}
-            <div className={`fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 lg:static lg:transform-none ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-              <Sidebar currentMode={currentMode} setMode={(m) => { setMode(m); setMobileMenuOpen(false); }} />
-            </div>
-
-            {/* Main Content Area */}
-            <div className="flex-1 flex flex-col min-w-0 h-full relative">
-
-              {/* Mobile Header Trigger */}
-              <div className="lg:hidden absolute top-4 left-4 z-40">
-                <button onClick={() => setMobileMenuOpen(true)} className="p-2 bg-background-light border border-aurora-border rounded-lg text-white shadow-lg">
-                  <Menu size={24} />
-                </button>
-              </div>
-
-              {/* Global Top Bar */}
-              <TopBar onNavigate={(mode) => setMode(mode)} />
-
-              {/* Content View */}
-              <main className="flex-1 overflow-hidden relative">
-                {renderContent()}
-              </main>
-            </div>
-          </div>
+          <ContenidoApp />
         </CalculatorProvider>
       </NotificationProvider>
     </AuthProvider>

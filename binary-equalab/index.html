@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Binary EquaLab</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    <!-- Tailwind no se carga por CDN, se procesa en index.css (Vite) -->
     <!-- KaTeX CSS -->
     <link
       rel="stylesheet"
@@ -26,45 +25,7 @@
       href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
     />
 
-    <script>
-      tailwind.config = {
-        darkMode: "class",
-        theme: {
-          extend: {
-            colors: {
-              background: {
-                DEFAULT: "#1C1917", // Main Background (Warm Black)
-                light: "#292524", // Panels / Cards
-                dark: "#0C0A09", // Inputs / Console
-              },
-              primary: {
-                DEFAULT: "#EA580C", // Orange-600 (Action Color)
-                hover: "#C2410C", // Orange-700
-              },
-              secondary: {
-                DEFAULT: "#F97316", // Orange-500 (Accents)
-              },
-              aurora: {
-                text: "#E7E5E4", // Warm Gray-200
-                secondary: "#A8A29E", // Warm Gray-400
-                muted: "#57534E", // Warm Gray-600
-                border: "#44403C", // Warm Gray-700
-                success: "#10B981", // Emerald-500
-                danger: "#EF4444", // Red-500
-              },
-            },
-            fontFamily: {
-              sans: ["Inter", "sans-serif"],
-              mono: ["JetBrains Mono", "monospace"],
-            },
-            animation: {
-              "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-            },
-          },
-        },
-        plugins: [],
-      };
-    </script>
+
     <style>
       body {
         background-color: #1c1917;
@@ -103,7 +64,6 @@
         }
       }
     </script>
-    <link rel="stylesheet" href="/index.css" />
   </head>
   <body>
     <div id="root"></div>

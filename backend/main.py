@@ -149,6 +149,54 @@ class MathResponse(BaseModel):
     error: Optional[str] = None
 
 # ============================================================================
+# Epicycles FFT (Desktop-grade Fourier via NumPy)
+# ============================================================================
+
+import numpy as np
+from typing import List
+
+class EpicyclesPoint(BaseModel):
+    x: float
+    y: float
+
+class EpicyclesRequest(BaseModel):
+    points: List[EpicyclesPoint]
+
+@app.post("/api/epicycles/fft")
+async def compute_epicycles_fft(data: EpicyclesRequest):
+    """
+    Compute Fourier coefficients using NumPy FFT — identical to Desktop engine.
+    Receives smoothed points, returns {freq, amp, phase} sorted by amplitude.
+    """
+    pts = data.points
+    if len(pts) < 3:
+        raise HTTPException(status_code=400, detail="Need at least 3 points")
+
+    # Build complex signal: z[n] = x[n] + j*y[n]
+    z = np.array([p.x + 1j * p.y for p in pts])
+    N = len(z)
+
+    # FFT with /N normalization (matches Desktop numpy convention)
+    fft_vals = np.fft.fft(z) / N
+
+    # Build coefficient list — ALL N coefficients, no filtering
+    # (Desktop epicycles.py line 153-158: stores ALL k from 0 to N-1)
+    result = []
+    for k in range(N):
+        amp = float(np.abs(fft_vals[k]))
+        result.append({
+            "freq": k,
+            "amp": amp,
+            "phase": float(np.angle(fft_vals[k]))
+        })
+
+    # Sort by amplitude descending (largest circles first) — Desktop line 161
+    result.sort(key=lambda c: c["amp"], reverse=True)
+
+    return {"coefficients": result, "N": N}
+
+
+# ============================================================================
 # Health Check
 # ============================================================================
 

@@ -129,7 +129,11 @@ const TopBar: React.FC<TopBarProps> = ({ onNavigate }) => {
                            <p className="text-[10px] text-aurora-secondary font-mono">CONECTADO</p>
                         </div>
                         <button
-                           onClick={() => signOut()}
+                           onClick={() => {
+                              localStorage.removeItem('skipLanding');
+                              signOut();
+                              if (onNavigate) onNavigate('landing');
+                           }}
                            className="size-9 rounded-full bg-gradient-to-tr from-primary to-secondary p-[2px] cursor-pointer hover:scale-105 transition-transform group"
                            title="Sign out"
                         >

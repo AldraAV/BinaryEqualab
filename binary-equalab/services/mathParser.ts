@@ -68,24 +68,31 @@ export class MathParser {
         const original = expr;
 
         try {
-            // Step 1: Basic cleanup
+            // Paso 1: Limpieza básica de espacios
             expr = this.normalizeWhitespace(expr);
 
-            // Step 2: Replace Unicode symbols
+            // Paso 2: Reemplazar fracciones mixtas del tipo A_B/C o mixta(A,B,C)
+            expr = this.procesarFraccionesMixtas(expr);
+
+            // Paso 3: Reemplazar símbolos unicode
             expr = this.replaceUnicodeSymbols(expr);
 
-            // Step 3: Fix function calls FIRST (sinx → sin(x), factorial → factorial)
-            // This must happen BEFORE implicit multiplication to protect function names
+            // Paso 4: Corregir raíces enésimas y logaritmos de base personalizada
+            expr = this.procesarRaicesYLogaritmos(expr);
+
+            // Paso 5: Corregir llamadas a funciones sin paréntesis (sinx -> sin(x))
             expr = this.fixFunctionCalls(expr);
 
-            // Step 4: Fix common coefficient patterns (2x → 2*x)
-            // Now that functions are marked with (), we can safely add *
+            // Paso 6: Corregir multiplicación implícita (2x -> 2*x)
             expr = this.fixImplicitMultiplication(expr);
 
-            // Step 5: Fix imaginary number patterns
+            // Paso 7: Corregir números imaginarios
             expr = this.fixImaginaryNumbers(expr);
 
-            // Step 6: Balance parentheses
+            // Paso 8: Corregir porcentaje y módulo (%)
+            expr = this.procesarPorcentajeYModulo(expr);
+
+            // Paso 9: Balancear paréntesis
             const balanced = this.balanceParentheses(expr);
             if (!balanced.success) {
                 return {
@@ -98,10 +105,10 @@ export class MathParser {
             }
             expr = balanced.expression;
 
-            // Step 7: Translate Spanish functions to English
+            // Paso 10: Traducir funciones del español al inglés
             expr = translateToEnglish(expr);
 
-            // Step 8: Validate operators
+            // Paso 11: Validar operadores
             const validated = this.validateOperators(expr);
             if (!validated.success) {
                 return {
@@ -124,7 +131,7 @@ export class MathParser {
                 success: false,
                 expression: input,
                 displayExpression: input,
-                error: `Parse error: ${e instanceof Error ? e.message : 'Unknown error'}`,
+                error: `Error al procesar: ${e instanceof Error ? e.message : 'Error desconocido'}`,
             };
         }
     }
@@ -403,6 +410,92 @@ export class MathParser {
             expression: expr,
             displayExpression: expr,
         };
+    }
+
+    private static procesarFraccionesMixtas(expr: string): string {
+        // Reemplazar 2_3/4 -> (2 + 3/4)
+        expr = expr.replace(/(\d+)_(\d+)\/(\d+)/g, '($1 + $2/$3)');
+        
+        // Reemplazar mixta(2, 3, 4) -> (2 + 3/4)
+        expr = expr.replace(/\bmixta\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/gi, '($1 + $2/$3)');
+        return expr;
+    }
+
+    private static procesarRaicesYLogaritmos(expr: string): string {
+        let resultado = expr;
+        const nombresFunciones = ['raiz', 'root', 'log'];
+        
+        for (const func of nombresFunciones) {
+            const regex = new RegExp(`\\b${func}\\s*\\(`, 'gi');
+            let match;
+            while ((match = regex.exec(resultado)) !== null) {
+                const indiceInicio = match.index;
+                const indiceArgumentos = indiceInicio + match[0].length;
+                let profundidad = 1;
+                let i = indiceArgumentos;
+                
+                while (i < resultado.length && profundidad > 0) {
+                    if (resultado[i] === '(') profundidad++;
+                    if (resultado[i] === ')') profundidad--;
+                    i++;
+                }
+                
+                if (profundidad === 0) {
+                    const argTexto = resultado.slice(indiceArgumentos, i - 1);
+                    const argumentos = this.dividirArgumentosRespetandoParentesis(argTexto);
+                    
+                    let reemplazo = '';
+                    if (func === 'raiz' || func === 'root') {
+                        if (argumentos.length === 2) {
+                            reemplazo = `(${argumentos[0]})^(1/(${argumentos[1]}))`;
+                        } else {
+                            reemplazo = `sqrt(${argumentos[0]})`;
+                        }
+                    } else if (func === 'log') {
+                        if (argumentos.length === 2) {
+                            reemplazo = `(log(${argumentos[0]})/log(${argumentos[1]}))`;
+                        } else {
+                            reemplazo = `log(${argumentos[0]})`;
+                        }
+                    }
+                    
+                    if (reemplazo) {
+                        resultado = resultado.slice(0, indiceInicio) + reemplazo + resultado.slice(i);
+                        regex.lastIndex = indiceInicio + reemplazo.length;
+                    }
+                }
+            }
+        }
+        return resultado;
+    }
+
+    private static dividirArgumentosRespetandoParentesis(texto: string): string[] {
+        const argumentos: string[] = [];
+        let actual = '';
+        let profundidad = 0;
+        for (let i = 0; i < texto.length; i++) {
+            if (texto[i] === '(') profundidad++;
+            if (texto[i] === ')') profundidad--;
+            if (texto[i] === ',' && profundidad === 0) {
+                argumentos.push(actual.trim());
+                actual = '';
+            } else {
+                actual += texto[i];
+            }
+        }
+        if (actual.trim()) {
+            argumentos.push(actual.trim());
+        }
+        return argumentos;
+    }
+
+    private static procesarPorcentajeYModulo(expr: string): string {
+        const regexModulo = /(\d+|[a-zA-Z_$][a-zA-Z0-9_$]*|\))\s*%\s*(\d+|[a-zA-Z_$][a-zA-Z0-9_$]*|\()/g;
+        expr = expr.replace(regexModulo, 'mod($1, $2)');
+
+        expr = expr.replace(/\b(\d+(?:\.\d+)?)\s*%/g, '($1/100)');
+        expr = expr.replace(/\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*%/g, '($1/100)');
+        return expr;
     }
 
     /**
