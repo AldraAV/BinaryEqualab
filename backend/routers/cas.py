@@ -1,8 +1,19 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from services.maxima_service import maxima
-import equacore
-from equacore import _equacore as eq  # Motor C++
+import sys
+import os
+
+HAS_EQUACORE = False
+try:
+    sys.path.append(os.path.join(os.path.dirname(__file__), '../../engine/python'))
+    import equacore
+    from equacore import _equacore as eq  # Motor C++
+    HAS_EQUACORE = True
+except ImportError:
+    HAS_EQUACORE = False
+    print("WARNING: EquaCore C++ engine not found in cas.py. Using Python fallback.")
+    
 import sympy as sp
 import numpy as np
 import concurrent.futures
@@ -87,6 +98,8 @@ def solve_ode(request: CASRequest):
 # =============================================================================
 def sympy_to_equacore(expr):
     """Convierte un árbol de expresión de SymPy a nuestro motor C++ EquaCore."""
+    if not HAS_EQUACORE:
+        raise ValueError("EquaCore is not available")
     s = eq.sym
     
     if isinstance(expr, sp.Symbol):
@@ -275,7 +288,7 @@ def factor(request: CASRequest):
 
 @router.post("/stats")
 def compute_stats(request: StatsRequest):
-    """Calcula estadísticas descriptivas súper rápidas usando C++ nativo."""
+    """Calcula estadísticas descriptivas usando C++ nativo (si disponible) o Python fallback."""
     try:
         # data needs to be parsed securely 
         if not request.data:
@@ -284,22 +297,41 @@ def compute_stats(request: StatsRequest):
         op = request.operation.lower()
         val = 0.0
         
-        if op == "mean":
-            val = eq.stats.mean(request.data)
-        elif op == "median":
-            val = eq.stats.median(request.data)
-        elif op in ["var", "variance"]:
-            val = eq.stats.variance(request.data)
-        elif op == "pop_variance":
-            val = eq.stats.population_variance(request.data)
-        elif op in ["std", "stdev", "standard_deviation"]:
-            val = eq.stats.standard_deviation(request.data)
-        elif op == "pop_stdev":
-            val = eq.stats.population_standard_deviation(request.data)
+        if HAS_EQUACORE:
+            if op == "mean":
+                val = eq.stats.mean(request.data)
+            elif op == "median":
+                val = eq.stats.median(request.data)
+            elif op in ["var", "variance"]:
+                val = eq.stats.variance(request.data)
+            elif op == "pop_variance":
+                val = eq.stats.population_variance(request.data)
+            elif op in ["std", "stdev", "standard_deviation"]:
+                val = eq.stats.standard_deviation(request.data)
+            elif op == "pop_stdev":
+                val = eq.stats.population_standard_deviation(request.data)
+            else:
+                raise ValueError(f"Unknown statistical operation: {op}")
+                
+            return {"result": str(val), "engine": "equacore"}
         else:
-            raise ValueError(f"Unknown statistical operation: {op}")
-            
-        return {"result": str(val), "engine": "equacore"}
+            import statistics
+            if op == "mean":
+                val = statistics.mean(request.data)
+            elif op == "median":
+                val = statistics.median(request.data)
+            elif op in ["var", "variance"]:
+                val = statistics.variance(request.data) if len(request.data) > 1 else 0.0
+            elif op == "pop_variance":
+                val = statistics.pvariance(request.data)
+            elif op in ["std", "stdev", "standard_deviation"]:
+                val = statistics.stdev(request.data) if len(request.data) > 1 else 0.0
+            elif op == "pop_stdev":
+                val = statistics.pstdev(request.data)
+            else:
+                raise ValueError(f"Unknown statistical operation: {op}")
+                
+            return {"result": str(val), "engine": "python-fallback"}
             
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -581,8 +613,8 @@ async def get_status():
     """Verifica si los motores CAS están operativos."""
     return {
         "maxima_active": True, # Asumiendo que se instaló
-        "native_equacore": equacore.NATIVE_BIO,
-        "symbolic_fallback": "sympy" if not equacore.NATIVE_SYMBOLIC else "native"
+        "native_equacore": equacore.NATIVE_BIO if HAS_EQUACORE else False,
+        "symbolic_fallback": "native" if (HAS_EQUACORE and equacore.NATIVE_SYMBOLIC) else "sympy"
     }
 
 class PlotRequest(BaseModel):
