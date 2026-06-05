@@ -440,6 +440,81 @@ const MatrixMode: React.FC = () => {
                             Calcular
                         </button>
                     </div>
+                    
+                    {/* Panel de botones rápidos */}
+                    <div className="mt-4 pt-4 border-t border-aurora-border/50 flex flex-col gap-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs text-aurora-muted uppercase font-bold mr-2">Matrices Activas:</span>
+                            {MATRIX_NAMES.filter(m => matricesCalculadora[m] && matricesCalculadora[m].some(row => row.some(val => val !== 0))).map(m => (
+                                <button
+                                    key={`btn-mat-${m}`}
+                                    onClick={() => {
+                                        setCustomOperation(prev => prev + m);
+                                        inputRef.current?.focus();
+                                    }}
+                                    className="size-8 rounded bg-primary/20 hover:bg-primary/40 text-primary font-bold font-mono transition-colors shadow-inner flex items-center justify-center"
+                                    title={`Insertar Matriz ${m}`}
+                                >
+                                    {m}
+                                </button>
+                            ))}
+                            {MATRIX_NAMES.filter(m => matricesCalculadora[m] && matricesCalculadora[m].some(row => row.some(val => val !== 0))).length === 0 && (
+                                <span className="text-xs text-aurora-muted italic">Todas están vacías (0)</span>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs text-aurora-muted uppercase font-bold mr-2">Operadores:</span>
+                            {['+', '-', '*', '^', '(', ')'].map(sym => (
+                                <button
+                                    key={`btn-sym-${sym}`}
+                                    onClick={() => {
+                                        setCustomOperation(prev => prev + sym);
+                                        inputRef.current?.focus();
+                                    }}
+                                    className="size-8 rounded bg-white/5 hover:bg-white/20 text-white font-mono transition-colors border border-aurora-border flex items-center justify-center"
+                                >
+                                    {sym}
+                                </button>
+                            ))}
+                            <button
+                                onClick={() => {
+                                    setCustomOperation(prev => prev + 'det(');
+                                    inputRef.current?.focus();
+                                }}
+                                className="px-3 h-8 rounded bg-white/5 hover:bg-white/20 text-white font-mono text-sm transition-colors border border-aurora-border flex items-center justify-center"
+                            >
+                                det()
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setCustomOperation(prev => prev + 'inv(');
+                                    inputRef.current?.focus();
+                                }}
+                                className="px-3 h-8 rounded bg-white/5 hover:bg-white/20 text-white font-mono text-sm transition-colors border border-aurora-border flex items-center justify-center"
+                            >
+                                inv()
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setCustomOperation(prev => prev + '.T');
+                                    inputRef.current?.focus();
+                                }}
+                                className="px-3 h-8 rounded bg-white/5 hover:bg-white/20 text-white font-mono text-sm transition-colors border border-aurora-border flex items-center justify-center title='Transpuesta'"
+                            >
+                                .T
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setCustomOperation(prev => prev.slice(0, -1));
+                                    inputRef.current?.focus();
+                                }}
+                                className="px-3 h-8 rounded bg-red-500/20 hover:bg-red-500/40 text-red-400 font-bold text-sm transition-colors ml-auto flex items-center justify-center"
+                                title="Borrar último"
+                            >
+                                ←
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Resultados / Consola */}
