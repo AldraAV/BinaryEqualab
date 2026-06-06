@@ -36,7 +36,8 @@ export class MathParser {
         'sen', 'derivar', 'integrar', 'resolver', 'simplificar', 'expandir', 'factorizar',
         'limite', 'arcsen', 'arccos', 'arctan', 'raiz', 'piso', 'techo',
         'sumatoria', 'productoria', 'sustituir',
-        'graficar', 'sonificar', 'explicar'
+        'graficar', 'sonificar', 'explicar',
+        'convertir_base', 'convertirbase', 'convertir_unidad', 'convertirunidad'
     ];
 
     // Greek letters and constants

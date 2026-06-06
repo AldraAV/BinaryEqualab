@@ -759,12 +759,32 @@ export const FUNCTION_DEFINITIONS: FunctionDef[] = [
         category: 'misc'
     },
     {
+        name: 'convertirbase',
+        english: 'convert_base',
+        syntax: 'convertirbase(numero, base_origen, base_destino)',
+        description: {
+            es: 'Convierte un número de una base a otra (alias sin guión)',
+            en: 'Converts a number from one base to another (alias)'
+        },
+        category: 'misc'
+    },
+    {
         name: 'convertir_unidad',
         english: 'convert_unit',
         syntax: 'convertir_unidad(valor, "unidad_origen", "unidad_destino")',
         description: {
             es: 'Convierte entre magnitudes (ej. 5, "m", "ft")',
             en: 'Converts between magnitudes'
+        },
+        category: 'misc'
+    },
+    {
+        name: 'convertirunidad',
+        english: 'convert_unit',
+        syntax: 'convertirunidad(valor, "unidad_origen", "unidad_destino")',
+        description: {
+            es: 'Convierte entre magnitudes (alias sin guión)',
+            en: 'Converts between magnitudes (alias)'
         },
         category: 'misc'
     },

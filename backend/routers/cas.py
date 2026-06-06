@@ -487,8 +487,10 @@ def evaluate_universal(request: CASRequest):
             'Igual': sp.Eq,
             'convertir_base': __convertir_base,
             'convertirbase': __convertir_base,
+            'convert_base': __convertir_base,
             'convertir_unidad': __convertir_unidad,
             'convertirunidad': __convertir_unidad,
+            'convert_unit': __convertir_unidad,
         }
         
         # Caso especial: factorint devuelve dict
@@ -617,8 +619,10 @@ def simplify(request: CASRequest):
             'Igual': sp.Eq,
             'convertir_base': __convertir_base,
             'convertirbase': __convertir_base,
+            'convert_base': __convertir_base,
             'convertir_unidad': __convertir_unidad,
             'convertirunidad': __convertir_unidad,
+            'convert_unit': __convertir_unidad,
         }
         parsed = sp.sympify(request.expression, locals=local_ns)
         if isinstance(parsed, list) and len(parsed) > 0 and isinstance(parsed[0], list):
