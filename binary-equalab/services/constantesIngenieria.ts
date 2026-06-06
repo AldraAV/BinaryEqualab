@@ -59,6 +59,14 @@ export const CONSTANTES_INGENIERIA: ConstanteIngenieria[] = [
     unidad: "F/m"
   },
   {
+    nombre: "Constante de Coulomb",
+    simbolo: "k_e",
+    valor: 8.9875517923e9,
+    notacionCientifica: "8.9875517923 × 10^9",
+    categoria: "electromagnetica",
+    unidad: "N·m²/C²"
+  },
+  {
     nombre: "Permeabilidad magnética del vacío",
     simbolo: "mu_0",
     valor: 1.25663706212e-6,

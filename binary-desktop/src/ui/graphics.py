@@ -3,7 +3,6 @@ import os
 import numpy as np
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, 
                                QLineEdit, QPushButton, QLabel, QMessageBox)
-from PySide6.QtCore import Qt
 
 # Matplotlib integration
 import matplotlib
@@ -134,7 +133,7 @@ class GraphingWidget(QWidget):
             # Safe evaluation
             try:
                 y_val = f(x_val)
-            except Exception as e:
+            except Exception:
                 # Handle cases where function returns constant
                 y_val = np.full_like(x_val, float(expr))
             

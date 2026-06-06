@@ -3,7 +3,7 @@ import { AppMode } from '../types';
 import {
   Calculator, LineChart, LayoutGrid, Wallet,
   GraduationCap, Equal, BarChart3, Atom, ArrowRightLeft,
-  Waves, Sparkles
+  Waves, Sparkles, Zap
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -46,6 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentMode, setMode }) => {
       items: [
         { mode: AppMode.STATISTICS, icon: BarChart3, label: 'Estadística' },
         { mode: AppMode.COMPLEX, icon: Atom, label: 'Complejos' },
+        { mode: AppMode.ELECTRICAL, icon: Zap, label: 'Eléctrico' },
         { mode: AppMode.ACCOUNTING, icon: Wallet, label: 'Contador PRO' },
       ]
     }

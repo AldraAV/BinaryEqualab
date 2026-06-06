@@ -5,11 +5,10 @@ Usa la API pública E-Utilities de NCBI (eutils.ncbi.nlm.nih.gov).
 No requiere API key para <3 req/s. Con API key sube a 10 req/s.
 """
 
-import asyncio
 import time
 import xml.etree.ElementTree as ET
 from typing import List, Dict, Optional
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 try:
     import httpx

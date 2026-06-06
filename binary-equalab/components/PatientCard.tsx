@@ -49,3 +49,5 @@ const PatientCard: React.FC = () => {
 };
 
 export default PatientCard;
+
+// aria-label

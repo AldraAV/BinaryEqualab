@@ -3,9 +3,10 @@
 
 import os
 import json
+import yaml
 import requests
 import asyncio
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Any
 
 class KimiService:
     """Service to interact with Kimi K2 (Moonshot AI)"""
@@ -64,7 +65,7 @@ class GroqService:
     def __init__(self):
         self.api_key = os.getenv('GROQ_API_KEY', '')
         self.base_url = 'https://api.groq.com/openai/v1'
-        self.model = 'llama-3.3-70b-versatile' # High performance model
+        self.model = 'deepseek-r1-distill-llama-70b' # Reasoning / Deep Thinking model
         
         if not self.api_key:
             print("⚠️  GROQ_API_KEY not configured")
@@ -135,16 +136,18 @@ class MultiAIEngine:
 
     async def solve_math_problem(self, problem: str) -> Dict[str, Any]:
         """Solve math problem with step-by-step reasoning (Multi-LLM)"""
-        system_prompt = """Eres un asistente matemático experto en álgebra, cálculo y análisis de la Suite Aurora.
-        Resuelve el siguiente problema mostrando TODOS los pasos.
-        Responde SIEMPRE en formato JSON válido:
-        {
-          "solution": "Respuesta final LaTeX",
-          "steps": ["Paso 1...", "Paso 2..."],
-          "reasoning": "Explicación detallada",
-          "difficulty": "fácil|medio|difícil",
-          "concepts": ["Concepto 1", "Concepto 2"]
-        }"""
+        system_prompt = """Eres Toon, el asistente matemático experto en álgebra, cálculo y análisis de la Suite Aurora.
+        Utiliza tu pensamiento profundo para resolver el siguiente problema mostrando TODOS los pasos de forma clara y lógica.
+        Responde SIEMPRE en formato TOON (Token-Oriented Object Notation). Usa indentación estricta de 2 espacios sin llaves ni comillas redundantes:
+        solution: Respuesta final LaTeX
+        steps:
+          - Paso 1...
+          - Paso 2...
+        reasoning: Explicación detallada de tu razonamiento
+        difficulty: fácil|medio|difícil
+        concepts:
+          - Concepto 1
+          - Concepto 2"""
         
         messages = [
             {'role': 'system', 'content': system_prompt},
@@ -153,13 +156,15 @@ class MultiAIEngine:
         
         content = await self.chat_with_fallback(messages, temperature=0.2)
         try:
-            # Clean markdown code blocks
-            if "```json" in content:
-                content = content.split("```json")[1].split("```")[0]
+            # Clean markdown code blocks si el modelo devuelve bloques yaml/toon
+            if "```toon" in content:
+                content = content.split("```toon")[1].split("```")[0]
+            elif "```yaml" in content:
+                content = content.split("```yaml")[1].split("```")[0]
             elif "```" in content:
                 content = content.split("```")[1].split("```")[0]
             
-            return json.loads(content.strip())
+            return yaml.safe_load(content.strip())
         except:
             return {
                 "solution": "AI Fallback Result",
@@ -171,8 +176,8 @@ class MultiAIEngine:
 
     async def explain_concept(self, concept: str, level: str = 'intermediate') -> str:
         """Explain math concept pedagogically (Multi-LLM)"""
-        system_prompt = f"""Eres un profesor de matemáticas y física universitario de la Suite Aurora.
-        Explica el concepto de forma clara para un estudiante de nivel {level}.
+        system_prompt = f"""Eres Toon, el profesor de matemáticas y física universitario de la Suite Aurora.
+        Explica el concepto de forma clara, utilizando tu capacidad analítica y pensamiento profundo, para un estudiante de nivel {level}.
         Usa analogías y ejemplos concretos. Sé conciso pero profundo.
         Usa LaTeX para las fórmulas. Responde en Markdown."""
         
@@ -186,15 +191,13 @@ class MultiAIEngine:
     async def generate_exercises(self, topic: str, count: int = 3, difficulty: str = 'medio') -> List[Dict[str, Any]]:
         """Generate practice exercises (Multi-LLM)"""
         system_prompt = f"""Genera {count} ejercicios de {topic} con dificultad {difficulty}.
-        Responde en formato JSON válido:
-        [
-          {{
-            "problem": "Enunciado LaTeX",
-            "solution": "Solución LaTeX",
-            "steps": ["Paso 1"],
-            "concepts": ["Concepto"]
-          }}
-        ]"""
+        Responde en formato TOON (Token-Oriented Object Notation) puro. Devuelve una lista (usando -) donde cada elemento tiene esta estructura:
+        - problem: Enunciado LaTeX
+          solution: Solución LaTeX
+          steps:
+            - Paso 1
+          concepts:
+            - Concepto"""
         
         messages = [
             {'role': 'system', 'content': system_prompt},
@@ -203,9 +206,11 @@ class MultiAIEngine:
         
         content = await self.chat_with_fallback(messages)
         try:
-            if "```json" in content:
-                content = content.split("```json")[1].split("```")[0]
-            return json.loads(content.strip())
+            if "```toon" in content:
+                content = content.split("```toon")[1].split("```")[0]
+            elif "```yaml" in content:
+                content = content.split("```yaml")[1].split("```")[0]
+            return yaml.safe_load(content.strip())
         except:
             return []
 

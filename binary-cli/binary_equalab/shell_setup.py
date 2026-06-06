@@ -2,7 +2,6 @@ import platform
 import os
 import subprocess
 import shutil
-import sys
 
 def detect_shell():
     """Detect current shell based on OS and Env"""

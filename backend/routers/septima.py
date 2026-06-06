@@ -13,9 +13,10 @@ Endpoints:
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 import asyncio
-from typing import List, Optional, Dict, Any
+from typing import List, Dict, Any
 import time
 import sys
+import math
 import os
 
 # ─── Carga del Motor C++ ────────────────────────────────────────────────────────
@@ -181,7 +182,7 @@ async def simulate_glucose(req: GlucoseSimulationRequest):
         return [dG, dX, dI]
 
     try:
-        tic = time.perf_counter()
+        time.perf_counter()
 
         if HAS_NATIVE_ENGINE:
             # Llamar al modelo C++ nativo (BioODESolver::simulate_glucose_insulin)
@@ -513,7 +514,6 @@ async def simulate_pk(req: PKSimulationRequest):
     try:
         tic = time.perf_counter()
         # Simulamos en tramos entre dosis
-        import math as _math
         t_full: List[float] = []
         y_full: List[List[float]] = []
         y_cur = [dose0, 0.0]

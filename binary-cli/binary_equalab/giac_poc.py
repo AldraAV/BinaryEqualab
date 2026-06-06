@@ -5,7 +5,6 @@ Bridge between Python and the C++ Giac CAS engine via 'giacpy'.
 This module provides raw speed for Gröbner bases and heavy algebra.
 """
 
-import sys
 
 HAS_GIAC = False
 try:

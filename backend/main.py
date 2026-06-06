@@ -12,6 +12,7 @@ from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from datetime import datetime, timedelta
 
 # Load environment variables
 load_dotenv()
@@ -465,7 +466,7 @@ async def get_plan_status(user: User = Depends(get_current_user)):
                 "user_id": user.id,
                 "plan": "free",
                 "ai_calls_used": 0,
-                "period_end": "now() + interval '1 month'" 
+                "period_end": (datetime.now() + timedelta(days=30)).isoformat()
             }
             insert_res = supabase.table("users_plans").insert(new_plan).execute()
             

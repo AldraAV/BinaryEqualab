@@ -1,13 +1,11 @@
-import sys
 import numpy as np
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem, 
-    QHeaderView, QGroupBox, QComboBox, QSplitter, QLabel
+    QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QHeaderView, QGroupBox, QSplitter
 )
 from PySide6.QtCore import Qt
 from qfluentwidgets import (
     PrimaryPushButton, PushButton, StrongBodyLabel, BodyLabel, 
-    InfoBar, ComboBox, CardWidget 
+    ComboBox 
 )
 
 # Matplotlib
@@ -156,7 +154,7 @@ class StatisticsWidget(QWidget):
         
         # Basic stats for Y if present
         if len(y) > 0 and len(y) == len(x):
-            stats_text += f"<br><b>Covarianza/Correlación</b><br>"
+            stats_text += "<br><b>Covarianza/Correlación</b><br>"
             corr = np.corrcoef(x, y)[0,1]
             stats_text += f"Correlación (r): {corr:.4f}<br>"
             

@@ -1,15 +1,12 @@
-import sys
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, 
-    QTableWidget, QTableWidgetItem, QHeaderView, 
-    QSpinBox, QLabel, QFrame, QTabWidget
+    QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, 
+    QSpinBox, QTabWidget
 )
-from PySide6.QtCore import Qt
 from qfluentwidgets import (
-    PrimaryPushButton, PushButton, StrongBodyLabel, 
-    BodyLabel, InfoBar, InfoBarPosition, LineEdit, ComboBox
+    PrimaryPushButton, StrongBodyLabel, 
+    BodyLabel
 )
-from sympy import symbols, solve, roots, sympify, Matrix, linsolve
+from sympy import symbols, solve, sympify, Matrix, linsolve
 
 class PolynomialSolver(QWidget):
     def __init__(self):

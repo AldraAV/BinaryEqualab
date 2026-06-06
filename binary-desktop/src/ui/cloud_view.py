@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSpacerItem, QSizePolicy
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
 from PySide6.QtCore import Qt
 from qfluentwidgets import (SubtitleLabel, BodyLabel, LineEdit, PasswordLineEdit, 
                             PrimaryPushButton, PushButton, InfoBar, InfoBarPosition,

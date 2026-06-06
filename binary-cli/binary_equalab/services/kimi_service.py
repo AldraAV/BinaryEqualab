@@ -4,7 +4,7 @@
 import os
 import json
 import requests
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Any
 
 class KimiService:
     """Service to interact with Kimi K2 (Moonshot AI) from CLI/Desktop"""

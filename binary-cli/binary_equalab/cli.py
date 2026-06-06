@@ -4,7 +4,6 @@ Interactive REPL and command-line interface.
 """
 
 import sys
-from typing import Optional
 from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
@@ -310,7 +309,7 @@ def main():
 
             elif subcmd == "explain":
                 response = kimi_service.explain_concept(query)
-                console.print(Panel(Markdown(response), title=f"Kimi AI: Explicación", border_style="blue"))
+                console.print(Panel(Markdown(response), title="Kimi AI: Explicación", border_style="blue"))
             
             elif subcmd == "exercises":
                 count = 3 # default

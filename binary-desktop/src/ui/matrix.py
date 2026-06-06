@@ -1,14 +1,13 @@
-import sys
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem, 
-    QHeaderView, QGroupBox, QSpinBox, QLabel, QMessageBox, QGridLayout
+    QHeaderView, QSpinBox, QGridLayout
 )
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt
 from qfluentwidgets import (
     PrimaryPushButton, PushButton, StrongBodyLabel, 
-    BodyLabel, InfoBar, InfoBarPosition, ToolButton, FluentIcon as FIF
+    InfoBar, InfoBarPosition
 )
-from sympy import Matrix, eye, det, transpose, N
+from sympy import Matrix, det, transpose
 
 class MatrixInput(QWidget):
     """Helper widget for Matrix Input (Dimensions + Grid)"""

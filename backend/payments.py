@@ -1,6 +1,6 @@
 import os
 import stripe
-from fastapi import APIRouter, Header, Request, HTTPException, Depends
+from fastapi import APIRouter, Header, Request, HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -115,9 +115,9 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
             event = stripe.Event.construct_from(
                 import_json(payload), stripe.api_key
             )
-    except ValueError as e:
+    except ValueError:
         raise HTTPException(status_code=400, detail="Invalid payload")
-    except stripe.error.SignatureVerificationError as e:
+    except stripe.error.SignatureVerificationError:
         raise HTTPException(status_code=400, detail="Invalid signature")
 
     # Handle the event

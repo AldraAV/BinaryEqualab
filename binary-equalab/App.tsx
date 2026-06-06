@@ -9,6 +9,7 @@ import EquationsMode from './components/EquationsMode';
 import StatisticsMode from './components/StatisticsMode';
 import ComplexMode from './components/ComplexMode';
 import VectorsMode from './components/VectorsMode';
+import ModoElectrico from './components/ModoElectrico';
 import Dashboard from './components/Dashboard';
 import LandingPage from './components/LandingPage';
 import { AppMode } from './types';
@@ -22,7 +23,11 @@ const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000
 const ContenidoApp: React.FC = () => {
   const [modoActual, setModoActual] = useState<AppMode>(() => {
     const skipped = localStorage.getItem('skipLanding');
-    return skipped === 'true' ? AppMode.DASHBOARD : AppMode.LANDING;
+    const lastMode = localStorage.getItem('lastMode') as AppMode | null;
+    if (skipped === 'true') {
+        return lastMode && Object.values(AppMode).includes(lastMode) ? lastMode : AppMode.CONSOLE;
+    }
+    return AppMode.LANDING;
   });
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
   const { user, loading } = useAuth();
@@ -42,8 +47,10 @@ const ContenidoApp: React.FC = () => {
     setModoActual(m);
     if (m !== AppMode.LANDING) {
       localStorage.setItem('skipLanding', 'true');
+      localStorage.setItem('lastMode', m);
     } else {
       localStorage.removeItem('skipLanding');
+      localStorage.removeItem('lastMode');
     }
   };
 
@@ -81,6 +88,8 @@ const ContenidoApp: React.FC = () => {
         return <ComplexMode />;
       case AppMode.VECTORS:
         return <VectorsMode />;
+      case AppMode.ELECTRICAL:
+        return <ModoElectrico />;
       case AppMode.DASHBOARD:
         return <Dashboard />;
       default:

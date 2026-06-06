@@ -5,12 +5,8 @@ Core symbolic computation using SymEngine (C++ native) + SymPy with Spanish func
 
 import sympy as sp
 from sympy import (
-    Symbol, symbols, sin, cos, tan, sqrt, exp, log, ln, pi, E, I,
-    diff, integrate, limit, summation, simplify, expand, factor, solve,
-    Abs, factorial, gamma, binomial, floor, ceiling,
-    Matrix, det, Transpose,
-    csc, sec, cot, asin, acos, atan,
-    sinh, cosh, tanh,
+    symbols, sin, cos, tan, diff, integrate, limit, summation, simplify, expand, factor, solve,
+    factorial, binomial, csc, sec, cot, sinh, cosh, tanh,
     sign, Mod, Max, Min, cbrt, gcd, lcm, isprime, apart, series,
     factorint
 )
@@ -18,8 +14,7 @@ from sympy.parsing.sympy_parser import (
     parse_expr, standard_transformations, implicit_multiplication_application,
     convert_xor, function_exponentiation
 )
-from sympy.stats import Normal, density
-from typing import Any, Union, List, Optional
+from typing import Any, List
 import re
 import math
 

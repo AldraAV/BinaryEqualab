@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from dotenv import load_dotenv
 from supabase import create_client, Client
 from typing import Optional
@@ -38,10 +38,9 @@ async def reset_monthly_quotas(secret: str = None):
         response = supabase.table("users_plans").select("*").lt("period_end", now_iso).execute()
         users_to_reset = response.data
         
-        count = 0
         if users_to_reset:
             for user in users_to_reset:
-                user_id = user['user_id']
+                user['user_id']
                 
                 # 2. Reset logic
                 # We extend period_end by 1 month. 
@@ -66,7 +65,7 @@ async def reset_monthly_quotas(secret: str = None):
         # we will use a Stored Procedure (RPC).
         # This endpoint will call the RPC.
         
-        rpc_response = supabase.rpc('reset_monthly_quotas').execute()
+        supabase.rpc('reset_monthly_quotas').execute()
         
         return {"status": "success", "message": "Cron Job Executed via RPC"}
 

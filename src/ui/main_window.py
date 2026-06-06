@@ -4,16 +4,14 @@ Binary EquaLab - Main Window (Desktop PyQt6)
 Ventana principal con modos: Console (CAS), Graphing, Matrix.
 Usa el motor SymPy de src/core/engine.py.
 """
-import sys
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QTabWidget, QToolBar, QStatusBar, QLabel,
+    QStatusBar, QLabel,
     QLineEdit, QTextEdit, QPushButton, QSplitter,
     QListWidget, QListWidgetItem, QStackedWidget,
-    QFrame, QSizePolicy, QComboBox
+    QFrame, QComboBox
 )
-from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtGui import QFont, QAction, QIcon
+from PyQt6.QtCore import Qt
 
 from src.core.engine import EquaEngine
 from src.utils.constants import AppConfig, AuroraPalette

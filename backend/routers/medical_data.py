@@ -5,7 +5,8 @@ Router de Datos Médicos — Exposición HTTP de búsquedas PubMed para el front
 from fastapi import APIRouter, Query
 from typing import Optional
 
-import sys, os
+import sys
+import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from services.pubmed_service import pubmed
 

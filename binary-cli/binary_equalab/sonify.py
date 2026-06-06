@@ -1,10 +1,8 @@
 
 import numpy as np
 import wave
-import struct
 import os
 import re
-from typing import Union, List
 import sympy as sp
 from .parser_enhanced import EnhancedParser
 

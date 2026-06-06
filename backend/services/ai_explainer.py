@@ -3,8 +3,6 @@ Binary EquaLab - AIExplainer
 Orquestador "Consorcio Médico" con 3 Agentes RAG interactuando asincrónicamente.
 Ahora con inyección de evidencia PubMed (Data Engine).
 """
-import os
-import json
 import asyncio
 from typing import Dict, Any
 from ai_service import GroqService, KimiService

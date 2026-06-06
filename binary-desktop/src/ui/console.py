@@ -12,7 +12,6 @@ if cli_path not in sys.path:
     sys.path.append(cli_path)
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QTextEdit
-from PySide6.QtCore import Qt
 
 import winsound
 from src.core.context import get_context

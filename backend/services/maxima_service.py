@@ -1,7 +1,6 @@
 import subprocess
 import re
 import os
-import platform
 
 class MaximaService:
     # Ruta tentativa, se puede configurar vía variables de entorno

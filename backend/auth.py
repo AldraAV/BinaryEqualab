@@ -11,7 +11,6 @@ from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from supabase import create_client, Client
-import jwt
 from dotenv import load_dotenv
 
 load_dotenv()

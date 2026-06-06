@@ -632,6 +632,46 @@ const ConsoleMode: React.FC = () => {
       }
     }
 
+    // Number System Conversions: bin(x), hex(x), oct(x), dec(x)
+    const baseConvMatch = trimmedExpr.match(/^(bin|hex|oct|dec)\s*\((.+)\)$/i);
+    if (baseConvMatch) {
+      const mode = baseConvMatch[1].toLowerCase();
+      const inner = baseConvMatch[2];
+      try {
+        // Parse inner expressions like 0xFF or normal math
+        const processedInner = parseNumberSystems(inner);
+        const substitutedInner = sustituirVariablesYConstantes(processedInner);
+        const backendResult = await evaluateWithBackend(substitutedInner);
+        
+        // Use approxResult or rawValue to get the numeric evaluation
+        const valToParse = backendResult.approxResult || backendResult.rawValue;
+        const decValue = Math.trunc(parseFloat(valToParse)); // Only work with integers
+        
+        if (isNaN(decValue)) {
+            return { latex: `\\text{Error: } ${inner} \\text{ no es evaluable como entero}`, rawValue: 'Error', approxResult: 'Error' };
+        }
+
+        let resultStr = '';
+        if (mode === 'bin') {
+            resultStr = '0b' + (decValue >>> 0).toString(2); // >>> 0 for unsigned right shift (handles negatives better in binary)
+        } else if (mode === 'hex') {
+            resultStr = '0x' + (decValue >>> 0).toString(16).toUpperCase();
+        } else if (mode === 'oct') {
+            resultStr = '0o' + (decValue >>> 0).toString(8);
+        } else if (mode === 'dec') {
+            resultStr = decValue.toString(10);
+        }
+
+        return {
+            latex: `\\text{${mode}(} ${inner} \\text{)} = \\mathtt{${resultStr}}`,
+            rawValue: resultStr,
+            approxResult: resultStr
+        };
+      } catch (e) {
+          return { latex: `\\text{Error de conversión}`, rawValue: 'Error', approxResult: 'Error' };
+      }
+    }
+
     // 2. Normal Math Parsing
     // Parse binary/hex/octal literals (0b1010 → 10, 0xFF → 255)
     let processedExpr = parseNumberSystems(expr);

@@ -167,6 +167,35 @@ const MatrixMode: React.FC = () => {
         }
     };
 
+    const simplificarOperacionPersonalizada = async () => {
+        if (!customOperation.trim()) return;
+        setLoading(true);
+        try {
+            let expr = customOperation;
+            MATRIX_NAMES.forEach(name => {
+                const regexNombre = new RegExp(`\\b${name}\\b`, 'g');
+                expr = expr.replace(regexNombre, matrixToString(matricesCalculadora[name]));
+            });
+            
+            const response = await apiService.evaluate(`simplify(${expr})`);
+            setResults(prev => [...prev, { 
+                id: Date.now(), 
+                command: `\\text{simplificar}(${customOperation})`, 
+                result: response.latex || response.result,
+                exprRaw: `simplify(${expr})` 
+            }]);
+        } catch (error: any) {
+            setResults(prev => [...prev, { 
+                id: Date.now(), 
+                command: `\\text{simplificar}(${customOperation})`, 
+                result: `\\text{Error al simplificar.}`,
+                exprRaw: '' 
+            }]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleExplain = async (command: string, exprRaw: string) => {
         setExplainModalOpen(true);
         setExplainLoading(true);
@@ -432,6 +461,14 @@ const MatrixMode: React.FC = () => {
                                 ))}
                             </div>
                         )}
+                        <button 
+                            onClick={simplificarOperacionPersonalizada}
+                            disabled={loading || !customOperation.trim()}
+                            className="bg-primary/20 text-primary hover:bg-primary/30 px-4 py-2 rounded-lg font-bold transition-all disabled:opacity-50"
+                            title="Simplificar Expresión"
+                        >
+                            Simplificar
+                        </button>
                         <button 
                             onClick={executeCustomOperation}
                             disabled={loading || !customOperation.trim()}

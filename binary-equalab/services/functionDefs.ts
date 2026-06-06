@@ -739,16 +739,6 @@ export const FUNCTION_DEFINITIONS: FunctionDef[] = [
         category: 'misc'
     },
     {
-        name: 'explain',
-        english: 'explain',
-        syntax: 'explain("Tema")',
-        description: {
-            es: 'Explica un concepto con IA',
-            en: 'Explains a concept using AI'
-        },
-        category: 'misc'
-    },
-    {
         name: 'explicar',
         english: 'explain',
         syntax: 'explicar("Tema")',
@@ -757,6 +747,46 @@ export const FUNCTION_DEFINITIONS: FunctionDef[] = [
             en: 'Explains a concept using AI'
         },
         category: 'misc'
+    },
+    {
+        name: 'convertir_base',
+        english: 'convert_base',
+        syntax: 'convertir_base(numero, base_origen, base_destino)',
+        description: {
+            es: 'Convierte un número de una base a otra (ej. "1010", 2, 10)',
+            en: 'Converts a number from one base to another'
+        },
+        category: 'misc'
+    },
+    {
+        name: 'convertir_unidad',
+        english: 'convert_unit',
+        syntax: 'convertir_unidad(valor, "unidad_origen", "unidad_destino")',
+        description: {
+            es: 'Convierte entre magnitudes (ej. 5, "m", "ft")',
+            en: 'Converts between magnitudes'
+        },
+        category: 'misc'
+    },
+    {
+        name: 'graficar_y_sonar',
+        english: 'plotsonify',
+        syntax: 'graficar_y_sonar(f(x))',
+        description: {
+            es: 'Grafica y reproduce audio simultáneamente',
+            en: 'Plots and plays audio simultaneously'
+        },
+        category: 'misc'
+    },
+    {
+        name: 'ifourier',
+        english: 'ifourier',
+        syntax: 'ifourier(F(w))',
+        description: {
+            es: 'Inversa de Fourier: F(w) → f(t)',
+            en: 'Inverse Fourier Transform: F(w) → f(t)'
+        },
+        category: 'calculus'
     }
 ];
 

@@ -1,8 +1,8 @@
 import math
 import numpy as np
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                               QLabel, QSlider, QFrame)
-from PySide6.QtCore import Qt, QTimer, QPointF, QRectF
+                               QLabel)
+from PySide6.QtCore import Qt, QTimer, QPointF
 from PySide6.QtGui import QPainter, QPen, QColor, QPainterPath
 
 class EpicyclesWidget(QWidget):

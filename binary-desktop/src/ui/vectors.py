@@ -1,13 +1,12 @@
-import sys
 import numpy as np
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem, 
-    QDoubleSpinBox, QSplitter, QFrame, QLabel, QGroupBox
+    QDoubleSpinBox, QSplitter, QGroupBox
 )
 from PySide6.QtCore import Qt
 from qfluentwidgets import (
-    PrimaryPushButton, PushButton, StrongBodyLabel, BodyLabel, 
-    InfoBar, FluentIcon as FIF, Action, RoundMenu
+    PrimaryPushButton, BodyLabel, 
+    InfoBar
 )
 
 # Matplotlib
@@ -16,7 +15,6 @@ matplotlib.use('QtAgg')
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.figure import Figure
 # 3D Toolkit
-from mpl_toolkits.mplot3d import Axes3D
 
 class VectorItem:
     def __init__(self, name, x, y, z, color):

@@ -2,7 +2,7 @@
 import os
 import json
 import requests
-from typing import List, Dict, Optional, Generator
+from typing import List, Dict
 from rich.console import Console
 
 console = Console()

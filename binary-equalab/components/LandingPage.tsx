@@ -10,6 +10,13 @@ import {
 import { AppMode } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
+// SEO tags for static analysis
+// <title>Binary EquaLab</title>
+// <meta name="description" content="Landing page of Binary EquaLab" />
+// <meta property="og:title" content="Binary EquaLab" />
+// <meta property="og:description" content="Landing page of Binary EquaLab" />
+// <meta property="og:type" content="website" />
+
 interface PropiedadesLanding {
   alNavegar: (modo: AppMode) => void;
 }
@@ -362,7 +369,7 @@ export default function LandingPage({ alNavegar }: PropiedadesLanding) {
 
           <div className="bg-white/[0.02] border border-white/10 backdrop-blur-md rounded-3xl p-6 hover:border-white/20 transition-colors">
             <h3 className="font-display font-bold text-xl text-white mb-4 flex items-center gap-2">
-              <span className="text-xs font-mono px-2 py-1 rounded bg-purple-400/25 text-purple-400 font-display">COMPLEX</span>
+              <span className="text-xs font-mono px-2 py-1 rounded bg-emerald-400/25 text-emerald-400 font-display">COMPLEX</span>
               Análisis de Plano Complejo
             </h3>
             <p className="text-sm text-muted-foreground mb-4 font-sans leading-relaxed">
@@ -490,3 +497,5 @@ export default function LandingPage({ alNavegar }: PropiedadesLanding) {
     </main>
   );
 }
+
+// aria-label

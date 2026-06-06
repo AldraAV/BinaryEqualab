@@ -2,7 +2,6 @@ from fastapi import HTTPException, Depends
 from supabase import create_client, Client
 from auth import get_current_user, User
 import os
-from datetime import datetime
 from typing import Optional
 
 # Initialize Supabase Client - Optional

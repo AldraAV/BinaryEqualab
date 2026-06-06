@@ -5,10 +5,9 @@ Port of ScientificKeypad.tsx for Desktop parity
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, 
-    QPushButton, QFrame, QButtonGroup, QLabel
+    QPushButton, QFrame
 )
-from PyQt6.QtCore import pyqtSignal, Qt
-from PyQt6.QtGui import QFont
+from PyQt6.QtCore import pyqtSignal
 
 # Aurora Palette
 class AuroraPalette:

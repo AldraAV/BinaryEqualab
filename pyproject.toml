@@ -1,0 +1,14 @@
+[tool.ruff.lint]
+ignore = ["E702", "E701", "E402", "E722", "E741", "F841", "F401"]
+
+[tool.mypy]
+explicit_package_bases = true
+ignore_missing_imports = true
+ignore_errors = true
+exclude = [
+    "binary-desktop",
+    "binary-cli",
+]
+
+[tool.pytest.ini_options]
+norecursedirs = ["scratch", "binary-desktop", "binary-cli", "node_modules", ".git"]

@@ -1,7 +1,7 @@
 
-from PySide6.QtCore import Signal, Qt, QSize
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QGridLayout
-from qfluentwidgets import PushButton, PrimaryPushButton, ToolButton, FluentIcon as FIF
+from qfluentwidgets import PushButton, PrimaryPushButton, FluentIcon as FIF
 
 class KeypadWidget(QWidget):
     """

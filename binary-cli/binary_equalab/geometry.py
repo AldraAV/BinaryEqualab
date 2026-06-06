@@ -1,5 +1,5 @@
 
-from sympy import Point, Line, N, simplify, symbols, var
+from sympy import Point, Line, symbols
 import sympy as sp
 
 class GeometryEngine:

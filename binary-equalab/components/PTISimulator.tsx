@@ -110,3 +110,5 @@ const PTISimulator: React.FC = () => {
 };
 
 export default PTISimulator;
+
+// aria-label

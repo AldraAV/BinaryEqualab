@@ -8,6 +8,7 @@ export enum AppMode {
   STATISTICS = 'STATISTICS',
   COMPLEX = 'complex',
   VECTORS = 'vectors',
+  ELECTRICAL = 'electrical',
   DASHBOARD = 'dashboard'
 }
 

@@ -68,9 +68,35 @@ def safe_sympify(expr_str, locals_ns=None):
     transformations = standard_transformations + (implicit_multiplication_application,)
     try:
         return parse_expr(expr_str, local_dict=locals_ns, transformations=transformations)
-    except Exception as e:
+    except Exception:
         # Fallback al sympify normal si parse_expr falla
         return sp.sympify(expr_str, locals=locals_ns)
+
+def __convertir_base(numero, base_origen, base_destino):
+    n = str(numero).replace(' ', '').strip(' "\'')
+    bo = int(str(base_origen).strip(' "\''))
+    bd = int(str(base_destino).strip(' "\''))
+    val = int(n, bo)
+    if bd == 10:
+        return sp.sympify(val)
+    elif bd == 2:
+        return sp.Symbol(bin(val)[2:])
+    elif bd == 8:
+        return sp.Symbol(oct(val)[2:])
+    elif bd == 16:
+        return sp.Symbol(hex(val)[2:].upper())
+    else:
+        import numpy as np
+        return sp.Symbol(np.base_repr(val, base=bd))
+
+def __convertir_unidad(valor, u_origen, u_destino):
+    from sympy.physics.units import convert_to
+    import sympy.physics.units as u
+    uo = getattr(u, str(u_origen).strip(' "\''), None)
+    ud = getattr(u, str(u_destino).strip(' "\''), None)
+    if uo and ud:
+        return convert_to(valor * uo, ud)
+    return valor
 
 router = APIRouter(prefix="/api/cas", tags=["CAS"])
 
@@ -179,7 +205,7 @@ def derivative(request: CASRequest):
             except Exception:
                 pass
             
-    except Exception as e:
+    except Exception:
         # Fallback a SymPy con Timeout
         def _sympy_deriv():
             sp_expr = sp.sympify(request.expression)
@@ -382,7 +408,7 @@ def evaluate_universal(request: CASRequest):
     # =================================================================
     # NIVEL 1: EquaCore C++ (SymEngine) — milisegundos, sin GIL
     # =================================================================
-    if HAS_SYMENGINE:
+    if HAS_SYMENGINE and 'convertir_' not in expr_str:
         try:
             # sympify de symengine está expuesto en C++ directamente
             parsed = _sym.sympify(expr_str)
@@ -459,6 +485,10 @@ def evaluate_universal(request: CASRequest):
             'solve': sp.solve,
             'Eq': sp.Eq,
             'Igual': sp.Eq,
+            'convertir_base': __convertir_base,
+            'convertirbase': __convertir_base,
+            'convertir_unidad': __convertir_unidad,
+            'convertirunidad': __convertir_unidad,
         }
         
         # Caso especial: factorint devuelve dict
@@ -520,7 +550,7 @@ def evaluate_universal(request: CASRequest):
 def simplify(request: CASRequest):
     """Simplificación de expresiones — Cascada: C++ SymEngine → SymPy (timeout 5s)."""
     # NIVEL 1: EquaCore C++ (SymEngine)
-    if HAS_SYMENGINE:
+    if HAS_SYMENGINE and 'convertir_' not in request.expression:
         try:
             parsed = _sym.sympify(request.expression)
             simplified = _sym.expand(parsed)
@@ -585,6 +615,10 @@ def simplify(request: CASRequest):
             'solve': sp.solve,
             'Eq': sp.Eq,
             'Igual': sp.Eq,
+            'convertir_base': __convertir_base,
+            'convertirbase': __convertir_base,
+            'convertir_unidad': __convertir_unidad,
+            'convertirunidad': __convertir_unidad,
         }
         parsed = sp.sympify(request.expression, locals=local_ns)
         if isinstance(parsed, list) and len(parsed) > 0 and isinstance(parsed[0], list):
@@ -744,17 +778,55 @@ def solve_system(request: SystemRequest):
 
 @router.post("/solve-inequality")
 def solve_inequality(request: CASRequest):
-    """Resuelve desigualdades de una variable de forma simbólica."""
+    """Resuelve desigualdades de una variable de forma simbólica (>, <, >=, <=)."""
     var_name = request.variable if request.variable != "x" else request.var
     
     def _sympy_solve_ineq():
-        eq = safe_sympify(request.expression)
-        variable = sp.Symbol(var_name)
-        soluciones = sp.solve(eq, variable)
+        variable = sp.Symbol(var_name, real=True)
+        expresion = request.expression.strip()
+        
+        # Detectar el operador de desigualdad y separar lhs/rhs
+        operador = None
+        lhs_str = ""
+        rhs_str = "0"
+        
+        # Orden importante: >= y <= antes de > y <
+        for op_str, op_func in [(">=", sp.Ge), ("<=", sp.Le), (">", sp.Gt), ("<", sp.Lt)]:
+            if op_str in expresion:
+                partes = expresion.split(op_str, 1)
+                lhs_str = partes[0].strip()
+                rhs_str = partes[1].strip()
+                operador = op_func
+                break
+        
+        if operador is None:
+            # Si no hay operador explícito, asumir expresión > 0
+            lhs_str = expresion
+            rhs_str = "0"
+            operador = sp.Gt
+        
+        lhs = safe_sympify(lhs_str)
+        rhs = safe_sympify(rhs_str)
+        desigualdad = operador(lhs, rhs)
+        
+        # Usar reduce_inequalities para resolver correctamente
+        try:
+            soluciones = sp.reduce_inequalities(desigualdad, variable)
+        except Exception:
+            # Fallback: mover todo a un lado y resolver como ecuación para dar intervalos
+            soluciones = sp.solveset(lhs - rhs, variable, domain=sp.S.Reals)
         
         result_str = str(soluciones)
         latex_str = translate_latex_es(sp.latex(soluciones))
-        return {"result": result_str, "latex": latex_str, "success": True}
+        
+        # Intentar representar intervalos de forma legible
+        approx_val = None
+        try:
+            approx_val = str(soluciones)
+        except Exception:
+            pass
+        
+        return {"result": result_str, "latex": latex_str, "approx": approx_val, "success": True}
         
     try:
         return with_timeout(_sympy_solve_ineq, timeout=TIMEOUT_SECONDS)

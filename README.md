@@ -190,22 +190,7 @@ Every calculation carries meaning beyond numbers.
 
 ---
 
-## 🎭 El "Mambo" Stack (Aldraverse Synergy)
-Binary v3.0 no es solo software; es un ecosistema profesionalizado:
-- **Mamba-SSM Architecture:** Gestión de estado de largo contexto mediante State Space Models (vía `.agent/skills`).
-- **Antigravity Ecosystem:** Inicializado con `ag-kit` y enriquecido con `awesome-skills` (+700 habilidades técnicas).
-- **Persistent Memory:** Capa de memoria semántica inspirada en `claude-mem` para persistencia entre sesiones de simulación.
 
-### 🐍 Python Interoperability
-El motor C++ se expone como un módulo nativo, permitiendo una integración transparente con el ecosistema de IA y Ciencia de Datos del Aldraverse.
-
-### 🧠 Hybrid AI Infrastructure (SuperClaude Protocol)
-Binary v3.0 introduce un sistema de orquestación de IA con **Confidence-First Implementation**:
-- **Groq ⚡:** Latencia ultra-baja para explicaciones rápidas.
-- **Kimi K2 🌓:** Análisis profundo de casos clínicos complejos.
-- **SymbolicExplainer:** Paso a paso matemático en KaTeX de alta fidelidad.
-
----
 
 ## 📜 License
 
