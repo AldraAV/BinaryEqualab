@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="BackendCodeEditorMiscSettings">
+    <option name="/Default/Housekeeping/FeatureSuggestion/FeatureSuggestionManager/DisabledSuggesters/=SwitchToGoToActionSuggester/@EntryIndexedValue" value="true" type="bool" />
+  </component>
+  <component name="CMakePresetLoader"><![CDATA[{
+  "useNewFormat": true
+}]]></component>
+  <component name="CMakeProjectFlavorService">
+    <option name="flavorId" value="CMakePlainProjectFlavor" />
+  </component>
+  <component name="CMakeReloadState">
+    <option name="reloaded" value="true" />
+  </component>
+  <component name="CMakeSettings">
+    <configurations>
+      <configuration PROFILE_NAME="Debug" ENABLED="true" CONFIG_NAME="Debug" />
+    </configurations>
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="2fa08eb1-95c4-4d6c-873b-ac97774fbbce" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/../backend/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/../backend/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../backend/routers/cas.py" beforeDir="false" afterPath="$PROJECT_DIR$/../backend/routers/cas.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/CalculatorContext.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/CalculatorContext.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/components/ComplexMode.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/components/ComplexMode.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/components/ConsoleMode.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/components/ConsoleMode.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/components/Dashboard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/components/Dashboard.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/components/EpicyclesPRO.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/components/EpicyclesPRO.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/components/EquationsMode.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/components/EquationsMode.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/components/MatrixMode.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/components/MatrixMode.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/components/PlanBadge.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/components/PlanBadge.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/components/Sidebar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/components/Sidebar.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/components/StandardGraphing.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/components/StandardGraphing.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/components/TreatmentSelector.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/components/TreatmentSelector.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/components/UpgradeModal.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/components/UpgradeModal.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/components/VectorsMode.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/components/VectorsMode.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/index.css" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/index.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/index.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/pnpm-lock.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/pnpm-lock.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/services/MathService.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/services/MathService.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/services/apiService.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/services/apiService.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/services/functionDefs.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/services/functionDefs.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/services/mathParser.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/services/mathParser.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/types.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/types.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../binary-equalab/vite.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../binary-equalab/vite.config.ts" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="ProjectApplicationVersion">
+    <option name="ide" value="CLion" />
+    <option name="majorVersion" value="2025" />
+    <option name="minorVersion" value="2.1" />
+    <option name="productBranch" value="Classic" />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "customColor": "",
+  "associatedIndex": 4
+}]]></component>
+  <component name="ProjectId" id="3EXrQU1AoPQuJElHyCJBxxghLws" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.RadMigrateCodeStyle": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "RunOnceActivity.west.config.association.type.startup.service": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "git-widget-placeholder": "main",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "preferences.pluginManager",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="2fa08eb1-95c4-4d6c-873b-ac97774fbbce" name="Changes" comment="" />
+      <created>1780335743521</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1780335743521</updated>
+      <workItem from="1780335749341" duration="787000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="github-copilot-workspace">
+    <instructionFileLocations>
+      <option value=".github/instructions" />
+    </instructionFileLocations>
+    <promptFileLocations>
+      <option value=".github/prompts" />
+    </promptFileLocations>
+  </component>
+</project>

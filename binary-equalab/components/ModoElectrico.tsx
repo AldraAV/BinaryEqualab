@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Zap, Calculator, ArrowRightLeft, Cpu, Lightbulb, Settings2 } from 'lucide-react';
 
-type SubModo = 'ohm' | 'led' | 'conversor';
+type SubModo = 'ohm' | 'led' | 'conversor' | 'kirchhoff';
 
 const ModoElectrico: React.FC = () => {
     const [pestanaActiva, setPestanaActiva] = useState<SubModo>('ohm');
@@ -14,6 +14,13 @@ const ModoElectrico: React.FC = () => {
 
     // Estado Conversor Base
     const [valoresBase, setValoresBase] = useState({ dec: '', bin: '', hex: '', oct: '' });
+
+    // Estado Kirchhoff
+    const [valoresKirchhoff, setValoresKirchhoff] = useState({
+        tipo: 'lkc' as 'lkc' | 'lkv',
+        entran: '',
+        salen: ''
+    });
 
     // Calculadora Ley de Ohm
     const calcularOhm = (campo: 'v' | 'i' | 'r', valor: string) => {
@@ -73,6 +80,30 @@ const ModoElectrico: React.FC = () => {
         }
     };
 
+    // Calculadora Kirchhoff
+    const calcularKirchhoff = () => {
+        try {
+            const sumIn = valoresKirchhoff.entran.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n)).reduce((a, b) => a + b, 0);
+            const sumOut = valoresKirchhoff.salen.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n)).reduce((a, b) => a + b, 0);
+            
+            const hasXIn = valoresKirchhoff.entran.toLowerCase().includes('x');
+            const hasXOut = valoresKirchhoff.salen.toLowerCase().includes('x');
+
+            if (hasXIn && !hasXOut) {
+                return `x = ${(sumOut - sumIn).toFixed(2)}`;
+            } else if (hasXOut && !hasXIn) {
+                return `x = ${(sumIn - sumOut).toFixed(2)}`;
+            } else if (!hasXIn && !hasXOut) {
+                if (valoresKirchhoff.entran === '' && valoresKirchhoff.salen === '') return '---';
+                return sumIn === sumOut ? 'Equilibrado (0)' : `Desequilibrio: ${Math.abs(sumIn - sumOut).toFixed(2)}`;
+            } else {
+                return 'Múltiples incógnitas';
+            }
+        } catch (e) {
+            return '---';
+        }
+    };
+
     return (
         <div className="flex flex-col h-full bg-aurora-bg">
             <div className="flex items-center gap-2 p-3 bg-background-light border-b border-aurora-border overflow-x-auto">
@@ -80,6 +111,7 @@ const ModoElectrico: React.FC = () => {
                 {[
                     { id: 'ohm', etiqueta: 'Ley de Ohm', icono: Zap },
                     { id: 'led', etiqueta: 'Resistencia LED', icono: Lightbulb },
+                    { id: 'kirchhoff', etiqueta: 'Leyes de Kirchhoff', icono: Cpu },
                     { id: 'conversor', etiqueta: 'Sistemas Numéricos', icono: ArrowRightLeft }
                 ].map((pestana) => (
                     <button
@@ -291,6 +323,74 @@ const ModoElectrico: React.FC = () => {
                                         placeholder="0-7"
                                         className="w-full bg-transparent text-2xl font-mono text-white focus:outline-none placeholder:text-white/10 font-jetbrains" 
                                     />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* --- LEYES DE KIRCHHOFF --- */}
+                    {pestanaActiva === 'kirchhoff' && (
+                        <div className="space-y-6 animate-fade-in">
+                            <div className="text-center mb-8">
+                                <h2 className="text-2xl font-bold text-white mb-2 font-space">Leyes de Kirchhoff</h2>
+                                <p className="text-aurora-muted font-inter">Calcula corrientes en nodos (LKC) o voltajes en mallas (LKV).</p>
+                            </div>
+
+                            <div className="flex justify-center gap-4 mb-6">
+                                <button
+                                    onClick={() => setValoresKirchhoff(p => ({ ...p, tipo: 'lkc' }))}
+                                    className={`px-6 py-2 rounded-lg font-bold transition-all font-inter ${valoresKirchhoff.tipo === 'lkc' ? 'bg-primary text-white' : 'bg-white/5 text-aurora-muted hover:bg-white/10'}`}
+                                >
+                                    LKC (Corrientes/Nodos)
+                                </button>
+                                <button
+                                    onClick={() => setValoresKirchhoff(p => ({ ...p, tipo: 'lkv' }))}
+                                    className={`px-6 py-2 rounded-lg font-bold transition-all font-inter ${valoresKirchhoff.tipo === 'lkv' ? 'bg-primary text-white' : 'bg-white/5 text-aurora-muted hover:bg-white/10'}`}
+                                >
+                                    LKV (Voltajes/Mallas)
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                <div className="space-y-4">
+                                    <div className="bg-white/5 border border-white/10 rounded-xl p-5 glass-panel">
+                                        <label className="block text-sm font-bold text-green-400 mb-2 font-inter">
+                                            {valoresKirchhoff.tipo === 'lkc' ? 'Corrientes que ENTRAN' : 'Voltajes de SUBIDA (Fuentes)'}
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={valoresKirchhoff.entran}
+                                            onChange={e => setValoresKirchhoff(p => ({ ...p, entran: e.target.value }))}
+                                            placeholder="Ej: 5, 2.5, x"
+                                            className="w-full bg-background-light px-4 py-2 rounded-lg text-white font-mono focus:outline-none focus:border-green-400 border border-transparent font-jetbrains"
+                                        />
+                                        <p className="text-xs text-aurora-muted mt-2 font-inter">Separa los valores por comas. Usa "x" para la incógnita.</p>
+                                    </div>
+
+                                    <div className="bg-white/5 border border-white/10 rounded-xl p-5 glass-panel">
+                                        <label className="block text-sm font-bold text-orange-400 mb-2 font-inter">
+                                            {valoresKirchhoff.tipo === 'lkc' ? 'Corrientes que SALEN' : 'Voltajes de CAÍDA (Resistencias)'}
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={valoresKirchhoff.salen}
+                                            onChange={e => setValoresKirchhoff(p => ({ ...p, salen: e.target.value }))}
+                                            placeholder="Ej: 3, x"
+                                            className="w-full bg-background-light px-4 py-2 rounded-lg text-white font-mono focus:outline-none focus:border-orange-400 border border-transparent font-jetbrains"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="bg-aurora-surface border border-primary/30 rounded-xl p-8 flex flex-col items-center justify-center text-center shadow-lg shadow-primary/10 relative overflow-hidden liquid-glass">
+                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-primary/20 blur-3xl rounded-full"></div>
+                                    <Cpu size={48} className="text-primary mb-4 relative z-10 opacity-80" />
+                                    <h3 className="text-lg font-bold text-aurora-muted uppercase mb-4 relative z-10 font-space">Resultado</h3>
+                                    <div className="text-4xl lg:text-5xl font-mono font-bold text-white mb-2 relative z-10 flex items-center justify-center font-jetbrains min-h-[4rem]">
+                                        {calcularKirchhoff()}
+                                    </div>
+                                    <p className="text-sm text-aurora-muted relative z-10 mt-4 max-w-xs font-inter">
+                                        {valoresKirchhoff.tipo === 'lkc' ? 'Σ I(entran) = Σ I(salen)' : 'Σ V(subida) = Σ V(caída)'}
+                                    </p>
                                 </div>
                             </div>
                         </div>
