@@ -16,7 +16,7 @@ supabase: Optional[Client] = None
 if supabase_url and supabase_service_key:
     supabase = create_client(supabase_url, supabase_service_key)
 else:
-    print("⚠️ Supabase credentials not configured - cron features disabled")
+    print("[WARN] Supabase credentials not configured - cron features disabled")
 
 router = APIRouter()
 

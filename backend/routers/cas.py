@@ -3,6 +3,12 @@ from pydantic import BaseModel
 from services.maxima_service import maxima
 import sys
 import os
+from celery.result import AsyncResult
+try:
+    from worker import celery_app, evaluate_expression_task
+except ImportError:
+    celery_app = None
+    evaluate_expression_task = None
 
 HAS_EQUACORE = False
 try:
@@ -60,12 +66,12 @@ def translate_latex_es(latex_str: str) -> str:
 # =============================================================================
 # Helper: SymPy Parse Expr Seguro
 # =============================================================================
-from sympy.parsing.sympy_parser import parse_expr, standard_transformations, implicit_multiplication_application
+from sympy.parsing.sympy_parser import parse_expr, standard_transformations, implicit_multiplication_application, convert_xor
 
 def safe_sympify(expr_str, locals_ns=None):
     """Parsea una cadena usando parse_expr con transformaciones estándar + multiplicación implícita.
        Si falla, intenta el sympify básico."""
-    transformations = standard_transformations + (implicit_multiplication_application,)
+    transformations = standard_transformations + (implicit_multiplication_application, convert_xor)
     try:
         return parse_expr(expr_str, local_dict=locals_ns, transformations=transformations)
     except Exception:
@@ -106,8 +112,8 @@ class CASRequest(BaseModel):
     variable: str = "x"  # Compatibilidad con el frontend que manda 'variable'
     param: str = ""
     order: int = 1       # Orden de derivada
-    lower_bound: float = None
-    upper_bound: float = None
+    lower_bound: str = None
+    upper_bound: str = None
 
 class StatsRequest(BaseModel):
     data: list[float]
@@ -377,8 +383,17 @@ def integrate(request: CASRequest):
     def _sympy_integrate():
         sp_expr = sp.sympify(request.expression)
         var = sp.Symbol(nombre_var)
-        if request.lower_bound is not None and request.upper_bound is not None:
-            res = sp.integrate(sp_expr, (var, request.lower_bound, request.upper_bound))
+        num_a = None
+        num_b = None
+        if request.lower_bound is not None and request.upper_bound is not None and str(request.lower_bound).strip() != "" and str(request.upper_bound).strip() != "":
+            lb = sp.sympify(str(request.lower_bound).replace('pi', 'pi')) # Asegurar formato sympy
+            ub = sp.sympify(str(request.upper_bound).replace('pi', 'pi'))
+            res = sp.integrate(sp_expr, (var, lb, ub))
+            try:
+                num_a = float(lb.evalf())
+                num_b = float(ub.evalf())
+            except:
+                pass
         else:
             res = sp.integrate(sp_expr, var)
             
@@ -392,7 +407,7 @@ def integrate(request: CASRequest):
         except:
             pass
 
-        return {"result": str(simplified_res), "latex": latex_str, "approx": approx_val, "engine": "sympy"}
+        return {"result": str(simplified_res), "latex": latex_str, "approx": approx_val, "engine": "sympy", "num_a": num_a, "num_b": num_b}
     try:
         return with_timeout(_sympy_integrate, timeout=TIMEOUT_SECONDS)
     except concurrent.futures.TimeoutError:
@@ -400,153 +415,6 @@ def integrate(request: CASRequest):
     except Exception as ex:
         raise HTTPException(status_code=400, detail=str(ex))
 
-@router.post("/evaluate")
-def evaluate_universal(request: CASRequest):
-    """Endpoint universal CAS — Cascada: C++ SymEngine → SymPy (timeout 5s) → Error."""
-    expr_str = request.expression
-    
-    # =================================================================
-    # NIVEL 1: EquaCore C++ (SymEngine) — milisegundos, sin GIL
-    # =================================================================
-    if HAS_SYMENGINE and 'convertir_' not in expr_str:
-        try:
-            # sympify de symengine está expuesto en C++ directamente
-            parsed = _sym.sympify(expr_str)
-            # En SymEngine la expansión y simplificación básica ocurren en background (o explicitamente expand)
-            simplified = _sym.expand(parsed)
-            result_str = str(simplified)
-            
-            # Intentar aproximación numérica
-            approx_val = None
-            try:
-                sp_temp = sp.sympify(result_str)
-                approx_val = str(sp_temp.evalf())
-            except:
-                pass
-
-            # Intentar generar LaTeX usando sympy si es posible sin evaluar
-            try:
-                latex_str = translate_latex_es(sp.latex(sp.sympify(result_str)))
-            except:
-                latex_str = result_str
-            return {"result": result_str, "latex": latex_str, "approx": approx_val, "engine": "equacore-symengine"}
-        except Exception:
-            pass  # C++ no pudo, caemos a SymPy
-    
-    # =================================================================
-    # NIVEL 2: SymPy (Python) — con Timeout de 5 segundos
-    # =================================================================
-    def _sympy_evaluate(expr_str):
-        local_ns = {
-            # Trig extendida (Inglés y Español)
-            'sin': sp.sin, 'sen': sp.sin, 'cos': sp.cos, 'tan': sp.tan,
-            'csc': sp.csc, 'sec': sp.sec, 'cot': sp.cot,
-            'asin': sp.asin, 'arcsen': sp.asin, 'acos': sp.acos, 'atan': sp.atan,
-            'acsc': sp.acsc, 'asec': sp.asec, 'acot': sp.acot,
-            # Hiperbólicas
-            'sinh': sp.sinh, 'senh': sp.sinh, 'cosh': sp.cosh, 'tanh': sp.tanh,
-            'asinh': sp.asinh, 'acosh': sp.acosh, 'atanh': sp.atanh,
-            # Exponenciales/Logaritmos
-            'exp': sp.exp, 'log': sp.log, 'ln': sp.ln,
-            'sqrt': sp.sqrt, 'raiz': sp.sqrt, 'cbrt': sp.cbrt, 'raizcub': sp.cbrt, 'Abs': sp.Abs,
-            # Aritmética
-            'Mod': sp.Mod, 'mod': sp.Mod, 'Max': sp.Max, 'maximo': sp.Max, 'Min': sp.Min, 'minimo': sp.Min,
-            'sign': sp.sign, 'signo': sp.sign, 'floor': sp.floor, 'piso': sp.floor, 'ceiling': sp.ceiling, 'techo': sp.ceiling,
-            'factorial': sp.factorial,
-            # Álgebra
-            'gcd': sp.gcd, 'mcd': sp.gcd, 'lcm': sp.lcm, 'mcm': sp.lcm,
-            'binomial': sp.binomial, 'combinar': sp.binomial,
-            'isprime': sp.isprime, 'esPrimo': sp.isprime,
-            'factorint': sp.factorint, 'factoresPrimos': sp.factorint,
-            'apart': sp.apart, 'parciales': sp.apart,
-            # Constantes
-            'pi': sp.pi, 'E': sp.E, 'I': sp.I, 'oo': sp.oo, 'inf': sp.oo,
-            'GoldenRatio': sp.GoldenRatio,
-            # Matrices (Álgebra Lineal)
-            'Matrix': sp.Matrix, 'det': lambda M: sp.Matrix(M).det(),
-            'inversa': lambda M: sp.Matrix(M).inv(), 'inv': lambda M: sp.Matrix(M).inv(),
-            'transpuesta': lambda M: sp.Matrix(M).transpose(), 'transpose': lambda M: sp.Matrix(M).transpose(),
-            'identidad': sp.eye, 'eye': sp.eye,
-            'ceros': sp.zeros, 'zeros': sp.zeros,
-            'unos': sp.ones, 'ones': sp.ones,
-            'media': lambda L: sum(L)/len(L),
-            'mediana': lambda L: sorted(L)[len(L)//2] if len(L)%2!=0 else (sorted(L)[len(L)//2 - 1] + sorted(L)[len(L)//2])/2,
-            'varianza': lambda L: sum((x - sum(L)/len(L))**2 for x in L) / (len(L)-1 if len(L)>1 else 1),
-            'desviacion': lambda L: sp.sqrt(sum((x - sum(L)/len(L))**2 for x in L) / (len(L)-1 if len(L)>1 else 1)),
-            # Estadística Bivariada
-            'covarianza': lambda X, Y: sum((x - sum(X)/len(X))*(y - sum(Y)/len(Y)) for x, y in zip(X, Y)) / (len(X)-1 if len(X)>1 else 1),
-            'correlacion': lambda X, Y: (sum((x - sum(X)/len(X))*(y - sum(Y)/len(Y)) for x, y in zip(X, Y)) / (len(X)-1 if len(X)>1 else 1)) / (sp.sqrt(sum((x - sum(X)/len(X))**2 for x in X) / (len(X)-1 if len(X)>1 else 1)) * sp.sqrt(sum((y - sum(Y)/len(Y))**2 for y in Y) / (len(Y)-1 if len(Y)>1 else 1))),
-            'regresion': lambda X, Y: sp.Symbol('x') * ((sum((x - sum(X)/len(X))*(y - sum(Y)/len(Y)) for x, y in zip(X, Y)) / (len(X)-1 if len(X)>1 else 1)) / (sum((x - sum(X)/len(X))**2 for x in X) / (len(X)-1 if len(X)>1 else 1))) + (sum(Y)/len(Y) - ((sum((x - sum(X)/len(X))*(y - sum(Y)/len(Y)) for x, y in zip(X, Y)) / (len(X)-1 if len(X)>1 else 1)) / (sum((x - sum(X)/len(X))**2 for x in X) / (len(X)-1 if len(X)>1 else 1))) * sum(X)/len(X)),
-            # Distribuciones
-            'normalpdf': lambda x, mu, sigma: (1/(sigma*sp.sqrt(2*sp.pi))) * sp.exp(-0.5*((x-mu)/sigma)**2),
-            'binomialpmf': lambda k, n, p: sp.binomial(n, k) * (p**k) * ((1-p)**(n-k)),
-            # Resolutores e Igualdades
-            'resolver': sp.solve,
-            'solve': sp.solve,
-            'Eq': sp.Eq,
-            'Igual': sp.Eq,
-            'convertir_base': __convertir_base,
-            'convertirbase': __convertir_base,
-            'convert_base': __convertir_base,
-            'convertir_unidad': __convertir_unidad,
-            'convertirunidad': __convertir_unidad,
-            'convert_unit': __convertir_unidad,
-        }
-        
-        # Caso especial: factorint devuelve dict
-        if 'factorint(' in expr_str or 'factoresPrimos(' in expr_str:
-            m = re.search(r'(?:factorint|factoresPrimos)\((.+)\)', expr_str)
-            if m:
-                n = int(sp.sympify(m.group(1)))
-                factors = sp.factorint(n)
-                result_str = " \\cdot ".join(f"{p}^{{{e}}}" if e > 1 else str(p) for p, e in sorted(factors.items()))
-                return {"result": str(factors), "latex": result_str, "engine": "sympy"}
-        
-        # Caso especial: isprime / esPrimo devuelve bool
-        if 'isprime(' in expr_str or 'esPrimo(' in expr_str:
-            m = re.search(r'(?:isprime|esPrimo)\((.+)\)', expr_str)
-            if m:
-                n = int(sp.sympify(m.group(1)))
-                is_prime = sp.isprime(n)
-                label = "\\text{Si, es primo}" if is_prime else "\\text{No es primo}"
-                return {"result": str(is_prime), "latex": label, "engine": "sympy"}
-        
-        # Caso especial: permutations(n,k)
-        if 'permutations(' in expr_str:
-            m = re.search(r'permutations\((.+?),\s*(.+?)\)', expr_str)
-            if m:
-                n = sp.sympify(m.group(1))
-                k = sp.sympify(m.group(2))
-                result = sp.factorial(n) / sp.factorial(n - k)
-                simplified = sp.simplify(result)
-                latex_str = translate_latex_es(sp.latex(simplified))
-                return {"result": str(simplified), "latex": latex_str, "engine": "sympy"}
-        
-        parsed = sp.sympify(expr_str, locals=local_ns)
-        
-        # Auto-convertir listas anidadas a Matrices
-        if isinstance(parsed, list) and len(parsed) > 0 and isinstance(parsed[0], list):
-            parsed = sp.Matrix(parsed)
-            
-        simplified = sp.simplify(parsed)
-        latex_str = translate_latex_es(sp.latex(simplified))
-        
-        # Intentar aproximación numérica
-        approx_val = None
-        try:
-            approx_val = str(simplified.evalf())
-        except:
-            pass
-
-        return {"result": str(simplified), "latex": latex_str, "approx": approx_val, "engine": "sympy"}
-    
-    try:
-        result = with_timeout(_sympy_evaluate, expr_str, timeout=TIMEOUT_SECONDS)
-        return result
-    except concurrent.futures.TimeoutError:
-        raise HTTPException(status_code=408, detail=f"Expresion demasiado compleja (timeout {TIMEOUT_SECONDS}s). Intenta simplificarla.")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error evaluando expresion: {str(e)}")
 
 @router.post("/simplify")
 def simplify(request: CASRequest):
@@ -623,6 +491,12 @@ def simplify(request: CASRequest):
             'convertir_unidad': __convertir_unidad,
             'convertirunidad': __convertir_unidad,
             'convert_unit': __convertir_unidad,
+            'sumatoria': lambda expr, var, start, end: sp.Sum(sp.sympify(expr), (sp.sympify(var), sp.sympify(start), sp.sympify(end))),
+            'sum': lambda expr, var, start, end: sp.Sum(sp.sympify(expr), (sp.sympify(var), sp.sympify(start), sp.sympify(end))),
+            'productoria': lambda expr, var, start, end: sp.Product(sp.sympify(expr), (sp.sympify(var), sp.sympify(start), sp.sympify(end))),
+            'product': lambda expr, var, start, end: sp.Product(sp.sympify(expr), (sp.sympify(var), sp.sympify(start), sp.sympify(end))),
+            'sustituir': lambda expr, var, val: sp.sympify(expr).subs(sp.sympify(var), sp.sympify(val)),
+            'subs': lambda expr, var, val: sp.sympify(expr).subs(sp.sympify(var), sp.sympify(val)),
         }
         parsed = sp.sympify(request.expression, locals=local_ns)
         if isinstance(parsed, list) and len(parsed) > 0 and isinstance(parsed[0], list):
@@ -654,6 +528,29 @@ async def get_status():
         "native_equacore": equacore.NATIVE_BIO if HAS_EQUACORE else False,
         "symbolic_fallback": "native" if (HAS_EQUACORE and equacore.NATIVE_SYMBOLIC) else "sympy"
     }
+
+@router.post("/evaluate-async")
+def evaluate_async(request: CASRequest):
+    """Encola una expresión en Celery y devuelve el ID de la tarea."""
+    if not evaluate_expression_task:
+        raise HTTPException(status_code=503, detail="El worker asíncrono no está disponible.")
+    
+    task = evaluate_expression_task.delay(request.expression)
+    return {"task_id": task.id, "status": "PENDING"}
+
+@router.get("/task/{task_id}")
+def get_task_status(task_id: str):
+    """Consulta el estado de una tarea asíncrona."""
+    if not celery_app:
+        raise HTTPException(status_code=503, detail="El worker asíncrono no está disponible.")
+    
+    result = AsyncResult(task_id, app=celery_app)
+    if result.ready():
+        if result.successful():
+            return {"status": "SUCCESS", "result": result.result}
+        else:
+            return {"status": "FAILURE", "error": str(result.info)}
+    return {"status": result.status}
 
 class PlotRequest(BaseModel):
     expression: str

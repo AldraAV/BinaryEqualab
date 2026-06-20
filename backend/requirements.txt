@@ -24,3 +24,7 @@ requests>=2.31.0
 
 # Payments
 stripe>=7.0.0
+
+# Async Worker (Celery & Redis)
+celery>=5.3.6
+redis>=5.0.1

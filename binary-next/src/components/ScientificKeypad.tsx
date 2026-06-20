@@ -1,0 +1,279 @@
+"use client";
+import React, { useState, useRef, useEffect } from 'react';
+import { Delete, CornerDownLeft, ChevronDown } from 'lucide-react';
+
+interface ScientificKeypadProps {
+  onKeyClick: (val: string) => void;
+}
+
+type TabType = 'MAIN' | 'ABC' | 'FUNC' | 'CONST' | 'GREEK';
+
+const ScientificKeypad: React.FC<ScientificKeypadProps> = ({ onKeyClick }) => {
+  const [activeTab, setActiveTab] = useState<TabType>('MAIN');
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setOpenDropdown(null);
+    if (openDropdown) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [openDropdown]);
+
+  // Button Component
+  const Key = ({ label, val, primary = false, wide = false, secondary = false, action = false, ...rest }:
+    { label: React.ReactNode, val?: string, primary?: boolean, wide?: boolean, secondary?: boolean, action?: boolean, key?: string }) => (
+    <button
+      onClick={() => onKeyClick(val || (typeof label === 'string' ? label : ''))}
+      className={`
+        relative overflow-hidden rounded-xl font-medium text-lg transition-all active:scale-95 select-none
+        flex items-center justify-center
+        ${wide ? 'col-span-2' : 'col-span-1'}
+        ${primary
+          ? 'bg-primary hover:bg-primary-hover text-white shadow-[0_4px_0_rgba(154,52,18,0.5)] active:shadow-none active:translate-y-[2px]'
+          : secondary
+            ? 'bg-background-light border border-aurora-border text-primary hover:bg-white/5 shadow-[0_3px_0_rgba(0,0,0,0.3)] active:shadow-none active:translate-y-[2px]'
+            : 'bg-background-light border border-white/5 text-aurora-text hover:bg-white/5 hover:text-white shadow-[0_3px_0_rgba(0,0,0,0.3)] active:shadow-none active:translate-y-[2px]'
+        }
+        h-12 lg:h-14
+      `}
+    >
+      {label}
+    </button>
+  );
+
+  // Dropdown Button Component
+  const DropdownKey = ({ label, options, id }:
+    { label: React.ReactNode, options: { label: string, val: string }[], id: string }) => (
+    <div className="relative col-span-1">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpenDropdown(openDropdown === id ? null : id);
+        }}
+        className="w-full h-12 lg:h-14 rounded-xl font-medium text-lg transition-all active:scale-95 select-none
+          flex items-center justify-center gap-1
+          bg-background-light border border-white/5 text-aurora-text hover:bg-white/5 hover:text-white 
+          shadow-[0_3px_0_rgba(0,0,0,0.3)] active:shadow-none active:translate-y-[2px]"
+      >
+        {label}
+        <ChevronDown size={14} className="opacity-50" />
+      </button>
+
+      {/* Dropdown Menu */}
+      {openDropdown === id && (
+        <div className="absolute top-full left-0 mt-1 z-50 bg-background-light border border-aurora-border rounded-lg shadow-xl min-w-[100px] overflow-hidden">
+          {options.map((opt) => (
+            <button
+              key={opt.val}
+              onClick={(e) => {
+                e.stopPropagation();
+                onKeyClick(opt.val);
+                setOpenDropdown(null);
+              }}
+              className="w-full px-4 py-2 text-left hover:bg-primary/20 text-aurora-text hover:text-white transition-colors"
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderMainTab = () => (
+    <div className="grid grid-cols-4 gap-3 h-full content-start">
+      {/* Row 1: CAS & Controls */}
+      <Key label="∫" val="integrate" secondary />
+      <Key label="d/dx" secondary />
+      <Key label="Σ" val="sum" secondary />
+      <Key label="lim" secondary />
+
+      {/* Row 2: Trig + Roots */}
+      <Key label="sin" />
+      <Key label="cos" />
+      <Key label="tan" />
+      <DropdownKey
+        label="√"
+        id="roots"
+        options={[
+          { label: "√x (cuadrada)", val: "sqrt(" },
+          { label: "∛x (cúbica)", val: "cbrt(" },
+          { label: "ⁿ√x (n-ésima)", val: "nthroot(" },
+        ]}
+      />
+
+      {/* Row 3: Powers & Log */}
+      <DropdownKey
+        label="xⁿ"
+        id="powers"
+        options={[
+          { label: "x²", val: "^2" },
+          { label: "x³", val: "^3" },
+          { label: "xⁿ", val: "^" },
+        ]}
+      />
+      <Key label="eˣ" val="exp(" />
+      <Key label="EXP" val="*10^" secondary />
+      <Key label="%" val="/100" />
+
+      {/* Row 4: Numpad start */}
+      <Key label="7" />
+      <Key label="8" />
+      <Key label="9" />
+      <Key label="÷" val="/" action />
+
+      {/* Row 5 */}
+      <Key label="4" />
+      <Key label="5" />
+      <Key label="6" />
+      <Key label="×" val="*" action />
+
+      {/* Row 6 */}
+      <Key label="1" />
+      <Key label="2" />
+      <Key label="3" />
+      <Key label="-" action />
+
+      {/* Row 7 */}
+      <Key label="0" />
+      <Key label="." />
+      <Key label="π" val="pi" />
+      <Key label="+" action />
+
+      {/* Row 8: Bottom Actions */}
+      <Key label="(" />
+      <Key label=")" />
+      <Key label={<Delete size={20} />} val="DEL" action />
+      <Key label={<CornerDownLeft size={22} />} val="=" primary />
+    </div>
+  );
+
+  const renderAbcTab = () => {
+    const letters = 'xyzwabcdefghijk'.split('');
+    return (
+      <div className="grid grid-cols-4 gap-3 h-full content-start">
+        {letters.map(l => <Key label={l} val={l} key={l} />)}
+        <Key label="," val="," />
+        <Key label="(" val="(" />
+        <Key label=")" val=")" />
+        <Key label="=" primary val="=" />
+      </div>
+    );
+  };
+
+  const renderFuncTab = () => (
+    <div className="grid grid-cols-3 gap-3 h-full content-start overflow-y-auto custom-scrollbar">
+      {/* Hyperbolic */}
+      <Key label="sinh" /> <Key label="cosh" /> <Key label="tanh" />
+      <Key label="asinh" /> <Key label="acosh" /> <Key label="atanh" />
+      {/* Inverse Trig */}
+      <Key label="asin" /> <Key label="acos" /> <Key label="atan" />
+      {/* Logs & Powers */}
+      <Key label="log" /> <Key label="exp" /> <Key label="sqrt" />
+      <Key label="cbrt" val="cbrt" /> <Key label="abs" /> <Key label="floor" />
+      {/* Combinatorics */}
+      <Key label="nPr" val="permutations(" secondary />
+      <Key label="nCr" val="combinations(" secondary />
+      <Key label="n!" val="factorial(" />
+      {/* Number Theory */}
+      <Key label="GCD" val="gcd(" secondary />
+      <Key label="LCM" val="lcm(" secondary />
+      <Key label="mod" val="mod(" />
+      {/* Matrix */}
+      <Key label="det" val="determinant(" />
+      <Key label="inv" val="invert(" />
+      <Key label="Aᵀ" val="transpose(" />
+    </div>
+  );
+
+  const renderConstTab = () => (
+    <div className="grid grid-cols-3 gap-3 h-full content-start overflow-y-auto custom-scrollbar">
+      {/* Math */}
+      <Key val="pi" label={<div className="flex flex-col items-center"><span className="font-serif italic text-lg leading-none">π</span><span className="text-[9px] opacity-50">Pi</span></div>} secondary />
+      <Key val="e" label={<div className="flex flex-col items-center"><span className="font-serif italic text-lg leading-none">e</span><span className="text-[9px] opacity-50">Euler</span></div>} secondary />
+      <Key val="i" label={<div className="flex flex-col items-center"><span className="font-serif italic text-lg leading-none">i</span><span className="text-[9px] opacity-50">Imaginary</span></div>} secondary />
+
+      {/* Physics */}
+      <Key val="c" label={<div className="flex flex-col items-center"><span className="font-serif italic text-lg leading-none">c</span><span className="text-[9px] opacity-50">Light</span></div>} />
+      <Key val="g" label={<div className="flex flex-col items-center"><span className="font-serif italic text-lg leading-none">g</span><span className="text-[9px] opacity-50">Gravity</span></div>} />
+      <Key val="G" label={<div className="flex flex-col items-center"><span className="font-serif italic text-lg leading-none">G</span><span className="text-[9px] opacity-50">Newton</span></div>} />
+
+      <Key val="h" label={<div className="flex flex-col items-center"><span className="font-serif italic text-lg leading-none">h</span><span className="text-[9px] opacity-50">Planck</span></div>} />
+      <Key val="k" label={<div className="flex flex-col items-center"><span className="font-serif italic text-lg leading-none">k</span><span className="text-[9px] opacity-50">Boltzmann</span></div>} />
+      <Key val="Na" label={<div className="flex flex-col items-center"><span className="font-serif italic text-lg leading-none">Nₐ</span><span className="text-[9px] opacity-50">Avogadro</span></div>} />
+
+      <Key val="R" label={<div className="flex flex-col items-center"><span className="font-serif italic text-lg leading-none">R</span><span className="text-[9px] opacity-50">Gas Const</span></div>} />
+      <Key val="me" label={<div className="flex flex-col items-center"><span className="font-serif italic text-lg leading-none">mₑ</span><span className="text-[9px] opacity-50">Electron</span></div>} />
+      <Key val="mp" label={<div className="flex flex-col items-center"><span className="font-serif italic text-lg leading-none">mₚ</span><span className="text-[9px] opacity-50">Proton</span></div>} />
+    </div>
+  );
+
+  const renderGreekTab = () => (
+    <div className="grid grid-cols-4 gap-3 h-full content-start">
+      {/* Greek lowercase */}
+      <Key label="α" val="alpha" />
+      <Key label="β" val="beta" />
+      <Key label="γ" val="gamma" />
+      <Key label="δ" val="delta" />
+
+      <Key label="ε" val="epsilon" />
+      <Key label="ζ" val="zeta" />
+      <Key label="η" val="eta" />
+      <Key label="θ" val="theta" />
+
+      <Key label="λ" val="lambda" />
+      <Key label="μ" val="mu" />
+      <Key label="ν" val="nu" />
+      <Key label="ξ" val="xi" />
+
+      <Key label="ρ" val="rho" />
+      <Key label="σ" val="sigma" />
+      <Key label="τ" val="tau" />
+      <Key label="φ" val="phi" />
+
+      <Key label="ψ" val="psi" />
+      <Key label="ω" val="omega" />
+      <Key label="∞" val="inf" />
+      <Key label="∂" val="d" />
+
+      {/* Greek uppercase */}
+      <Key label="Δ" val="Delta" secondary />
+      <Key label="Σ" val="sum" secondary />
+      <Key label="Π" val="product" secondary />
+      <Key label="Ω" val="Omega" secondary />
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col h-full bg-background-light border-l border-aurora-border">
+      {/* Tabs */}
+      <div className="flex p-2 gap-2 border-b border-aurora-border bg-background">
+        {(['MAIN', 'ABC', 'GREEK', 'FUNC', 'CONST'] as TabType[]).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${activeTab === tab
+              ? 'bg-primary/20 text-primary border border-primary/30'
+              : 'text-aurora-secondary hover:bg-white/5'
+              }`}
+          >
+            {tab === 'GREEK' ? 'αβγ' : tab}
+          </button>
+        ))}
+      </div>
+
+      {/* Keypad Grid */}
+      <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
+        {activeTab === 'MAIN' && renderMainTab()}
+        {activeTab === 'ABC' && renderAbcTab()}
+        {activeTab === 'GREEK' && renderGreekTab()}
+        {activeTab === 'FUNC' && renderFuncTab()}
+        {activeTab === 'CONST' && renderConstTab()}
+      </div>
+    </div>
+  );
+};
+
+export default ScientificKeypad;

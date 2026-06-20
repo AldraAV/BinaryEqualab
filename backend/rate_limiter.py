@@ -12,7 +12,7 @@ supabase: Optional[Client] = None
 if url and key:
     supabase = create_client(url, key)
 else:
-    print("⚠️ Supabase credentials not configured - rate limiting disabled")
+    print("[WARN] Supabase credentials not configured - rate limiting disabled")
 
 # Define Limits
 PLAN_LIMITS = {

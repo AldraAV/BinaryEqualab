@@ -41,45 +41,45 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 async def lifespan(app: FastAPI):
     # Startup
     print("="*50)
-    print("🚀 Binary EquaLab Backend v3.0 starting...")
+    print("[>>] Binary EquaLab Backend v3.0 starting...")
     
     # Check Math Engine
     try:
         test_expr = engine.simplify("x + x")
-        print(f"✅ Binary CAS Engine: READY ({test_expr})")
+        print(f"[OK] Binary CAS Engine: READY ({test_expr})")
     except Exception as e:
-        print(f"❌ Binary CAS Engine: ERROR ({str(e)})")
+        print(f"[ERR] Binary CAS Engine: ERROR ({str(e)})")
 
-    # Check Séptima Native Engine
+    # Check Septima Native Engine
     from routers.septima import HAS_NATIVE_ENGINE
     if HAS_NATIVE_ENGINE:
-        print("✅ Séptima Bio-Engine (C++/Native): ACTIVE ⚡")
+        print("[OK] Septima Bio-Engine (C++/Native): ACTIVE")
     else:
-        print("⚠️  Séptima Bio-Engine: FALLBACK (Python Mock) 🐢")
+        print("[WARN] Septima Bio-Engine: FALLBACK (Python Mock)")
 
-    # Check CAS Suite Élite (Maxima)
+    # Check CAS Suite Elite (Maxima)
     from services.maxima_service import maxima
     if os.path.exists(maxima.MAXIMA_PATH):
-        print(f"✅ CAS Suite Élite (Maxima): READY at {maxima.MAXIMA_PATH} 🧪")
+        print(f"[OK] CAS Suite Elite (Maxima): READY at {maxima.MAXIMA_PATH}")
     else:
-        print("⚠️  CAS Suite Élite (Maxima): NOT FOUND (Fourier/Laplace limited) 💨")
+        print("[WARN] CAS Suite Elite (Maxima): NOT FOUND (Fourier/Laplace limited)")
 
     # Check PubMed Data Engine
     try:
         from services.pubmed_service import HAS_HTTPX
         if HAS_HTTPX:
-            print("✅ Data Engine (PubMed API): READY 📚")
+            print("[OK] Data Engine (PubMed API): READY")
         else:
-            print("⚠️  Data Engine (PubMed API): httpx not installed (pip install httpx)")
+            print("[WARN] Data Engine (PubMed API): httpx not installed (pip install httpx)")
     except Exception:
-        print("⚠️  Data Engine (PubMed API): NOT LOADED")
+        print("[WARN] Data Engine (PubMed API): NOT LOADED")
 
     # Check Supabase
     from rate_limiter import supabase
     if supabase:
-        print("✅ Supabase Connection: ESTABLISHED")
+        print("[OK] Supabase Connection: ESTABLISHED")
     else:
-        print("⚠️  Supabase Connection: NOT CONFIGURED (Rate limiting disabled)")
+        print("[WARN] Supabase Connection: NOT CONFIGURED (Rate limiting disabled)")
     
     print("="*50)
     yield
@@ -149,52 +149,7 @@ class MathResponse(BaseModel):
     success: bool = True
     error: Optional[str] = None
 
-# ============================================================================
-# Epicycles FFT (Desktop-grade Fourier via NumPy)
-# ============================================================================
 
-import numpy as np
-from typing import List
-
-class EpicyclesPoint(BaseModel):
-    x: float
-    y: float
-
-class EpicyclesRequest(BaseModel):
-    points: List[EpicyclesPoint]
-
-@app.post("/api/epicycles/fft")
-async def compute_epicycles_fft(data: EpicyclesRequest):
-    """
-    Compute Fourier coefficients using NumPy FFT — identical to Desktop engine.
-    Receives smoothed points, returns {freq, amp, phase} sorted by amplitude.
-    """
-    pts = data.points
-    if len(pts) < 3:
-        raise HTTPException(status_code=400, detail="Need at least 3 points")
-
-    # Build complex signal: z[n] = x[n] + j*y[n]
-    z = np.array([p.x + 1j * p.y for p in pts])
-    N = len(z)
-
-    # FFT with /N normalization (matches Desktop numpy convention)
-    fft_vals = np.fft.fft(z) / N
-
-    # Build coefficient list — ALL N coefficients, no filtering
-    # (Desktop epicycles.py line 153-158: stores ALL k from 0 to N-1)
-    result = []
-    for k in range(N):
-        amp = float(np.abs(fft_vals[k]))
-        result.append({
-            "freq": k,
-            "amp": amp,
-            "phase": float(np.angle(fft_vals[k]))
-        })
-
-    # Sort by amplitude descending (largest circles first) — Desktop line 161
-    result.sort(key=lambda c: c["amp"], reverse=True)
-
-    return {"coefficients": result, "N": N}
 
 
 # ============================================================================
@@ -202,7 +157,7 @@ async def compute_epicycles_fft(data: EpicyclesRequest):
 # ============================================================================
 
 @app.get("/health")
-async def health_check():
+def health_check():
     """Health check endpoint and Keep-Alive for Supabase."""
     supabase_status = "not_configured"
     try:
@@ -283,6 +238,22 @@ app.include_router(payments_router)
 # Include CAS router (Suite Élite: Maxima/GiNaC)
 from routers.cas import router as cas_router
 app.include_router(cas_router)
+
+# Enrutador de Consola (Evaluar, Parser, etc.)
+from routers.console_router import enrutador_consola
+app.include_router(enrutador_consola)
+
+# Include Statistics router
+from routers.statistics import router as statistics_router
+app.include_router(statistics_router)
+
+# Include Graphics router
+from routers.graphics import router as graphics_router
+app.include_router(graphics_router)
+
+# Include Epicycles router
+from routers.epicycles import router as epicycles_router
+app.include_router(epicycles_router)
 
 # Include Medical Data router (PubMed API)
 from routers.medical_data import router as medical_data_router

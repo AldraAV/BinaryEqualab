@@ -17,7 +17,7 @@ class KimiService:
         self.model = 'moonshot-v1-128k'
         
         if not self.api_key:
-            print("⚠️  KIMI_API_KEY no configured")
+            print("[Warning] KIMI_API_KEY not configured")
     
     async def chat(
         self,
@@ -68,7 +68,7 @@ class GroqService:
         self.model = 'deepseek-r1-distill-llama-70b' # Reasoning / Deep Thinking model
         
         if not self.api_key:
-            print("⚠️  GROQ_API_KEY not configured")
+            print("[Warning] GROQ_API_KEY not configured")
     
     async def chat(
         self,
@@ -126,7 +126,7 @@ class MultiAIEngine:
             result = await self.groq.chat(messages, temperature=temperature)
             if not result.startswith("Error"):
                 return result
-            print(f"🔄 Groq failed, falling back to Kimi. Reason: {result}")
+            print(f"[Fallback] Groq failed, falling back to Kimi. Reason: {result}")
             
         # 2. Try Kimi
         if self.kimi.api_key:

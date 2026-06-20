@@ -24,7 +24,7 @@ supabase_admin: Optional[Client] = None
 if supabase_url and supabase_service_key:
     supabase_admin = create_client(supabase_url, supabase_service_key)
 else:
-    print("⚠️ Supabase credentials not configured - payments features disabled")
+    print("[WARN] Supabase credentials not configured - payments features disabled")
 
 router = APIRouter()
 
@@ -94,7 +94,7 @@ async def verify_session(session_id: str):
                     supabase_admin.table("users_plans").update(update_data).eq("user_id", user_id).execute()
                     print(f"Verified & Upgraded: {user_id} -> {plan_name}")
                 else:
-                    print(f"⚠️ Supabase not configured - cannot update plan for {user_id}")
+                    print(f"[WARN] Supabase not configured - cannot update plan for {user_id}")
                 return {"status": "success", "plan": plan_name}
         
         return {"status": "pending"}
@@ -153,7 +153,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
             if supabase_admin:
                 supabase_admin.table("users_plans").update(update_data).eq("user_id", user_id).execute()
             else:
-                print(f"⚠️ Supabase not configured - cannot update plan for {user_id}")
+                print(f"[WARN] Supabase not configured - cannot update plan for {user_id}")
 
     return {"status": "success"}
 

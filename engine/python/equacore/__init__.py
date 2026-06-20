@@ -116,11 +116,10 @@ except ImportError:
 NATIVE_ENGINE = NATIVE_BIO and NATIVE_SYMBOLIC
 
 if not NATIVE_SYMBOLIC:
-    import warnings
     msg = "EquaCore Symbolic (GiNaC) not found. Using SymPy fallback."
     if NATIVE_BIO:
-        msg += " | Bio-Engine (Séptima) is ACTIVE in C++ mode."
-    warnings.warn(msg)
+        msg += " | Bio-Engine (Septima) is ACTIVE in C++ mode."
+    print(f"[INFO] {msg}")
 
 # Exportaciones dinámicas
 __all__ = [
